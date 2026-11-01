@@ -969,7 +969,7 @@ test('punctuality is 100% when one question is assigned, and accurately reflects
 
   // Leaderboard check:
   // With 1 question assigned so far, Solver One (1 pt) MUST have 100% punctuality (not 0%)
-  // Solver Two (0 pts, today still open) also has 100% punctuality
+  // Solver Two (0 pts, no accepted submissions) has 0% punctuality
   const board = await call(db, '/club/leaderboard?page=1&pageSize=10');
   const s1Row = board.data.leaderboard.find((p) => p.githubUsername === 'solver-one');
   const s2Row = board.data.leaderboard.find((p) => p.githubUsername === 'solver-two');
@@ -982,7 +982,7 @@ test('punctuality is 100% when one question is assigned, and accurately reflects
 
   assert.ok(s2Row);
   assert.equal(s2Row.points, 0);
-  assert.equal(s2Row.punctuality, 100);
+  assert.equal(s2Row.punctuality, 0);
 
   // Past assignment check:
   // If an assignment was yesterday (2026-10-29) and was missed by Solver Two:

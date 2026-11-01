@@ -481,7 +481,7 @@ function App() {
   const [activityPagination, setActivityPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [scoredSubmissions, setScoredSubmissions] = useState([]);
   const [scoredPagination, setScoredPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
-  const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
   const [historyPagination, setHistoryPagination] = useState({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
   const [resetLink, setResetLink] = useState(null);
   const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('token') || '');
@@ -610,13 +610,13 @@ function App() {
       const [today, assigned, board] = await Promise.all([
         api('/club/today'),
         api(`/club/assignments?page=${historyPagination.page}&pageSize=8`),
-        api(`/club/leaderboard?page=${leaderboardPagination.page}&pageSize=10`),
+        api(`/club/leaderboard?page=${leaderboardPagination.page}&pageSize=20`),
       ]);
       setClub(today);
       setHistory(assigned.assignments || []);
       setHistoryPagination(assigned.pagination || { page: 1, pageSize: 8, total: 0, totalPages: 1 });
       setLeaderboard(board.leaderboard || []);
-      setLeaderboardPagination(board.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
+      setLeaderboardPagination(board.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
       setApiNotice('');
     } catch (error) {
       setApiNotice(error.message.includes('MONGODB_URI') ? 'Community features need the DSAvation database configured.' : error.message);
@@ -943,9 +943,9 @@ function App() {
 
   async function loadLeaderboardPage(page) {
     try {
-      const result = await api(`/club/leaderboard?page=${page}&pageSize=10`);
+      const result = await api(`/club/leaderboard?page=${page}&pageSize=20`);
       setLeaderboard(result.leaderboard || []);
-      setLeaderboardPagination(result.pagination || { page, pageSize: 10, total: 0, totalPages: 1 });
+      setLeaderboardPagination(result.pagination || { page, pageSize: 20, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
   }
 
@@ -1434,7 +1434,6 @@ function App() {
             <div className="card-kicker">
               <span className="live-dot" />
               <span>QUESTION OF THE DAY</span>
-              <span className="card-count">01</span>
             </div>
             {!account ? (
               <div className="empty-assignment">
@@ -1455,12 +1454,6 @@ function App() {
                   <span className="meta-badge">Day {assignedQuestion.day} / 220</span>
                 </div>
                 <div className="club-participation">
-                  <div className="participation-stat">
-                    <strong>{club.acceptedCount}</strong>
-                    <span>accepted</span>
-                  </div>
-                  <span className="participation-divider" />
-                  <span className="participation-sub">{club.submittedCount} submitted</span>
                   <button className="challenge-link-btn" onClick={() => navigate('club')}>
                     View challenge <Icon name="arrow" size={13} />
                   </button>
@@ -1474,8 +1467,8 @@ function App() {
             )}
           </div>
         </article>
-        <article className="overview-card personal-card"><div className="card-kicker">YOUR PRIVATE TRACKER <span className="card-count">02</span></div><div className="personal-stat"><strong>{account ? solvedCount : '—'}</strong><span><b>{account ? `${Math.round((solvedCount / 220) * 100)}%` : 'Personal'}</b><br/>{account ? 'of the 220 questions tracked' : 'progress stays private'}</span></div><div className="personal-track"><i style={{ width: `${account ? Math.min(100, solvedCount / 220 * 100) : 0}%` }}/></div><p>{account ? 'Your manual checkmarks are visible only to you. They never add club points.' : 'Sign in to save which questions you have solved.'}</p><button className="text-button" onClick={() => { navigate('progress'); if (!account) { setAuthMode('login'); setAuthOpen(true); } }}>{account ? 'Open my progress' : 'Sign in to track'} <Icon name="arrow" size={14}/></button></article>
-        <article className="overview-card community-card"><div className="card-kicker"><Icon name="users" size={14}/> CLUB PARTICIPATION <span className="card-count">03</span></div><div className="community-figure"><strong>{club.acceptedCount}</strong><span>members accepted today</span></div>{club.participants?.length ? <div className="participant-list">{club.participants.slice(0, 4).map((person) => <span className="participant" key={`${person.githubUsername}-${person.name}`}><MemberAvatar person={person} label=""/>{person.name.split(' ')[0]}</span>)}{club.participants.length > 4 && <span className="participant-more">+{club.participants.length - 4}</span>}</div> : <p className="privacy-note">Approved members with accepted club submissions appear here; personal checkmarks stay private.</p>}<button className="text-button" onClick={() => navigate('club')}>See the scoreboard <Icon name="arrow" size={14}/></button></article>
+        <article className="overview-card personal-card"><div className="card-kicker">YOUR PRIVATE TRACKER</div><div className="personal-stat"><strong>{account ? solvedCount : '—'}</strong><span><b>{account ? `${Math.round((solvedCount / 220) * 100)}%` : 'Personal'}</b><br/>{account ? 'of the 220 questions tracked' : 'progress stays private'}</span></div><div className="personal-track"><i style={{ width: `${account ? Math.min(100, solvedCount / 220 * 100) : 0}%` }}/></div><p>{account ? 'Your manual checkmarks are visible only to you. They never add club points.' : 'Sign in to save which questions you have solved.'}</p><button className="text-button" onClick={() => { navigate('progress'); if (!account) { setAuthMode('login'); setAuthOpen(true); } }}>{account ? 'Open my progress' : 'Sign in to track'} <Icon name="arrow" size={14}/></button></article>
+        <article className="overview-card community-card"><div className="card-kicker"><Icon name="users" size={14}/> CLUB PARTICIPATION</div><div className="community-figure"><strong>{club.acceptedCount}</strong><span>members accepted today</span></div>{club.participants?.length ? <div className="participant-list">{club.participants.slice(0, 4).map((person) => <span className="participant" key={`${person.githubUsername}-${person.name}`}><MemberAvatar person={person} label=""/>{person.name.split(' ')[0]}</span>)}{club.participants.length > 4 && <span className="participant-more">+{club.participants.length - 4}</span>}</div> : <p className="privacy-note">Approved members with accepted club submissions appear here; personal checkmarks stay private.</p>}<button className="text-button" onClick={() => navigate('club')}>See the scoreboard <Icon name="arrow" size={14}/></button></article>
       </section>
 
       {!account && <section className="library-locked panel"><div><div className="eyebrow"><span className="eyebrow-line"/>THE QUESTION LIBRARY</div><h2>Sign in to access the curriculum<span>.</span></h2><p>Question titles, patterns, and solution notes are available to approved members.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></section>}
@@ -1633,7 +1626,7 @@ function App() {
               </>
             )}
             <div className="member-card-content-layer">
-              <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)}</p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
+              <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span></p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
               <div className="directory-socials">
                 {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}
                 {canSeeLeetcode && (
@@ -1799,7 +1792,29 @@ function App() {
           </div>
         )}
       </section>
-      <section className="panel dashboard-activity-panel"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div><h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2></div><button className="button button-quiet" onClick={() => refreshActivity(activityPagination.page)}>Refresh</button></div>{activity.length ? <div className="admin-activity-list">{activity.map((entry) => <article className="admin-activity-row" key={entry.id}><div><strong>{entry.actorName} <small>{entry.actorRole}</small></strong><span>{entry.action.replaceAll('_', ' ')} · {entry.targetLabel || 'account action'}</span>{Object.keys(entry.details || {}).length > 0 && <code>{JSON.stringify(entry.details)}</code>}</div><time dateTime={new Date(entry.createdAt).toISOString()}>{new Date(entry.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</time></article>)}</div> : <div className="soft-empty">Admin actions will appear here as they happen.</div>}{activityPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>Previous</button><span>Page {activityPagination.page} of {activityPagination.totalPages}</span><button className="button button-quiet" disabled={activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>Next</button></div>}</section>
+      <section className="panel dashboard-activity-panel"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div><h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2></div><button className="button button-quiet" onClick={() => refreshActivity(activityPagination.page)}>Refresh</button></div>{activity.length ? <div className="admin-activity-list">{activity.map((entry) => {
+        const hasDetails = entry.details && Object.keys(entry.details).length > 0;
+        return (
+          <article className="admin-activity-row" key={entry.id}>
+            <div>
+              <strong>{entry.actorName} <small>{entry.actorRole}</small></strong>
+              <span>{entry.action.replaceAll('_', ' ')} · {entry.targetLabel || 'account action'}</span>
+              {hasDetails && (
+                <details className="admin-activity-details">
+                  <summary className="admin-activity-summary">
+                    <Icon name="arrow" size={10} />
+                    <span>Modification details</span>
+                  </summary>
+                  <div className="admin-activity-code-box">
+                    <pre><code>{JSON.stringify(entry.details, null, 2)}</code></pre>
+                  </div>
+                </details>
+              )}
+            </div>
+            <time dateTime={new Date(entry.createdAt).toISOString()}>{new Date(entry.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</time>
+          </article>
+        );
+      })}</div> : <div className="soft-empty">Admin actions will appear here as they happen.</div>}{activityPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>Previous</button><span>Page {activityPagination.page} of {activityPagination.totalPages}</span><button className="button button-quiet" disabled={activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>Next</button></div>}</section>
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
 
@@ -1936,30 +1951,6 @@ function App() {
             </div>
           </section>
 
-          {!isAdmin && (
-            <section className="panel history-panel">
-              <div className="panel-heading">
-                <div><div className="eyebrow"><span className="eyebrow-line"/>ASSIGNMENT LOG</div><h2>Published days</h2></div>
-                <span className="micro-count">{historyPagination.total}</span>
-              </div>
-              {history.length ? (
-                <>
-                  <div className="history-list">
-                    {history.map((item) => {
-                      const question = byId.get(Number(item.questionId));
-                      return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey.slice(5)}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
-                    })}
-                  </div>
-                  <div className="pagination-controls" aria-label="Assignment log pages">
-                    <button className="button button-quiet" disabled={historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>Previous</button>
-                    <span>Page {historyPagination.page} of {historyPagination.totalPages}</span>
-                    <button className="button button-quiet" disabled={historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>Next</button>
-                  </div>
-                </>
-              ) : <div className="soft-empty">No questions have been assigned yet.</div>}
-            </section>
-          )}
-
           {isLeader && <section className="panel leader-panel"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>LEAD TOOLS</div><h2>{editingTodayAssignment ? 'Change today’s question' : 'Publish a Question of the Day'}</h2></div><div className="panel-heading-actions"><Pill tone="green">{account.role}</Pill>{editingTodayAssignment && club.assignment && <button type="button" className="button button-danger delete-today-btn" onClick={deleteTodayAssignment} disabled={assignmentBusy} title="Delete today’s published question"><Icon name="trash" size={13}/> <span>Delete today's question</span></button>}</div></div><form className="publish-form" onSubmit={publishAssignment}><label><span>ASSIGNMENT DATE <i>Asia/Kolkata</i></span><input type="date" value={assignmentDate} min={localDay()} onChange={(event) => setAssignmentDate(event.target.value)} required/></label><label className="wide"><span>QUESTION</span><select value={assignmentQuestion} onChange={(event) => setAssignmentQuestion(event.target.value)} required><option value="">Choose from the 220 question curriculum</option>{questions.map((question) => <option key={question.id} value={question.id}>Day {String(question.day).padStart(3, '0')} · LC {question.id} · {question.title}</option>)}</select></label><button className="button button-green" disabled={assignmentBusy || !assignmentQuestion || (editingTodayAssignment && assignmentDate === localDay() && Number(assignmentQuestion) === Number(club.assignment.questionId)) || (!editingTodayAssignment && history.some((item) => item.dateKey === assignmentDate))}>{assignmentBusy ? 'Saving…' : editingTodayAssignment && assignmentDate === localDay() ? 'Replace today’s question' : 'Publish assignment'} <Icon name="arrow" size={14}/></button></form><p className="helper-copy">{editingTodayAssignment && assignmentDate === localDay() ? 'Changing today’s question invalidates existing submissions, removes their points, and lets members submit the corrected question.' : history.some((item) => item.dateKey === assignmentDate) ? 'A question is already published for this date.' : 'Publish at most one question per date. Leave holidays and breaks unassigned.'}</p></section>}
 
           {isLeader && (
@@ -2032,6 +2023,27 @@ function App() {
             </section>
           )}
 
+          <section className="panel history-panel">
+            <div className="panel-heading">
+              <div><div className="eyebrow"><span className="eyebrow-line"/>ASSIGNMENT LOG</div><h2>Published days</h2></div>
+              <span className="micro-count">{historyPagination.total}</span>
+            </div>
+            {history.length ? (
+              <>
+                <div className="history-list">
+                  {history.map((item) => {
+                    const question = byId.get(Number(item.questionId));
+                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey.slice(5)}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
+                  })}
+                </div>
+                <div className="pagination-controls" aria-label="Assignment log pages">
+                  <button className="button button-quiet" disabled={historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>Previous</button>
+                  <span>Page {historyPagination.page} of {historyPagination.totalPages}</span>
+                  <button className="button button-quiet" disabled={historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>Next</button>
+                </div>
+              </>
+            ) : <div className="soft-empty">No questions have been assigned yet.</div>}
+          </section>
         </div>
 
         <aside className="club-side-column">
@@ -2146,30 +2158,6 @@ function App() {
               </>
             )}
           </section>
-
-          {isAdmin && (
-            <section className="panel history-panel">
-              <div className="panel-heading">
-                <div><div className="eyebrow"><span className="eyebrow-line"/>ASSIGNMENT LOG</div><h2>Published days</h2></div>
-                <span className="micro-count">{historyPagination.total}</span>
-              </div>
-              {history.length ? (
-                <>
-                  <div className="history-list">
-                    {history.map((item) => {
-                      const question = byId.get(Number(item.questionId));
-                      return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey.slice(5)}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
-                    })}
-                  </div>
-                  <div className="pagination-controls" aria-label="Assignment log pages">
-                    <button className="button button-quiet" disabled={historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>Previous</button>
-                    <span>Page {historyPagination.page} of {historyPagination.totalPages}</span>
-                    <button className="button button-quiet" disabled={historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>Next</button>
-                  </div>
-                </>
-              ) : <div className="soft-empty">No questions have been assigned yet.</div>}
-            </section>
-          )}
         </aside>
       </div> : <div className="library-locked panel"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>Sign in to view club questions and activity.</h2><p>Approved club members can view the current assignment, history, and standings.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>

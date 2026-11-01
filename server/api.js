@@ -1005,9 +1005,11 @@ async function leaderboard(db, url) {
       streak += 1;
     }
 
-    const punctuality = eligible.length > 0
-      ? Math.min(100, Math.max(0, Math.round((row.accepted / eligible.length) * 100)))
-      : 100;
+    const punctuality = row.accepted === 0
+      ? 0
+      : eligible.length > 0
+        ? Math.min(100, Math.max(0, Math.round((row.accepted / eligible.length) * 100)))
+        : 100;
 
     return {
       name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'ABES member',
@@ -1021,7 +1023,7 @@ async function leaderboard(db, url) {
       streak,
     };
   }).sort((a, b) => b.points - a.points || b.punctuality - a.punctuality || a.name.localeCompare(b.name));
-  const { page, pageSize, skip } = pageOptions(url, 10, 50);
+  const { page, pageSize, skip } = pageOptions(url, 20, 50);
   return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length) };
 }
 
@@ -1485,6 +1487,15 @@ async function listDirectory(db, url, viewer = null) {
     cursor.sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
     db.collection('users').find(approvedUserFilter(), { projection: { department: 1 } }).toArray(),
   ]);
+  const memberIds = members.map((m) => m._id);
+  const totals = memberIds.length
+    ? await db.collection('submissions').aggregate([
+        { $match: { userId: { $in: memberIds }, status: 'accepted' } },
+        { $group: { _id: '$userId', points: { $sum: { $ifNull: ['$points', 1] } } } },
+      ]).toArray()
+    : [];
+  const pointsByUser = new Map(totals.map((t) => [String(t._id), Number(t.points || 0)]));
+
   return {
     members: members.map((member) => {
       const isSelf = viewer && String(member._id) === String(viewer._id);
@@ -1494,6 +1505,7 @@ async function listDirectory(db, url, viewer = null) {
         name: member.name,
         department: member.department,
         studyYear: member.studyYear || '',
+        points: pointsByUser.get(String(member._id)) || 0,
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
         role: member.role || 'member',
