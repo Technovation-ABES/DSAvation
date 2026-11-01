@@ -576,7 +576,7 @@ function App() {
   const [exportStudyYear, setExportStudyYear] = useState('all');
   const [exportDepartment, setExportDepartment] = useState('all');
   const [auditCardOpen, setAuditCardOpen] = useState(false);
-  const [acceptedSubmissionsOpen, setAcceptedSubmissionsOpen] = useState(true);
+  const [acceptedSubmissionsOpen, setAcceptedSubmissionsOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -1811,7 +1811,7 @@ function App() {
         </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
       </section>
-      <section className={`panel dashboard-activity-panel ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1887,7 +1887,7 @@ function App() {
           </>
         )}
       </section>
-      <section className={`panel dashboard-activity-panel ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>
           <div>
             <div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div>

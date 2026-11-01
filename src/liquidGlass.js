@@ -72,9 +72,12 @@ export function initLiquidGlass() {
   }
 
   function bindCard(card) {
-    if (!card || activeCards.has(card)) return;
+    if (!card) return;
+    if (!card.classList.contains('water-glass-card')) {
+      card.classList.add('water-glass-card');
+    }
+    if (activeCards.has(card)) return;
     activeCards.add(card);
-    card.classList.add('water-glass-card');
 
     card.addEventListener('pointerenter', handlePointerEnter, { passive: true });
     card.addEventListener('pointermove', handlePointerMove, { passive: true });
@@ -100,9 +103,12 @@ export function initLiquidGlass() {
   }
 
   function bindRippleHost(el) {
-    if (!el || activeCards.has(el)) return;
+    if (!el) return;
+    if (!el.classList.contains('water-ripple-host')) {
+      el.classList.add('water-ripple-host');
+    }
+    if (activeCards.has(el)) return;
     activeCards.add(el);
-    el.classList.add('water-ripple-host');
     el.addEventListener('pointerdown', handleRippleHostDown, { passive: true });
   }
 
