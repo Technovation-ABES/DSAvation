@@ -1,4 +1,5 @@
-import { createAvatarDataUri } from './avatar.js';
+import html2canvas from 'html2canvas';
+import { createAvatarSvg, rasterizeSvgToPngDataUri } from './avatar.js';
 
 function studyYearLabel(value) {
   const map = {
@@ -29,7 +30,94 @@ function safeRoundRect(ctx, x, y, width, height, radius) {
   }
 }
 
-export async function renderExplainerCardCanvas({ explainer, question, dateKey }) {
+/**
+ * Bulletproof resolver that converts ANY avatar into a high-res,
+ * same-origin base64 Data URI (PNG or JPEG).
+ * This completely avoids CORS tainting and naturalWidth/SVG drawing issues in Canvas.
+ */
+export async function resolveExplainerAvatarDataUri(explainer) {
+  if (!explainer) return null;
+
+  const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
+  const customUrl = explainer.avatarUrl || (isCustom ? explainer.avatarSeed : null);
+
+  // 1. Custom HTTP/HTTPS URL
+  if (customUrl && /^https?:\/\//i.test(customUrl)) {
+    // Attempt 1: Fetch via local proxy to get same-origin blob -> data URI
+    try {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(customUrl)}`;
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const blob = await res.blob();
+        const dataUri = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        if (dataUri) return dataUri;
+      }
+    } catch (e) {
+      console.warn('Proxy avatar fetch failed, attempting direct:', e);
+    }
+
+    // Attempt 2: Direct fetch (CORS)
+    try {
+      const res = await fetch(customUrl, { mode: 'cors', signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const blob = await res.blob();
+        const dataUri = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+        if (dataUri) return dataUri;
+      }
+    } catch {}
+  }
+
+  // 2. SVG (DiceBear) Avatar
+  try {
+    const styleId = explainer.avatarStyle || 'critters';
+    const seed = explainer.avatarSeed || explainer.userId || explainer.name || 'dsavation-member';
+    const svgString = await createAvatarSvg(styleId, seed, 240);
+    if (svgString) {
+      const pngUri = await rasterizeSvgToPngDataUri(svgString, 240);
+      if (pngUri) return pngUri;
+    }
+  } catch (err) {
+    console.warn('SVG avatar generation failed:', err);
+  }
+
+  // 3. Fallback: Draw monogram badge to offscreen canvas
+  try {
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 240;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 240, 240);
+      grad.addColorStop(0, '#0284c7');
+      grad.addColorStop(1, '#0d9488');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(120, 120, 120, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 96px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const initial = (explainer.name || 'M')[0].toUpperCase();
+      ctx.fillText(initial, 120, 126);
+      return canvas.toDataURL('image/png');
+    }
+  } catch {}
+
+  return null;
+}
+
+export async function renderExplainerCardCanvas({ explainer, question, dateKey, avatarDataUri }) {
   if (!explainer) throw new Error('No explainer selected.');
   const width = 1200;
   const height = 675; // Standard 16:9 social share graphic
@@ -182,7 +270,6 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
 
   let avatarDrawn = false;
 
-  // Helper to draw an image/canvas onto the hero avatar circle
   function drawAvatarToCanvas(imageObj) {
     try {
       ctx.save();
@@ -199,145 +286,19 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
     }
   }
 
-  // Helper: Create an Image object from a Blob URL safely
-  function loadImageFromBlob(blob) {
-    return new Promise((resolve) => {
-      const blobUrl = URL.createObjectURL(blob);
+  // Pre-resolved or fresh avatar Data URI
+  const resolvedUri = avatarDataUri || await resolveExplainerAvatarDataUri(explainer);
+  if (resolvedUri) {
+    await new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const ok = drawAvatarToCanvas(img);
-        URL.revokeObjectURL(blobUrl);
-        resolve(ok);
+        if (drawAvatarToCanvas(img)) avatarDrawn = true;
+        resolve();
       };
-      img.onerror = () => {
-        URL.revokeObjectURL(blobUrl);
-        resolve(false);
-      };
-      img.src = blobUrl;
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-        resolve(false);
-      }, 4000);
+      img.onerror = () => resolve();
+      img.src = resolvedUri;
+      setTimeout(resolve, 2500);
     });
-  }
-
-  // TRICK 1: Check if the DOM already rendered the avatar for this explainer
-  try {
-    const previewImg = typeof document !== 'undefined'
-      ? document.querySelector('.explainer-preview-avatar, .explainer-modal img.avatar-image')
-      : null;
-    if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
-      // If it's a data URI or blob URL, it is completely origin-clean and safe to draw immediately
-      if (previewImg.src && (previewImg.src.startsWith('data:') || previewImg.src.startsWith('blob:'))) {
-        if (drawAvatarToCanvas(previewImg)) {
-          avatarDrawn = true;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('DOM preview check failed:', e);
-  }
-
-  // TRICK 2: If not drawn from DOM, resolve from source with resilient fetch/blob conversion
-  if (!avatarDrawn) {
-    try {
-      const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
-      let rawSource = isCustom
-        ? (explainer.avatarUrl || explainer.avatarSeed)
-        : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
-
-      if (rawSource) {
-        // A. If HTTP/HTTPS URL (custom avatar)
-        if (/^https?:\/\//i.test(rawSource)) {
-          // Attempt 1: Fetch via proxy to get same-origin blob
-          try {
-            const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(rawSource)}`;
-            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
-            if (res.ok) {
-              const blob = await res.blob();
-              avatarDrawn = await loadImageFromBlob(blob);
-            }
-          } catch (e) {
-            console.warn('Proxy blob fetch failed, falling back:', e);
-          }
-
-          // Attempt 2: Direct image with crossOrigin = 'anonymous' if proxy failed
-          if (!avatarDrawn) {
-            await new Promise((resolve) => {
-              const img = new Image();
-              img.crossOrigin = 'anonymous';
-              img.onload = () => {
-                if (drawAvatarToCanvas(img)) avatarDrawn = true;
-                resolve();
-              };
-              img.onerror = () => resolve();
-              img.src = rawSource;
-              setTimeout(resolve, 3500);
-            });
-          }
-        }
-        // B. If SVG data URI or SVG markup (DiceBear)
-        else if (rawSource.startsWith('data:image/svg+xml') || rawSource.startsWith('<svg')) {
-          try {
-            let svgXml;
-            if (rawSource.startsWith('<svg')) {
-              svgXml = rawSource;
-            } else {
-              const commaIdx = rawSource.indexOf(',');
-              const header = rawSource.slice(0, commaIdx);
-              const data = rawSource.slice(commaIdx + 1);
-              svgXml = header.includes('base64') ? atob(data) : decodeURIComponent(data);
-            }
-            if (!/width\s*=/i.test(svgXml)) {
-              svgXml = svgXml.replace(/<svg\b([^>]*)>/i, '<svg width="200" height="200" $1>');
-            }
-            const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
-            avatarDrawn = await loadImageFromBlob(blob);
-          } catch (e) {
-            console.warn('SVG blob conversion failed, trying direct:', e);
-            // Fallback: direct data URI load
-            await new Promise((resolve) => {
-              const img = new Image();
-              img.onload = () => {
-                if (drawAvatarToCanvas(img)) avatarDrawn = true;
-                resolve();
-              };
-              img.onerror = () => resolve();
-              img.src = rawSource;
-              setTimeout(resolve, 2500);
-            });
-          }
-        }
-        // C. Other data URI (PNG, JPG base64)
-        else {
-          await new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              if (drawAvatarToCanvas(img)) avatarDrawn = true;
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = rawSource;
-            setTimeout(resolve, 3000);
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('Avatar resolution failed:', err);
-    }
-  }
-
-  // TRICK 3: If still not drawn and DOM has a loaded previewImg (even if external),
-  // as an emergency fallback, draw it!
-  if (!avatarDrawn && typeof document !== 'undefined') {
-    try {
-      const previewImg = document.querySelector('.explainer-preview-avatar, .explainer-modal img.avatar-image');
-      if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
-        if (drawAvatarToCanvas(previewImg)) {
-          avatarDrawn = true;
-        }
-      }
-    } catch {}
   }
 
   if (!avatarDrawn) {
@@ -443,8 +404,51 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
   return canvas;
 }
 
+/**
+ * Primary export pipeline: Uses html2canvas on the card DOM element with pre-resolved
+ * base64 avatar data URI, and falls back to manual canvas rendering.
+ */
+export async function exportExplainerCardCanvas({ explainer, question, dateKey }) {
+  const avatarDataUri = await resolveExplainerAvatarDataUri(explainer);
+
+  const cardElement = typeof document !== 'undefined'
+    ? (document.getElementById('explainer-spotlight-card') || document.querySelector('.explainer-preview-card'))
+    : null;
+
+  if (cardElement) {
+    try {
+      const avatarImg = cardElement.querySelector('.explainer-preview-avatar');
+      const originalSrc = avatarImg ? avatarImg.getAttribute('src') : null;
+      if (avatarImg && avatarDataUri) {
+        avatarImg.src = avatarDataUri;
+      }
+
+      // Small tick for DOM & browser layout
+      await new Promise((r) => setTimeout(r, 60));
+
+      const canvas = await html2canvas(cardElement, {
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#071626',
+        logging: false,
+      });
+
+      if (avatarImg && originalSrc) {
+        avatarImg.src = originalSrc;
+      }
+
+      return canvas;
+    } catch (err) {
+      console.warn('html2canvas capture failed, falling back to 2D canvas:', err);
+    }
+  }
+
+  return await renderExplainerCardCanvas({ explainer, question, dateKey, avatarDataUri });
+}
+
 export async function downloadExplainerImage(params) {
-  const canvas = await renderExplainerCardCanvas(params);
+  const canvas = await exportExplainerCardCanvas(params);
   return new Promise((resolve, reject) => {
     try {
       canvas.toBlob((blob) => {
@@ -470,7 +474,7 @@ export async function downloadExplainerImage(params) {
 }
 
 export async function copyExplainerImage(params) {
-  const canvas = await renderExplainerCardCanvas(params);
+  const canvas = await exportExplainerCardCanvas(params);
   return new Promise((resolve, reject) => {
     try {
       canvas.toBlob(async (blob) => {

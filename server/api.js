@@ -1685,9 +1685,6 @@ export async function handleApiNode(req, res, options = {}) {
       db = await getDb();
       return await githubStart(db, req, res);
     }
-    if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
-    db = await getDb();
-
     if (url.pathname === '/api/proxy-image' && method === 'GET') {
       const target = url.searchParams.get('url');
       if (!target || !/^https?:\/\//i.test(target)) {
@@ -1718,6 +1715,8 @@ export async function handleApiNode(req, res, options = {}) {
         throw new HttpError(502, 'Image host could not be reached.');
       }
     }
+    if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
+    db = await getDb();
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/reset-password' && method === 'POST') return json(res, 200, await resetPassword(db, req, res, await readBody(req)));

@@ -29,6 +29,49 @@ export async function createAvatarDataUri(styleId, seed) {
   }
 }
 
+export async function createAvatarSvg(styleId, seed, size = 200) {
+  const selectedStyle = loaders[styleId] ? styleId : 'critters';
+  const selectedSeed = String(seed || 'dsavation-member');
+  const [core, module] = await Promise.all([import('@dicebear/core'), loaders[selectedStyle]()]);
+  const avatar = new core.Avatar(new core.Style(module.default), { seed: selectedSeed, size });
+  return avatar.toString();
+}
+
+export async function rasterizeSvgToPngDataUri(svgString, size = 200) {
+  if (typeof document === 'undefined') return null;
+  return new Promise((resolve) => {
+    try {
+      let cleanSvg = svgString;
+      if (!/xmlns\s*=/i.test(cleanSvg)) {
+        cleanSvg = cleanSvg.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!/width\s*=/i.test(cleanSvg)) {
+        cleanSvg = cleanSvg.replace(/<svg\b/i, `<svg width="${size}" height="${size}"`);
+      }
+      const b64 = typeof window !== 'undefined' && window.btoa ? window.btoa(unescape(encodeURIComponent(cleanSvg))) : '';
+      if (!b64) return resolve(null);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = size;
+          offCanvas.height = size;
+          const ctx = offCanvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          resolve(offCanvas.toDataURL('image/png'));
+        } catch {
+          resolve('data:image/svg+xml;base64,' + b64);
+        }
+      };
+      img.onerror = () => resolve('data:image/svg+xml;base64,' + b64);
+      img.src = 'data:image/svg+xml;base64,' + b64;
+      setTimeout(() => resolve('data:image/svg+xml;base64,' + b64), 2500);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 export function createAvatarSeeds(count = 8) {
   return Array.from({ length: count }, () => {
     const random = globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;

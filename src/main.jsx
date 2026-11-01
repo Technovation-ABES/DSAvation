@@ -127,7 +127,7 @@ function MemberAvatar({ person, style, seed, url, className = '', label = '' }) 
     return <span className={`avatar avatar-image ${className}`} aria-label={label} title={label}>{fallbackText}</span>;
   }
 
-  return <img className={`avatar avatar-image ${className}`} src={src} crossOrigin="anonymous" alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
+  return <img className={`avatar avatar-image ${className}`} src={src} alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
 }
 
 function ProgressHeatmap({ progress }) {
@@ -2116,37 +2116,57 @@ function App() {
             Randomly selected among members who attempted today's question. Download or copy their share card image to share on WhatsApp or the club group so they can explain their solution!
           </p>
 
-          <div className="explainer-preview-card">
+          <div className="explainer-preview-card" id="explainer-spotlight-card">
             <div className="explainer-preview-header">
-              <span className="explainer-preview-brand">ABES TECHNOVATION CLUB · DSAVATION</span>
-              <span className="explainer-preview-tag">SELECTED EXPLAINER</span>
+              <div className="explainer-brand-lockup">
+                <img src="/technovation-logo.png" alt="Logo" className="explainer-card-logo" />
+                <div>
+                  <span className="explainer-preview-brand">ABES TECHNOVATION CLUB</span>
+                  <span className="explainer-sub-brand">DSAvation · Daily Problem Spotlight</span>
+                </div>
+              </div>
+              <div className="explainer-date-pill">
+                📅 {club.assignment?.dateKey || localDay()}
+              </div>
             </div>
 
             <div className="explainer-preview-question">
-              <span>QUESTION OF THE DAY</span>
-              <strong>
-                LC #{assignedQuestion?.id || selectedExplainer.questionId} · {assignedQuestion?.title || selectedExplainer.questionTitle}
-                {assignedQuestion?.difficulty && ` (${assignedQuestion.difficulty})`}
-              </strong>
+              <div className="explainer-q-eyebrow">QUESTION OF THE DAY</div>
+              <div className="explainer-q-main">
+                <strong>
+                  LC #{assignedQuestion?.id || selectedExplainer.questionId} · {assignedQuestion?.title || selectedExplainer.questionTitle}
+                </strong>
+                {assignedQuestion?.difficulty && (
+                  <span className={`explainer-diff-pill diff-${assignedQuestion.difficulty.toLowerCase()}`}>
+                    {assignedQuestion.difficulty.toUpperCase()}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="explainer-preview-body">
-              <MemberAvatar person={selectedExplainer} className="explainer-preview-avatar" label="" />
+              <div className="explainer-avatar-wrap">
+                <MemberAvatar person={selectedExplainer} className="explainer-preview-avatar" label="" />
+              </div>
               <div className="explainer-preview-info">
+                <span className="explainer-spotlight-tag">🎉 SELECTED SOLUTION EXPLAINER</span>
                 <h3>{selectedExplainer.name}</h3>
                 <div className="explainer-preview-dept">
                   {selectedExplainer.department || 'Club Member'} {selectedExplainer.studyYear && `· ${studyYearLabel(selectedExplainer.studyYear)}`}
                 </div>
                 <div className="explainer-preview-handles">
-                  {selectedExplainer.githubUsername && <span className="gh-tag">GitHub: @{selectedExplainer.githubUsername}</span>}
+                  {selectedExplainer.githubUsername && <span className="gh-tag"><Icon name="github" size={13}/> @{selectedExplainer.githubUsername}</span>}
                 </div>
               </div>
             </div>
 
             <div className="explainer-preview-footer">
-              <small>
-                ✓ Submitted {new Date(selectedExplainer.submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST · Verified Solution Commit
-              </small>
+              <div className="explainer-footer-status">
+                ✓ Solution Attempt Accepted · Submitted {new Date(selectedExplainer.submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} IST
+              </div>
+              <div className="explainer-footer-prompt">
+                Please share your code walkthrough, approach and complexity insights in today's club session!
+              </div>
             </div>
           </div>
 
