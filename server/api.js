@@ -1021,7 +1021,7 @@ async function leaderboard(db, url) {
       streak,
     };
   }).sort((a, b) => b.points - a.points || b.punctuality - a.punctuality || a.name.localeCompare(b.name));
-  const { page, pageSize, skip } = pageOptions(url, 12, 50);
+  const { page, pageSize, skip } = pageOptions(url, 10, 50);
   return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length) };
 }
 
@@ -1097,7 +1097,7 @@ async function listSubmissions(db, req, user, url) {
   ]);
   const userIds = [...new Set(items.map((item) => String(item.userId)))].map((id) => new ObjectId(id));
   const assignmentIds = [...new Set(items.map((item) => String(item.assignmentId)))].map((id) => new ObjectId(id));
-  const profiles = userIds.length ? await db.collection('users').find({ _id: { $in: userIds } }, { projection: { name: 1, department: 1, githubUsername: 1 } }).toArray() : [];
+  const profiles = userIds.length ? await db.collection('users').find({ _id: { $in: userIds } }, { projection: { name: 1, department: 1, githubUsername: 1, leetcodeUsername: 1 } }).toArray() : [];
   const assignments = assignmentIds.length ? await db.collection('assignments').find({ _id: { $in: assignmentIds } }).toArray() : [];
   const profileById = new Map(profiles.map((item) => [String(item._id), item]));
   const assignmentById = new Map(assignments.map((item) => [String(item._id), item]));
@@ -1107,7 +1107,7 @@ async function listSubmissions(db, req, user, url) {
     verifiedPusher: Boolean(item.verifiedPusher), verificationSource: item.verificationSource || 'commit-link',
     submissionMethod: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
     member: (() => { const profile = profileById.get(String(item.userId)); return profile ? {
-      name: profile.name, department: profile.department, githubUsername: profile.githubUsername,
+      name: profile.name, department: profile.department, githubUsername: profile.githubUsername, leetcodeUsername: profile.leetcodeUsername || '',
     } : null; })(),
     assignment: (() => { const assignment = assignmentById.get(String(item.assignmentId)); return assignment ? {
       dateKey: assignment.dateKey, questionId: item.questionId || assignment.questionId,
@@ -1428,11 +1428,15 @@ async function listMembers(db, url) {
   }
   const filter = filters.length > 1 ? { $and: filters } : filters[0] || {};
   const { page, pageSize, skip } = pageOptions(url, 20, 50);
+  const cursor = db.collection('users').find(filter, {
+    projection: { name: 1, department: 1, studyYear: 1, email: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, showPublic: 1, createdAt: 1, approvalStatus: 1, approvedAt: 1, verifiedAt: 1, leetcodeApproval: 1, leetcodeRequestedAt: 1, defaultSubmissionMethod: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+  });
+  if (typeof cursor.collation === 'function') {
+    cursor.collation({ locale: 'en', strength: 2 });
+  }
   const [total, members, pending, approved, leetcodePending] = await Promise.all([
     db.collection('users').countDocuments(filter),
-    db.collection('users').find(filter, {
-      projection: { name: 1, department: 1, studyYear: 1, email: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, showPublic: 1, createdAt: 1, approvalStatus: 1, approvedAt: 1, verifiedAt: 1, leetcodeApproval: 1, leetcodeRequestedAt: 1, defaultSubmissionMethod: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
-    }).sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
+    cursor.sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
     db.collection('users').countDocuments({ $or: [{ approvalStatus: 'pending' }, { approvalStatus: { $exists: false }, verifiedAt: null }] }),
     db.collection('users').countDocuments(approvedUserFilter()),
     db.collection('users').countDocuments({ leetcodeApproval: 'pending' }),
@@ -1470,11 +1474,15 @@ async function listDirectory(db, url, viewer = null) {
   }
   const filter = filters.length === 1 ? filters[0] : { $and: filters };
   const { page, pageSize, skip } = pageOptions(url, 60, 100);
+  const cursor = db.collection('users').find(filter, {
+    projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1 },
+  });
+  if (typeof cursor.collation === 'function') {
+    cursor.collation({ locale: 'en', strength: 2 });
+  }
   const [total, members, departments] = await Promise.all([
     db.collection('users').countDocuments(filter),
-    db.collection('users').find(filter, {
-      projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1 },
-    }).sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
+    cursor.sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
     db.collection('users').find(approvedUserFilter(), { projection: { department: 1 } }).toArray(),
   ]);
   return {

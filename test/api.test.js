@@ -79,6 +79,7 @@ class FakeCursor {
     });
     return this;
   }
+  collation() { return this; }
   skip(amount) { this.offset = amount; return this; }
   limit(amount) { this.count = amount; return this; }
   async toArray() { return this.documents.slice(this.offset, this.offset + this.count); }

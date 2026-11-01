@@ -481,7 +481,7 @@ function App() {
   const [activityPagination, setActivityPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [scoredSubmissions, setScoredSubmissions] = useState([]);
   const [scoredPagination, setScoredPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
-  const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 12, total: 0, totalPages: 1 });
+  const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [historyPagination, setHistoryPagination] = useState({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
   const [resetLink, setResetLink] = useState(null);
   const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('token') || '');
@@ -610,13 +610,13 @@ function App() {
       const [today, assigned, board] = await Promise.all([
         api('/club/today'),
         api(`/club/assignments?page=${historyPagination.page}&pageSize=8`),
-        api(`/club/leaderboard?page=${leaderboardPagination.page}&pageSize=12`),
+        api(`/club/leaderboard?page=${leaderboardPagination.page}&pageSize=10`),
       ]);
       setClub(today);
       setHistory(assigned.assignments || []);
       setHistoryPagination(assigned.pagination || { page: 1, pageSize: 8, total: 0, totalPages: 1 });
       setLeaderboard(board.leaderboard || []);
-      setLeaderboardPagination(board.pagination || { page: 1, pageSize: 12, total: 0, totalPages: 1 });
+      setLeaderboardPagination(board.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
       setApiNotice('');
     } catch (error) {
       setApiNotice(error.message.includes('MONGODB_URI') ? 'Community features need the DSAvation database configured.' : error.message);
@@ -697,7 +697,10 @@ function App() {
     if (year) params.set('year', year);
     try {
       const result = await api(`/members?${params}`);
-      setDirectoryMembers(result.members || []);
+      const sorted = (result.members || []).slice().sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+      );
+      setDirectoryMembers(sorted);
       setDirectoryDepartments(result.departments || []);
       setDirectoryPagination(result.pagination || { page: 1, pageSize: 60, total: 0, totalPages: 1 });
     } catch (error) {
@@ -940,9 +943,9 @@ function App() {
 
   async function loadLeaderboardPage(page) {
     try {
-      const result = await api(`/club/leaderboard?page=${page}&pageSize=12`);
+      const result = await api(`/club/leaderboard?page=${page}&pageSize=10`);
       setLeaderboard(result.leaderboard || []);
-      setLeaderboardPagination(result.pagination || { page, pageSize: 12, total: 0, totalPages: 1 });
+      setLeaderboardPagination(result.pagination || { page, pageSize: 10, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
   }
 
@@ -1727,7 +1730,75 @@ function App() {
         </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
       </section>
-      <section className="panel dashboard-activity-panel"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div></div><p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>{scoredSubmissions.length ? <div className="review-list">{scoredSubmissions.map((item) => <article className="review-item score-adjustment-row" key={item.id}><div><strong>{item.member?.name || 'Member'} <span>· {item.assignment?.dateKey} · LC {item.assignment?.questionId}</span></strong><p>{item.solutionPath || item.commitUrl}</p><a href={item.commitUrl} target="_blank" rel="noreferrer">Open verified commit <Icon name="external" size={13}/></a></div><label className="points-control">POINTS<select aria-label={`Points for ${item.member?.name || 'member'}`} value={item.points ?? 1} disabled={memberBusy === item.id} onChange={(event) => adjustPoints(item, event.target.value)}>{Array.from({ length: 11 }, (_, value) => <option value={value} key={value}>{value} point{value === 1 ? '' : 's'}</option>)}</select></label></article>)}</div> : <div className="soft-empty">No verified submissions have been scored yet.</div>}{scoredPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button><span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span><button className="button button-quiet" disabled={scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>Next</button></div>}</section>
+      <section className="panel dashboard-activity-panel">
+        <div className="panel-heading">
+          <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
+        </div>
+        <p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>
+        {scoredSubmissions.length ? (
+          <div className="review-list">
+            {scoredSubmissions.map((item) => {
+              const isLeetCode = item.submissionMethod === 'leetcode' || item.verificationSource === 'leetcode-api' || String(item.solutionPath || '').startsWith('LeetCode:') || String(item.commitUrl || '').includes('leetcode.com');
+              const leetcodeUser = item.member?.leetcodeUsername || (item.solutionPath?.match(/@([a-zA-Z0-9_-]+)/)?.[1]) || '';
+              const profileUrl = leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (item.commitUrl || 'https://leetcode.com');
+              const currentPoints = item.points ?? 1;
+
+              return (
+                <article className="review-item score-adjustment-row" key={item.id}>
+                  <div>
+                    <strong>{item.member?.name || 'Member'} <span>· {item.assignment?.dateKey} · LC {item.assignment?.questionId}</span></strong>
+                    <p>{item.solutionPath || item.commitUrl}</p>
+                    {isLeetCode ? (
+                      <a href={profileUrl} target="_blank" rel="noreferrer" className="score-profile-link">
+                        <Icon name="leetcode" size={13}/> View LeetCode profile <Icon name="external" size={13}/>
+                      </a>
+                    ) : (
+                      <a href={item.commitUrl} target="_blank" rel="noreferrer">
+                        Open verified commit <Icon name="external" size={13}/>
+                      </a>
+                    )}
+                  </div>
+                  <div className="points-stepper-control">
+                    <span className="points-stepper-label">POINTS</span>
+                    <div className="points-stepper-actions">
+                      <button
+                        type="button"
+                        className="button-icon-stepper"
+                        title="Decrease point by 1"
+                        aria-label={`Decrease points for ${item.member?.name || 'member'}`}
+                        disabled={memberBusy === item.id || currentPoints <= 0}
+                        onClick={() => adjustPoints(item, Math.max(0, currentPoints - 1))}
+                      >
+                        <IconifyIcon icon="ant-design:minus-circle-outlined" width={18} height={18} />
+                      </button>
+                      <strong className="points-value-display">
+                        {currentPoints}
+                      </strong>
+                      <button
+                        type="button"
+                        className="button-icon-stepper"
+                        title="Increase point by 1"
+                        aria-label={`Increase points for ${item.member?.name || 'member'}`}
+                        disabled={memberBusy === item.id || currentPoints >= 10}
+                        onClick={() => adjustPoints(item, Math.min(10, currentPoints + 1))}
+                      >
+                        <IconifyIcon icon="ant-design:plus-circle-outlined" width={18} height={18} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : <div className="soft-empty">No verified submissions have been scored yet.</div>}
+        {scoredPagination.totalPages > 1 && (
+          <div className="pagination-controls">
+            <button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button>
+            <span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span>
+            <button className="button button-quiet" disabled={scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>Next</button>
+          </div>
+        )}
+      </section>
       <section className="panel dashboard-activity-panel"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div><h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2></div><button className="button button-quiet" onClick={() => refreshActivity(activityPagination.page)}>Refresh</button></div>{activity.length ? <div className="admin-activity-list">{activity.map((entry) => <article className="admin-activity-row" key={entry.id}><div><strong>{entry.actorName} <small>{entry.actorRole}</small></strong><span>{entry.action.replaceAll('_', ' ')} · {entry.targetLabel || 'account action'}</span>{Object.keys(entry.details || {}).length > 0 && <code>{JSON.stringify(entry.details)}</code>}</div><time dateTime={new Date(entry.createdAt).toISOString()}>{new Date(entry.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</time></article>)}</div> : <div className="soft-empty">Admin actions will appear here as they happen.</div>}{activityPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>Previous</button><span>Page {activityPagination.page} of {activityPagination.totalPages}</span><button className="button button-quiet" disabled={activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>Next</button></div>}</section>
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
@@ -2099,8 +2170,6 @@ function App() {
               ) : <div className="soft-empty">No questions have been assigned yet.</div>}
             </section>
           )}
-
-          {submissions.length > 0 && <section className="panel my-submissions"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>YOUR CLUB SUBMISSIONS</div><h2>Review history</h2></div></div>{submissions.slice(0, 5).map((item) => <div className="my-submission" key={item.id}><span>{item.assignment?.dateKey} · LC {item.assignment?.questionId}</span><Pill tone={item.status === 'accepted' ? 'green' : item.status === 'rejected' ? 'red' : 'amber'}>{item.status}</Pill></div>)}</section>}
         </aside>
       </div> : <div className="library-locked panel"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>Sign in to view club questions and activity.</h2><p>Approved club members can view the current assignment, history, and standings.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
