@@ -2,17 +2,17 @@
   font-family: 'DM Sans', sans-serif;
   font-size: 135%;
   color: #0c1b26;
-  background: #fbfdff;
+  background: #edf2f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --paper: #fbfdff;
+  --paper: #edf2f7;
   --surface: #ffffff;
-  --surface-muted: #f6f9fc;
+  --surface-muted: #e8eff5;
   --ink: #0c1b26;
   --body: #37474f;
   --muted: #607d8b;
-  --line: #e6edf3;
-  --line-dark: #d8e2ea;
+  --line: #dce4ed;
+  --line-dark: #cbd7e4;
 
   /* Oceanic Core Palette - Seamless Coastal Cyan, Sea Sapphire & Aquatic Teal */
   --ocean: #0284c7;
@@ -43,14 +43,15 @@ body {
   margin: 0;
   min-width: 280px;
   min-height: 100vh;
+  background: #edf2f7;
   background: 
     linear-gradient(
       180deg,
-      #ffffff 0%,
-      #fafdff 25%,
-      #f5f8fc 55%,
-      #eff4fa 85%,
-      #e9f0f7 100%
+      #edf2f7 0%,
+      #e8eff6 25%,
+      #e2ebf3 55%,
+      #dbe5f0 85%,
+      #d5e0ec 100%
     );
   background-attachment: fixed;
   color: var(--ink);
@@ -973,56 +974,33 @@ h1, h2, h3, p { margin-top: 0; }
 
 .today-card .club-participation {
   margin-top: auto;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: rgba(22, 32, 46, 0.7);
-  border: 1px solid rgba(125, 211, 252, 0.2);
+  padding: 0;
+  background: transparent;
+  border: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.today-card .club-participation .participation-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.today-card .club-participation strong {
-  color: #7dd3fc;
-  font: 700 1.1875rem var(--display);
-}
-
-.today-card .club-participation span {
-  color: #94a3b8;
-  font-size: 0.625rem;
-}
-
-.today-card .participation-divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.15);
 }
 
 .today-card .challenge-link-btn {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 8px;
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.14);
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  font: 600 0.625rem var(--mono);
+  color: #ffffff;
+  background: #0284c7;
+  border: none;
+  font: 600 0.6875rem var(--mono);
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
 }
 
 .today-card .challenge-link-btn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  color: #f0f9ff;
-  border-color: rgba(56, 189, 248, 0.5);
+  background: #0369a1;
+  color: #ffffff;
+  border: none;
   transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
 }
 
 .today-card .empty-assignment {
@@ -2086,7 +2064,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .pick-explainer-head-btn { display: inline-flex; align-items: center; gap: 5px; }
 .delete-today-btn { display: inline-flex; align-items: center; gap: 5px; min-height: 27px; padding: 0 8px; font-size: .5rem; }
 
-.explainer-modal { max-width: 600px; width: min(600px, 94vw); }
+.explainer-modal { max-width: 760px; width: min(760px, 95vw); }
 .explainer-preview-card {
   margin: 14px 0 18px;
   padding: 18px 20px;
@@ -2264,10 +2242,23 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 }
 .explainer-modal-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 12px;
+  margin-top: 10px;
+}
+.explainer-modal-actions .button {
+  flex: 1 1 0;
+  white-space: nowrap;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .explainer-modal-actions {
+    flex-direction: column;
+  }
+  .explainer-modal-actions .button {
+    width: 100%;
+  }
 }
 
 /* Export CSV Modal */
