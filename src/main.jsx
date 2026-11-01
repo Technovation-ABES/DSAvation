@@ -306,9 +306,21 @@ function ProgressHeatmap({ progress }) {
         </div>
       )}
 
-      {/* Practice History 2-column layout: Calendar on Left, Stat Cards on Right */}
+      {/* Practice History 3-column layout: Left Stats, Middle Calendar, Right Stats */}
       <div className="practice-history-layout">
-        {/* Left Column: Calendar Card & Legend */}
+        {/* Left Column: 2 Stat Cards */}
+        <div className="practice-stats-col practice-stats-col-left heatmap-stats-strip">
+          <div className="heatmap-stat-item">
+            <strong>{activeQuestions} <small>/ 220</small></strong>
+            <span>Questions Solved · {Math.round(activeQuestions / 220 * 100)}%</span>
+          </div>
+          <div className="heatmap-stat-item">
+            <strong>{activeDays}</strong>
+            <span>Active Days</span>
+          </div>
+        </div>
+
+        {/* Middle Column: Calendar Card & Legend */}
         <div className="practice-calendar-col">
           {activeMonth && (
             <div className="month-detail-card">
@@ -375,16 +387,8 @@ function ProgressHeatmap({ progress }) {
           </div>
         </div>
 
-        {/* Right Column: Practice Metrics Stat Cards */}
-        <div className="practice-stats-col heatmap-stats-strip">
-          <div className="heatmap-stat-item">
-            <strong>{activeQuestions} <small>/ 220</small></strong>
-            <span>Questions Solved · {Math.round(activeQuestions / 220 * 100)}%</span>
-          </div>
-          <div className="heatmap-stat-item">
-            <strong>{activeDays}</strong>
-            <span>Active Days</span>
-          </div>
+        {/* Right Column: 2 Stat Cards */}
+        <div className="practice-stats-col practice-stats-col-right heatmap-stats-strip">
           <div className="heatmap-stat-item">
             <strong>{currentStreak} <small>days</small></strong>
             <span>Current Streak</span>
@@ -436,6 +440,53 @@ function QuestionRow({ question, solved, solvedAt, onSolve }) {
       <a className="text-link" href={`https://leetcode.com/problems/${question.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer">Open problem on LeetCode <Icon name="external" size={13}/></a>
     </div>}
   </article>;
+}
+
+function HeroTitleTypewriter() {
+  const line1Full = "Build the instinct.";
+  const line2Full = "One problem at a time.";
+  const [line1, setLine1] = useState("");
+  const [line2, setLine2] = useState("");
+
+  useEffect(() => {
+    let i1 = 0;
+    let i2 = 0;
+    let t1 = null;
+    let t2 = null;
+
+    const typeLine1 = () => {
+      if (i1 < line1Full.length) {
+        setLine1(line1Full.slice(0, i1 + 1));
+        i1++;
+        t1 = setTimeout(typeLine1, 38);
+      } else {
+        t2 = setTimeout(typeLine2, 130);
+      }
+    };
+
+    const typeLine2 = () => {
+      if (i2 < line2Full.length) {
+        setLine2(line2Full.slice(0, i2 + 1));
+        i2++;
+        t2 = setTimeout(typeLine2, 35);
+      }
+    };
+
+    t1 = setTimeout(typeLine1, 100);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  return (
+    <h1 style={{ minHeight: '2.15em' }}>
+      {line1}
+      {line1.length === line1Full.length && <br />}
+      {line2 && <em>{line2}</em>}
+    </h1>
+  );
 }
 
 function App() {
@@ -525,6 +576,7 @@ function App() {
   const [exportStudyYear, setExportStudyYear] = useState('all');
   const [exportDepartment, setExportDepartment] = useState('all');
   const [auditCardOpen, setAuditCardOpen] = useState(false);
+  const [acceptedSubmissionsOpen, setAcceptedSubmissionsOpen] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -1439,7 +1491,7 @@ function App() {
           </div>
           <div className="hero-content">
             <div className="eyebrow"><span className="eyebrow-line"/>TECHNOVATION DSA SERIES</div>
-            <h1>Build the instinct.<br/><em>One problem at a time.</em></h1>
+            <HeroTitleTypewriter />
             <p className="hero-subtitle">A shared question library for focused practice, personal progress, and the club’s daily challenge.</p>
           </div>
         </div>
@@ -1725,7 +1777,7 @@ function App() {
     </main>}
 
     {view === 'dashboard' && isAdmin && <main className="content-shell page-content dashboard-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Member dashboard<span>.</span></h1><p>Review access, adjust award points, generate reset links, and inspect the admin activity log.</p></div><div className="metric-card"><strong>{memberCounts.pending}</strong><span>WAITING FOR APPROVAL</span></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Member dashboard<span>.</span></h1><p>Review access, adjust award points, generate reset links, and inspect the admin activity log.</p></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" onClick={() => refreshMembers(membersPagination.page)}>Refresh</button></div>
         <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['leetcode', `LeetCode reqs · ${memberCounts.leetcodePending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); refreshMembers(1, key, memberQuery); }}>{label}</button>)}</div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
@@ -1759,73 +1811,80 @@ function App() {
         </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
       </section>
-      <section className="panel dashboard-activity-panel">
-        <div className="panel-heading">
+      <section className={`panel dashboard-activity-panel ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
+        <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="button button-quiet" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}>Refresh</button>
+          </div>
         </div>
-        <p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>
-        {scoredSubmissions.length ? (
-          <div className="review-list">
-            {scoredSubmissions.map((item) => {
-              const isLeetCode = item.submissionMethod === 'leetcode' || item.verificationSource === 'leetcode-api' || String(item.solutionPath || '').startsWith('LeetCode:') || String(item.commitUrl || '').includes('leetcode.com');
-              const leetcodeUser = item.member?.leetcodeUsername || (item.solutionPath?.match(/@([a-zA-Z0-9_-]+)/)?.[1]) || '';
-              const profileUrl = leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (item.commitUrl || 'https://leetcode.com');
-              const currentPoints = item.points ?? 1;
+        {acceptedSubmissionsOpen && (
+          <>
+            <p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>
+            {scoredSubmissions.length ? (
+              <div className="review-list">
+                {scoredSubmissions.map((item) => {
+                  const isLeetCode = item.submissionMethod === 'leetcode' || item.verificationSource === 'leetcode-api' || String(item.solutionPath || '').startsWith('LeetCode:') || String(item.commitUrl || '').includes('leetcode.com');
+                  const leetcodeUser = item.member?.leetcodeUsername || (item.solutionPath?.match(/@([a-zA-Z0-9_-]+)/)?.[1]) || '';
+                  const profileUrl = leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (item.commitUrl || 'https://leetcode.com');
+                  const currentPoints = item.points ?? 1;
 
-              return (
-                <article className="review-item score-adjustment-row" key={item.id}>
-                  <div>
-                    <strong>{item.member?.name || 'Member'} <span>· {item.assignment?.dateKey} · LC {item.assignment?.questionId}</span></strong>
-                    <p>{item.solutionPath || item.commitUrl}</p>
-                    {isLeetCode ? (
-                      <a href={profileUrl} target="_blank" rel="noreferrer" className="score-profile-link">
-                        <Icon name="leetcode" size={13}/> View LeetCode profile <Icon name="external" size={13}/>
-                      </a>
-                    ) : (
-                      <a href={item.commitUrl} target="_blank" rel="noreferrer">
-                        Open verified commit <Icon name="external" size={13}/>
-                      </a>
-                    )}
-                  </div>
-                  <div className="points-stepper-control">
-                    <span className="points-stepper-label">POINTS</span>
-                    <div className="points-stepper-actions">
-                      <button
-                        type="button"
-                        className="button-icon-stepper"
-                        title="Decrease point by 1"
-                        aria-label={`Decrease points for ${item.member?.name || 'member'}`}
-                        disabled={memberBusy === item.id || currentPoints <= 0}
-                        onClick={() => adjustPoints(item, Math.max(0, currentPoints - 1))}
-                      >
-                        <IconifyIcon icon="ant-design:minus-circle-outlined" width={18} height={18} />
-                      </button>
-                      <strong className="points-value-display">
-                        {currentPoints}
-                      </strong>
-                      <button
-                        type="button"
-                        className="button-icon-stepper"
-                        title="Increase point by 1"
-                        aria-label={`Increase points for ${item.member?.name || 'member'}`}
-                        disabled={memberBusy === item.id || currentPoints >= 10}
-                        onClick={() => adjustPoints(item, Math.min(10, currentPoints + 1))}
-                      >
-                        <IconifyIcon icon="ant-design:plus-circle-outlined" width={18} height={18} />
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : <div className="soft-empty">No verified submissions have been scored yet.</div>}
-        {scoredPagination.totalPages > 1 && (
-          <div className="pagination-controls">
-            <button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button>
-            <span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span>
-            <button className="button button-quiet" disabled={scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>Next</button>
-          </div>
+                  return (
+                    <article className="review-item score-adjustment-row" key={item.id}>
+                      <div>
+                        <strong>{item.member?.name || 'Member'} <span>· {item.assignment?.dateKey} · LC {item.assignment?.questionId}</span></strong>
+                        <p>{item.solutionPath || item.commitUrl}</p>
+                        {isLeetCode ? (
+                          <a href={profileUrl} target="_blank" rel="noreferrer" className="score-profile-link">
+                            <Icon name="leetcode" size={13}/> View LeetCode profile <Icon name="external" size={13}/>
+                          </a>
+                        ) : (
+                          <a href={item.commitUrl} target="_blank" rel="noreferrer">
+                            Open verified commit <Icon name="external" size={13}/>
+                          </a>
+                        )}
+                      </div>
+                      <div className="points-stepper-control">
+                        <span className="points-stepper-label">POINTS</span>
+                        <div className="points-stepper-actions">
+                          <button
+                            type="button"
+                            className="button-icon-stepper"
+                            title="Decrease point by 1"
+                            aria-label={`Decrease points for ${item.member?.name || 'member'}`}
+                            disabled={memberBusy === item.id || currentPoints <= 0}
+                            onClick={() => adjustPoints(item, Math.max(0, currentPoints - 1))}
+                          >
+                            <IconifyIcon icon="ant-design:minus-circle-outlined" width={18} height={18} />
+                          </button>
+                          <strong className="points-value-display">
+                            {currentPoints}
+                          </strong>
+                          <button
+                            type="button"
+                            className="button-icon-stepper"
+                            title="Increase point by 1"
+                            aria-label={`Increase points for ${item.member?.name || 'member'}`}
+                            disabled={memberBusy === item.id || currentPoints >= 10}
+                            onClick={() => adjustPoints(item, Math.min(10, currentPoints + 1))}
+                          >
+                            <IconifyIcon icon="ant-design:plus-circle-outlined" width={18} height={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : <div className="soft-empty">No verified submissions have been scored yet.</div>}
+            {scoredPagination.totalPages > 1 && (
+              <div className="pagination-controls">
+                <button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button>
+                <span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span>
+                <button className="button button-quiet" disabled={scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>Next</button>
+              </div>
+            )}
+          </>
         )}
       </section>
       <section className={`panel dashboard-activity-panel ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
@@ -1836,9 +1895,6 @@ function App() {
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button className="button button-quiet" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}>Refresh</button>
-            <button className="button button-quiet audit-card-toggle" type="button" onClick={(e) => { e.stopPropagation(); setAuditCardOpen((prev) => !prev); }}>
-              {auditCardOpen ? 'Collapse ▲' : 'Expand ▼'}
-            </button>
           </div>
         </div>
         {auditCardOpen && (
@@ -1918,7 +1974,6 @@ function App() {
                     Submit today’s verified solution using {isLeetcodeApproved && account?.defaultSubmissionMethod === 'leetcode' ? <>directly via <strong>LeetCode</strong></> : <>your <strong>GitHub commit</strong></>}. A verified submission earns 1 point on the club leaderboard.
                   </p>
                   <div className="assignment-counts">
-                    <div><strong>{club.submittedCount}</strong><span>SUBMITTED</span></div>
                     <div><strong>{club.acceptedCount}</strong><span>ACCEPTED</span></div>
                     <a href={`https://leetcode.com/problems/${assignedQuestion.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer">
                       Open on LeetCode <Icon name="external" size={13} />
