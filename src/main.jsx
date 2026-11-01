@@ -1779,7 +1779,7 @@ function App() {
     {view === 'dashboard' && isAdmin && <main className="content-shell page-content dashboard-page">
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Member dashboard<span>.</span></h1><p>Review access, adjust award points, generate reset links, and inspect the admin activity log.</p></div></div>
       <section className="panel dashboard-members-panel">
-        <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" onClick={() => refreshMembers(membersPagination.page)}>Refresh</button></div>
+        <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" title="Refresh accounts" aria-label="Refresh accounts" onClick={() => refreshMembers(membersPagination.page)}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button></div>
         <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['leetcode', `LeetCode reqs · ${memberCounts.leetcodePending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); refreshMembers(1, key, memberQuery); }}>{label}</button>)}</div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
         {displayedMembers.length ? <div className="dashboard-member-list">{displayedMembers.map((member) => <article className="dashboard-member-row" key={member.id}>
           <MemberAvatar person={member} label=""/>
@@ -1815,7 +1815,7 @@ function App() {
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}>Refresh</button>
+            <button className="button button-quiet" title="Refresh submissions" aria-label="Refresh submissions" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
           </div>
         </div>
         {acceptedSubmissionsOpen && (
@@ -1894,7 +1894,7 @@ function App() {
             <h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}>Refresh</button>
+            <button className="button button-quiet" title="Refresh activity" aria-label="Refresh activity" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
           </div>
         </div>
         {auditCardOpen && (

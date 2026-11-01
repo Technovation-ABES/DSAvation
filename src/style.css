@@ -1852,7 +1852,7 @@ h1, h2, h3, p { margin-top: 0; }
 }
 
 .question-card.is-solved .question-title { color: #527588; }
-.question-main { min-height: 64px; padding: 10px 16px; display: grid; grid-template-columns: 48px minmax(200px, 1.7fr) minmax(120px, .95fr) 76px 72px; align-items: center; gap: 14px; }
+.question-main { min-height: 72px; padding: 12px 18px; display: grid; grid-template-columns: 48px minmax(200px, 1.7fr) minmax(120px, .95fr) 76px 72px; align-items: center; gap: 14px; }
 .day-number {
   display: inline-flex;
   align-items: center;
@@ -1867,7 +1867,7 @@ h1, h2, h3, p { margin-top: 0; }
   letter-spacing: .5px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
-.question-copy { min-width: 0; }
+.question-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
 .question-title-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .question-title { color: var(--ink); font: 600 0.8125rem var(--display); letter-spacing: -.2px; transition: color 150ms ease; }
 .question-title:hover { color: var(--ocean); }
@@ -1880,7 +1880,7 @@ h1, h2, h3, p { margin-top: 0; }
   border: 1px solid rgba(186, 230, 253, 0.95);
   letter-spacing: 0.2px;
 }
-.question-pattern { margin-top: 4px; color: var(--muted); font-size: 0.5625rem; }
+.question-pattern { margin-top: 0; color: var(--muted); font-size: 0.5625rem; }
 .completion-date { color: #059669; font-size: 0.5rem; font-weight: 500; }
 .question-topic { min-width: 0; }
 .question-topic .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
@@ -2491,7 +2491,24 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .approval-notice p { margin: 0; font-size: 0.625rem; line-height: 1.55; }
 .approval-notice strong { color: #65563d; }
 .dashboard-members-panel { padding: 20px; margin-bottom: 24px; }
-.refresh-members { min-height: 29px; margin-top: 3px; font-size: 0.5625rem; }
+.refresh-members,
+.dashboard-activity-panel .panel-heading .button-quiet {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: transform 180ms ease, background-color 140ms ease, color 140ms ease;
+}
+.refresh-members:hover,
+.dashboard-activity-panel .panel-heading .button-quiet:hover {
+  transform: rotate(60deg);
+}
 .member-dashboard-toolbar { margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .member-filter-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
 .member-filter-tabs button { min-height: 31px; padding: 0 10px; border: 1px solid transparent; border-radius: 4px; color: #54716e; background: transparent; font-size: 0.5625rem; }
@@ -4102,18 +4119,37 @@ details[open] > .admin-activity-summary svg {
 .practice-stats-col-right {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin: 0;
+  gap: 16px;
+  margin: auto 0;
   justify-content: center;
+  align-items: center;
 }
 
 .practice-stats-col-left .heatmap-stat-item,
 .practice-stats-col-right .heatmap-stat-item {
-  flex: 1;
-  padding: 16px 18px;
+  width: 100%;
+  max-width: 180px;
+  padding: 10px 14px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.practice-stats-col-left .heatmap-stat-item strong,
+.practice-stats-col-right .heatmap-stat-item strong {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  text-align: center;
+}
+
+.practice-stats-col-left .heatmap-stat-item span,
+.practice-stats-col-right .heatmap-stat-item span {
+  text-align: center;
 }
 
 @media (max-width: 980px) {

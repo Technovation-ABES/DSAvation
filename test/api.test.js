@@ -1284,3 +1284,72 @@ test('LeetCode submission requires admin approval: member request, admin approva
   const updatedMemberDoc = await db.collection('users').findOne({ _id: member.user._id });
   assert.equal(updatedMemberDoc.leetcodeApproval, 'none');
 });
+
+test('leaderboard ranks by points then earlier score timestamp, with punctuality = attempted assigned / total assigned', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const today = indiaDay();
+  const yesterday = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date(Date.now() - 86400000));
+
+  // 2 questions assigned in total
+  const a1 = await db.collection('assignments').insertOne({
+    _id: new ObjectId(),
+    dateKey: yesterday,
+    questionId: 1,
+    createdAt: new Date(Date.now() - 86400000),
+  });
+  const a2 = await db.collection('assignments').insertOne({
+    _id: new ObjectId(),
+    dateKey: today,
+    questionId: 217,
+    createdAt: new Date(),
+  });
+
+  // User A (early solver) and User B (late solver) both solve a1 (1 pt each)
+  const userA = await seedUser(db, { name: 'Alice Early', email: 'alice@abes.ac.in', username: 'alice-gh' });
+  const userB = await seedUser(db, { name: 'Bob Late', email: 'bob@abes.ac.in', username: 'bob-gh' });
+  const userC = await seedUser(db, { name: 'Charlie Zero', email: 'charlie@abes.ac.in', username: 'charlie-gh' });
+
+  const earlyTime = new Date('2026-11-01T10:00:00Z');
+  const lateTime = new Date('2026-11-01T14:00:00Z');
+
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId: a1.insertedId,
+    userId: userA.user._id,
+    questionId: 1,
+    status: 'accepted',
+    points: 1,
+    submittedAt: earlyTime,
+    reviewedAt: earlyTime,
+  });
+
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId: a1.insertedId,
+    userId: userB.user._id,
+    questionId: 1,
+    status: 'accepted',
+    points: 1,
+    submittedAt: lateTime,
+    reviewedAt: lateTime,
+  });
+
+  const board = await call(db, '/club/leaderboard?page=1&pageSize=10');
+  const lb = board.data.leaderboard;
+
+  // Alice Early reached 1 point first, so Alice is ranked #1 and Bob is ranked #2
+  assert.equal(lb[0].githubUsername, 'alice-gh');
+  assert.equal(lb[1].githubUsername, 'bob-gh');
+
+  // Both solved 1 of 2 total assigned questions -> 50% punctuality
+  assert.equal(lb[0].punctuality, 50);
+  assert.equal(lb[1].punctuality, 50);
+
+  // Charlie attempted 0 of 2 total assigned questions -> 0% punctuality
+  const charlieRow = lb.find((p) => p.githubUsername === 'charlie-gh');
+  assert.equal(charlieRow.punctuality, 0);
+  assert.equal(charlieRow.points, 0);
+});

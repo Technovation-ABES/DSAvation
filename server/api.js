@@ -970,46 +970,64 @@ async function assignmentHistory(db, url) {
 
 async function leaderboard(db, url) {
   const assignments = await db.collection('assignments').find({ dateKey: { $lte: dayKey() } }).sort({ dateKey: 1 }).toArray();
+  const assignedIdSet = new Set(assignments.map((assignment) => String(assignment._id)));
+  const totalAssigned = assignments.length;
+
   const totals = await db.collection('submissions').aggregate([
     { $match: { status: 'accepted' } },
-    { $group: { _id: '$userId', accepted: { $sum: 1 }, points: { $sum: { $ifNull: ['$points', 1] } }, acceptedAssignments: { $addToSet: '$assignmentId' }, lastAcceptedAt: { $max: '$reviewedAt' } } },
+    { $group: {
+        _id: '$userId',
+        accepted: { $sum: 1 },
+        points: { $sum: { $ifNull: ['$points', 1] } },
+        acceptedAssignments: { $addToSet: '$assignmentId' },
+        lastAcceptedAt: { $max: { $ifNull: ['$reviewedAt', '$submittedAt'] } },
+      }
+    },
     { $sort: { accepted: -1, lastAcceptedAt: 1 } },
   ]).toArray();
+
+  const attempts = await db.collection('submissions').find(
+    { status: { $ne: 'invalidated' } },
+    { projection: { userId: 1, assignmentId: 1 } }
+  ).toArray();
+
+  const userAttemptsMap = new Map();
+  for (const item of attempts) {
+    const uId = String(item.userId);
+    if (!userAttemptsMap.has(uId)) userAttemptsMap.set(uId, new Set());
+    if (assignedIdSet.has(String(item.assignmentId))) {
+      userAttemptsMap.get(uId).add(String(item.assignmentId));
+    }
+  }
+
   const profiles = await db.collection('users').find(approvedUserFilter(), {
     projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
   }).toArray();
   const totalById = new Map(totals.map((row) => [String(row._id), row]));
   const today = dayKey();
+
   const sortedProfiles = profiles.map((profile) => {
-    const row = totalById.get(String(profile._id)) || { accepted: 0, acceptedAssignments: [] };
-    const joinedDate = profile.createdAt ? new Date(profile.createdAt) : null;
-    const joinedKey = joinedDate && !Number.isNaN(joinedDate.getTime()) ? dayKey(joinedDate) : '';
+    const row = totalById.get(String(profile._id)) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
     const completed = new Set((row.acceptedAssignments || []).map(String));
 
-    // Assignments considered scheduled for this member:
-    // 1. Any assignment the member has completed (accepted) is always counted.
-    // 2. Concluded assignments from the past (dateKey < today) that occurred on or after the member joined.
-    // 3. For today's assignment (dateKey === today), it is counted if completed; if not yet completed,
-    //    today is still in progress so it is not overdue.
-    const eligible = assignments.filter((assignment) => {
-      if (completed.has(String(assignment._id))) return true;
-      if (assignment.dateKey < today) {
-        return !joinedKey || assignment.dateKey >= joinedKey;
-      }
-      return false;
-    });
+    // Number of assigned questions attempted by this member
+    const userAttempted = userAttemptsMap.get(String(profile._id));
+    const attemptedCount = userAttempted ? userAttempted.size : completed.size;
+
+    // Leaderboard punctuality stats: number of question attempted that assigned / total questions assigned
+    const punctuality = totalAssigned === 0
+      ? 100
+      : Math.min(100, Math.max(0, Math.round((attemptedCount / totalAssigned) * 100)));
 
     let streak = 0;
-    for (const assignment of eligible.slice().reverse()) {
-      if (!completed.has(String(assignment._id))) break;
+    const revAssignments = assignments.slice().reverse();
+    const startIndex = (revAssignments.length > 0 && revAssignments[0].dateKey === today && !completed.has(String(revAssignments[0]._id)))
+      ? 1
+      : 0;
+    for (let i = startIndex; i < revAssignments.length; i++) {
+      if (!completed.has(String(revAssignments[i]._id))) break;
       streak += 1;
     }
-
-    const punctuality = row.accepted === 0
-      ? 0
-      : eligible.length > 0
-        ? Math.min(100, Math.max(0, Math.round((row.accepted / eligible.length) * 100)))
-        : 100;
 
     return {
       name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'ABES member',
@@ -1018,11 +1036,31 @@ async function leaderboard(db, url) {
       ...formatAvatar(profile),
       points: row.points ?? row.accepted,
       completed: row.accepted,
-      scheduled: eligible.length,
+      scheduled: totalAssigned,
       punctuality,
       streak,
+      lastAcceptedAt: row.lastAcceptedAt || null,
     };
-  }).sort((a, b) => b.points - a.points || b.punctuality - a.punctuality || a.name.localeCompare(b.name));
+  }).sort((a, b) => {
+    // 1. Overall Leaderboard ranking depends on points
+    if (b.points !== a.points) {
+      return b.points - a.points;
+    }
+    // 2. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
+    if (a.points > 0 && b.points > 0) {
+      const timeA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
+      const timeB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+    }
+    // 3. Punctuality
+    if (b.punctuality !== a.punctuality) {
+      return b.punctuality - a.punctuality;
+    }
+    // 4. Alphabetical tiebreaker
+    return a.name.localeCompare(b.name);
+  });
   const { page, pageSize, skip } = pageOptions(url, 20, 50);
   return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length) };
 }
