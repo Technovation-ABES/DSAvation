@@ -393,12 +393,11 @@ function ProgressHeatmap({ progress }) {
 function QuestionActionsGuide() {
   return <div className="question-actions-guide" aria-label="Question controls">
     <span><i className="guide-check"><Icon name="check" size={12}/></i>Mark solved for personal progress</span>
-    <span><i className="guide-in-progress"><IconifyIcon icon="bi:hourglass" width={13} height={13}/></i>In progress</span>
     <span><i className="guide-expand"><Icon name="arrow" size={12}/></i>Click card to show/hide approach and complexity</span>
   </div>;
 }
 
-function QuestionRow({ question, solved, solvedAt, bookmarked, onSolve, onBookmark }) {
+function QuestionRow({ question, solved, solvedAt, onSolve }) {
   const [expanded, setExpanded] = useState(false);
   const handleCardClick = (e) => {
     if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.question-analysis')) return;
@@ -420,7 +419,6 @@ function QuestionRow({ question, solved, solvedAt, bookmarked, onSolve, onBookma
       <div className="question-level"><span className={`difficulty ${question.difficulty.toLowerCase()}`}><i/>{question.difficulty}</span></div>
       <div className="question-actions">
         <button type="button" className={`icon-button solve-button ${solved ? 'complete' : ''}`} onClick={(e) => { e.stopPropagation(); onSolve(); }} aria-label={solved ? 'Remove from personal progress' : 'Mark in personal progress'} title={solved ? 'Remove from personal progress' : 'Mark solved for personal progress'}>{solved ? <Icon name="check" size={15}/> : <span className="check-empty"/>}</button>
-        <button type="button" className={`icon-button bookmark-button in-progress-btn ${bookmarked ? 'in-progress-active' : ''}`} onClick={(e) => { e.stopPropagation(); onBookmark(); }} aria-label={bookmarked ? 'Remove from in progress' : 'Mark as in progress'} title={bookmarked ? 'In progress (click to remove)' : 'Mark as in progress'}><IconifyIcon icon="bi:hourglass" width={14} height={14}/></button>
       </div>
     </div>
     {expanded && <div id={`question-analysis-${question.id}`} className="question-analysis">
@@ -1102,6 +1100,10 @@ function App() {
     try {
       const result = await api('/submissions', { method: 'POST', body: { assignmentId: club.assignment?.id, commitUrl } });
       setCommitUrl(''); setSubmissionHelpOpen(false); setNotice(`GitHub verified your solution. ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
+      const qId = club.assignment?.questionId || result.submission?.questionId;
+      if (qId) {
+        setProgress((prev) => ({ ...prev, [qId]: new Date().toISOString() }));
+      }
       await loadClub(); await loadHistoryPage(1); await loadMemberData();
     } catch (error) { setNotice(error.message); }
     finally { setSubmissionBusy(false); }
@@ -1117,6 +1119,10 @@ function App() {
         body: { assignmentId: club.assignment?.id, type: 'leetcode' },
       });
       setNotice(`LeetCode verified your solution! ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
+      const qId = club.assignment?.questionId || result.submission?.questionId;
+      if (qId) {
+        setProgress((prev) => ({ ...prev, [qId]: new Date().toISOString() }));
+      }
       await loadClub();
       await loadHistoryPage(1);
       await loadMemberData();
@@ -1474,7 +1480,7 @@ function App() {
         <div className="filter-bar"><label className="search-input"><Icon name="search" size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a title, pattern, algorithm or LC number"/><kbd>/</kbd></label><label className="filter-select"><span>TOPIC</span><select value={topic} onChange={(event) => setTopic(event.target.value)}><option>All topics</option>{topics.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>LEVEL</span><select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><option>Any level</option>{['Easy', 'Medium', 'Hard'].map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>DATA STRUCTURE</span><select value={structure} onChange={(event) => setStructure(event.target.value)}><option>Any data structure</option>{structures.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>PATTERN</span><select value={pattern} onChange={(event) => setPattern(event.target.value)}><option>Any pattern</option>{patterns.map((item) => <option key={item}>{item}</option>)}</select></label><button className="sort-button" onClick={() => setSort((current) => current === 'day' ? 'title' : 'day')}>Sort: {sort === 'day' ? 'Day' : 'Title'} ↕</button></div>
         <div className="library-meta"><span><Icon name="filter" size={14}/>{visibleQuestions.length === questions.length ? 'All 220 questions' : `${visibleQuestions.length} matching questions`}</span>{(query || topic !== 'All topics' || difficulty !== 'Any level' || structure !== 'Any data structure' || pattern !== 'Any pattern') && <button onClick={clearFilters}>Clear filters</button>}<span className="personal-legend"><i/> Personal completion {account ? '' : '· sign in to track'}</span></div>
         <QuestionActionsGuide/>
-        <div className="question-list">{visibleQuestions.length ? visibleQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id])} solvedAt={progress[question.id]} bookmarked={bookmarks.includes(question.id)} onSolve={() => solvePersonal(question.id)} onBookmark={() => toggleBookmark(question.id)}/>) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
+        <div className="question-list">{visibleQuestions.length ? visibleQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id])} solvedAt={progress[question.id]} onSolve={() => solvePersonal(question.id)}/>) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
       </section>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
@@ -1596,7 +1602,7 @@ function App() {
                   ? "This method will automatically appear in Today's Assignment under Club Challenge."
                   : "Direct LeetCode submissions require administrator approval. You can submit solutions via GitHub commit anytime."}
               </small>
-            </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview"/><div><strong>Choose your avatar</strong><span>{avatarDraftStyle === 'custom' ? 'Paste a direct link to any custom image.' : 'Pick a style, then select a face or shuffle the options.'}</span></div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }}/>{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16}/> : <Icon name="lock" size={14}/>}<span>{customUrlStatus.message}</span></div><small className="avatar-custom-hint">Supports any public image format (PNG, JPG, SVG, WebP, GIF) from GitHub, Imgur, Gravatar, etc.</small></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label=""/></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong><span>Set a personal background image displayed behind your card in the Members tab.</span></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)}/>{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label><small className="avatar-custom-hint">A soft semi-transparent overlay is applied above your image in the members roster to ensure text readability.</small></div><div className="account-form-actions"><button className="button button-dark" disabled={profileBusy || !isProfileDirty}>{profileBusy ? 'Saving…' : 'Save account details'} <Icon name="arrow" size={14}/></button>{account.githubVerified ? <button className="button button-danger" type="button" disabled={profileBusy} onClick={disconnectGithub}>Disconnect GitHub</button> : <button className="button button-quiet" type="button" onClick={() => { window.location.href = '/api/auth/github/start'; }}><Icon name="github" size={15}/>Connect GitHub</button>}<button className="button button-quiet" type="button" onClick={logout}><Icon name="logout" size={14}/>Sign out</button></div></form></section><ProgressHeatmap progress={progress}/><div className="progress-summary"><article><span>COMPLETED</span><strong>{solvedCount}<small> / 220</small></strong></article><article><span>CURRICULUM COVERED</span><strong>{Math.round(solvedCount / 220 * 100)}<small>%</small></strong></article><article><span>DAILY PRACTICE</span><strong>{new Set(Object.values(progress).map((value) => new Date(value).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))).size}<small> sessions</small></strong></article><article><span>PERSONAL STREAK</span><strong>{personalStreak.current}<small> days</small></strong><small className="streak-best">Best: {personalStreak.best} days · checkmarks only</small></article><article><span>IN PROGRESS</span><strong>{bookmarks.length}<small> questions</small></strong></article></div><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line"/>YOUR COMPLETIONS</div><h2>{solvedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('general'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Browse questions <Icon name="arrow" size={14}/></button></div>{solvedCount ? <><QuestionActionsGuide/><div className="question-list">{Object.entries(progress).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} bookmarked={bookmarks.includes(question.id)} onSolve={() => solvePersonal(question.id)} onBookmark={() => toggleBookmark(question.id)}/>)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first question starts the record.</h2><p>Use the personal checkmark in the question library when you finish a problem. Club challenge submissions are tracked separately.</p><button className="button button-dark" onClick={() => navigate('general')}>Browse the library <Icon name="arrow" size={14}/></button></div>}</>}
+            </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview"/><div><strong>Choose your avatar</strong><span>{avatarDraftStyle === 'custom' ? 'Paste a direct link to any custom image.' : 'Pick a style, then select a face or shuffle the options.'}</span></div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }}/>{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16}/> : <Icon name="lock" size={14}/>}<span>{customUrlStatus.message}</span></div><small className="avatar-custom-hint">Supports any public image format (PNG, JPG, SVG, WebP, GIF) from GitHub, Imgur, Gravatar, etc.</small></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label=""/></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong><span>Set a personal background image displayed behind your card in the Members tab.</span></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)}/>{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label><small className="avatar-custom-hint">A soft semi-transparent overlay is applied above your image in the members roster to ensure text readability.</small></div><div className="account-form-actions"><button className="button button-dark" disabled={profileBusy || !isProfileDirty}>{profileBusy ? 'Saving…' : 'Save account details'} <Icon name="arrow" size={14}/></button>{account.githubVerified ? <button className="button button-danger" type="button" disabled={profileBusy} onClick={disconnectGithub}>Disconnect GitHub</button> : <button className="button button-quiet" type="button" onClick={() => { window.location.href = '/api/auth/github/start'; }}><Icon name="github" size={15}/>Connect GitHub</button>}<button className="button button-quiet" type="button" onClick={logout}><Icon name="logout" size={14}/>Sign out</button></div></form></section><ProgressHeatmap progress={progress}/><div className="progress-summary"><article><span>COMPLETED</span><strong>{solvedCount}<small> / 220</small></strong></article><article><span>CURRICULUM COVERED</span><strong>{Math.round(solvedCount / 220 * 100)}<small>%</small></strong></article><article><span>DAILY PRACTICE</span><strong>{new Set(Object.values(progress).map((value) => new Date(value).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))).size}<small> sessions</small></strong></article><article><span>PERSONAL STREAK</span><strong>{personalStreak.current}<small> days</small></strong><small className="streak-best">Best: {personalStreak.best} days · checkmarks only</small></article></div><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line"/>YOUR COMPLETIONS</div><h2>{solvedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('general'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Browse questions <Icon name="arrow" size={14}/></button></div>{solvedCount ? <><QuestionActionsGuide/><div className="question-list">{Object.entries(progress).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} onSolve={() => solvePersonal(question.id)}/>)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first question starts the record.</h2><p>Use the personal checkmark in the question library when you finish a problem. Club challenge submissions are tracked separately.</p><button className="button button-dark" onClick={() => navigate('general')}>Browse the library <Icon name="arrow" size={14}/></button></div>}</>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
 
@@ -1618,7 +1624,10 @@ function App() {
           const maxActivity = Math.max(1, ...(stats?.byDifficulty || []).map((item) => item.attempted ?? item.solved));
           return <article className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''}`} key={member.id}>
             {member.cardBgUrl && (
-              <div className="member-card-bg-layer" style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }} aria-hidden="true" />
+              <>
+                <div className="member-card-bg-layer" style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }} aria-hidden="true" />
+                <div className="member-card-overlay-layer" aria-hidden="true" />
+              </>
             )}
             <div className="member-card-content-layer">
               <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="reicon:verified-filled" width={15} height={15} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)}</p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
@@ -1839,8 +1848,8 @@ function App() {
             <section className="panel moderation-tools-panel">
               <div className="panel-heading">
                 <div>
-                  <div className="eyebrow"><span className="eyebrow-line"/>MODERATION</div>
-                  <h2>Today's Moderation</h2>
+                  <div className="eyebrow"><span className="eyebrow-line"/>EXPLAINER</div>
+                  <h2>Today's Explainer</h2>
                 </div>
                 <div className="panel-heading-actions">
                   <button
@@ -1848,18 +1857,9 @@ function App() {
                     className="button button-green pick-explainer-head-btn"
                     onClick={handlePickRandomExplainer}
                     disabled={!club.assignment || pickExplainerBusy}
-                    title={club.assignment?.explainer ? "View today's selected explainer" : "Select an explainer for today's question"}
+                    title={club.assignment?.explainer ? "View today's selected explainer share card" : "Select an explainer for today's question"}
                   >
-                    <Icon name="dice" size={14}/> <span>{club.assignment?.explainer ? 'View Explainer' : 'Pick Explainer'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-quiet export-csv-btn"
-                    onClick={() => setExportModalOpen(true)}
-                    disabled={!club.assignment && !todaySubmissionsData.questionId}
-                    title="Export today's question activity report as CSV"
-                  >
-                    <Icon name="download" size={14}/> <span>Export as .CSV</span>
+                    <Icon name="dice" size={14}/> <span>{club.assignment?.explainer ? 'View Share Card' : 'Pick Explainer'}</span>
                   </button>
                 </div>
               </div>
@@ -1876,16 +1876,6 @@ function App() {
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="button button-quiet explainer-view-card-btn"
-                    onClick={() => {
-                      setSelectedExplainer(club.assignment.explainer);
-                      setExplainerModalOpen(true);
-                    }}
-                  >
-                    View Share Card
-                  </button>
                 </div>
               )}
 
@@ -1930,7 +1920,17 @@ function App() {
           <section className="panel leaderboard-panel">
             <div className="panel-heading">
               <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB STANDINGS</div><h2><Icon name="trophy" size={18}/> Leaderboard</h2></div>
-              <span className="live-tag">LIVE</span>
+              {isLeader && (
+                <button
+                  type="button"
+                  className="button button-quiet export-csv-btn"
+                  onClick={() => setExportModalOpen(true)}
+                  disabled={!club.assignment && !todaySubmissionsData.questionId}
+                  title="Export today's question activity report as CSV"
+                >
+                  <Icon name="download" size={14}/> <span>Export as .CSV</span>
+                </button>
+              )}
             </div>
 
             <div className="leaderboard-scope-toggle">
@@ -1970,7 +1970,7 @@ function App() {
                           ) : (
                             <span className="rank">{String(rank).padStart(2, '0')}</span>
                           )}
-                          <MemberAvatar person={person} className={isTopThree ? 'top-three-avatar' : ''} label=""/>
+                          <MemberAvatar person={person} label=""/>
                           <div className="leader-person">
                             <strong>
                               {person.name}

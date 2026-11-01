@@ -799,6 +799,18 @@ async function makeSubmission(db, req, user, body) {
     return { ...submission, _id: existing._id, id: String(existing._id) };
   }
   const result = await db.collection('submissions').insertOne(submission);
+  if (submission.status === 'accepted' && submission.questionId) {
+    try {
+      await db.collection('personalProgress').updateOne(
+        { userId: user._id, questionId: Number(submission.questionId) },
+        {
+          $setOnInsert: { userId: user._id, questionId: Number(submission.questionId), solvedAt: new Date() },
+          $set: { updatedAt: new Date() },
+        },
+        { upsert: true }
+      );
+    } catch {}
+  }
   return { ...submission, _id: result.insertedId, id: String(result.insertedId) };
 }
 
@@ -1676,6 +1688,36 @@ export async function handleApiNode(req, res, options = {}) {
     if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
     db = await getDb();
 
+    if (url.pathname === '/api/proxy-image' && method === 'GET') {
+      const target = url.searchParams.get('url');
+      if (!target || !/^https?:\/\//i.test(target)) {
+        throw new HttpError(400, 'A valid http or https URL is required.');
+      }
+      try {
+        const response = await fetch(target, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DSAvation/1.0',
+            'Accept': 'image/*'
+          },
+          signal: AbortSignal.timeout(6000)
+        });
+        if (!response.ok) {
+          throw new HttpError(response.status, 'Failed to fetch image');
+        }
+        const contentType = response.headers.get('content-type') || 'image/png';
+        const arrayBuffer = await response.arrayBuffer();
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end(Buffer.from(arrayBuffer));
+        return;
+      } catch (err) {
+        if (err instanceof HttpError) throw err;
+        throw new HttpError(502, 'Image host could not be reached.');
+      }
+    }
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/reset-password' && method === 'POST') return json(res, 200, await resetPassword(db, req, res, await readBody(req)));

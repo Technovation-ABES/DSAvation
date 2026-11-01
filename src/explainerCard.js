@@ -182,68 +182,55 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
 
   let avatarDrawn = false;
   try {
-    // 1. Check if the DOM already rendered the explainer preview avatar!
-    const previewImg = typeof document !== 'undefined' ? document.querySelector('.explainer-preview-card img, .explainer-preview-avatar img') : null;
-    if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
-      try {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(previewImg, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
-        ctx.restore();
-        avatarDrawn = true;
-      } catch (e) {
-        // Fall through to loading from source if drawing tainted or threw
+    const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
+    let rawSource = isCustom
+      ? (explainer.avatarUrl || explainer.avatarSeed)
+      : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
+
+    let imgSource = rawSource;
+    let isProxied = false;
+
+    // If HTTP/HTTPS, route through local proxy to guarantee same-origin CORS and prevent canvas tainting
+    if (rawSource && /^https?:\/\//i.test(rawSource)) {
+      imgSource = `/api/proxy-image?url=${encodeURIComponent(rawSource)}`;
+      isProxied = true;
+    } else if (imgSource && imgSource.startsWith('data:image/svg+xml')) {
+      // If SVG data URI, ensure width and height attributes exist so drawImage renders with non-zero dimensions
+      let decoded = decodeURIComponent(imgSource.replace(/^data:image\/svg\+xml(?:;charset=utf-8)?,/, ''));
+      if (!/width=/i.test(decoded)) {
+        decoded = decoded.replace(/<svg\b([^>]*)>/i, '<svg width="300" height="300" $1>');
+        imgSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(decoded)}`;
       }
     }
 
-    if (!avatarDrawn) {
-      const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
-      let imgSource = isCustom
-        ? (explainer.avatarUrl || explainer.avatarSeed)
-        : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
-
-      // If SVG data URI, ensure width and height attributes exist so drawImage renders with non-zero dimensions
-      if (imgSource && imgSource.startsWith('data:image/svg+xml')) {
-        let decoded = decodeURIComponent(imgSource.replace(/^data:image\/svg\+xml(?:;charset=utf-8)?,/, ''));
-        if (!/width=/i.test(decoded)) {
-          decoded = decoded.replace(/<svg\b([^>]*)>/i, '<svg width="300" height="300" $1>');
-          imgSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(decoded)}`;
+    if (imgSource) {
+      await new Promise((resolve) => {
+        const img = new Image();
+        if (isProxied || /^https?:\/\//i.test(imgSource)) {
+          img.crossOrigin = 'anonymous';
         }
-      }
-
-      if (imgSource) {
-        await new Promise((resolve) => {
-          const img = new Image();
-          // ONLY set crossOrigin on external http/https URLs, NEVER on data: or blob:
-          if (/^https?:\/\//i.test(imgSource)) {
-            img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(img, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
+            ctx.restore();
+            avatarDrawn = true;
+          } catch (err) {
+            console.warn('Canvas drawImage failed:', err);
           }
-          img.onload = () => {
-            try {
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
-              ctx.closePath();
-              ctx.clip();
-              ctx.drawImage(img, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
-              ctx.restore();
-              avatarDrawn = true;
-            } catch (err) {
-              console.warn('Canvas drawImage failed:', err);
-            }
-            resolve();
-          };
-          img.onerror = (err) => {
-            console.warn('Image loading error:', err);
-            resolve();
-          };
-          img.src = imgSource;
-          setTimeout(resolve, 3000);
-        });
-      }
+          resolve();
+        };
+        img.onerror = (err) => {
+          console.warn('Image loading error, falling back to gradient initial:', err);
+          resolve();
+        };
+        img.src = imgSource;
+        setTimeout(resolve, 3500);
+      });
     }
   } catch (err) {
     console.warn('Avatar processing failed:', err);
@@ -354,56 +341,64 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
 
 export async function downloadExplainerImage(params) {
   const canvas = await renderExplainerCardCanvas(params);
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        resolve(false);
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const cleanName = (params.explainer?.name || 'member').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      a.href = url;
-      a.download = `explainer-spotlight-${cleanName}-${params.dateKey || 'today'}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      resolve(true);
-    }, 'image/png');
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          resolve(false);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const cleanName = (params.explainer?.name || 'member').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        a.href = url;
+        a.download = `explainer-spotlight-${cleanName}-${params.dateKey || 'today'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        resolve(true);
+      }, 'image/png');
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 export async function copyExplainerImage(params) {
   const canvas = await renderExplainerCardCanvas(params);
-  return new Promise((resolve) => {
-    canvas.toBlob(async (blob) => {
-      if (!blob) {
-        resolve(false);
-        return;
-      }
-      try {
-        if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
-          resolve('copied');
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          resolve(false);
           return;
         }
-      } catch (err) {
-        console.warn('Clipboard write not allowed, falling back to download:', err);
-      }
-      // Fallback: trigger download if clipboard API unavailable
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const cleanName = (params.explainer?.name || 'member').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      a.href = url;
-      a.download = `explainer-spotlight-${cleanName}-${params.dateKey || 'today'}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      resolve('downloaded');
-    }, 'image/png');
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            resolve('copied');
+            return;
+          }
+        } catch (err) {
+          console.warn('Clipboard write not allowed, falling back to download:', err);
+        }
+        // Fallback: trigger download if clipboard API unavailable
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const cleanName = (params.explainer?.name || 'member').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        a.href = url;
+        a.download = `explainer-spotlight-${cleanName}-${params.dateKey || 'today'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        resolve('downloaded');
+      }, 'image/png');
+    } catch (err) {
+      reject(err);
+    }
   });
 }
