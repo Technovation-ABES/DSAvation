@@ -72,16 +72,34 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
 
   // 2. Header Area
   ctx.save();
+  // Logo image
+  try {
+    await new Promise((resolve) => {
+      const logoImg = new Image();
+      logoImg.onload = () => {
+        ctx.save();
+        safeRoundRect(ctx, 60, 52, 46, 46, 10);
+        ctx.clip();
+        ctx.drawImage(logoImg, 60, 52, 46, 46);
+        ctx.restore();
+        resolve();
+      };
+      logoImg.onerror = () => resolve();
+      logoImg.src = '/technovation-logo.png';
+      setTimeout(resolve, 1000);
+    });
+  } catch {}
+
   // Eyebrow badge
   ctx.fillStyle = '#38bdf8';
-  ctx.font = '700 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.letterSpacing = '1.5px';
-  ctx.fillText('ABES TECHNOVATION CLUB  ·  DSAVATION', 60, 68);
+  ctx.fillText('ABES TECHNOVATION CLUB  ·  DSAVATION', 118, 68);
 
   // Main Heading
   ctx.fillStyle = '#ffffff';
-  ctx.font = '800 34px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText("TODAY'S SOLUTION EXPLAINER", 60, 108);
+  ctx.font = '800 30px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText("TODAY'S SOLUTION EXPLAINER", 118, 97);
 
   // Date Tag Pill (Right side of header)
   const dateStr = dateKey || new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Kolkata' }).format(new Date());
@@ -164,31 +182,72 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
 
   let avatarDrawn = false;
   try {
-    const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
-    const imgSource = isCustom
-      ? (explainer.avatarUrl || explainer.avatarSeed)
-      : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
-    if (imgSource) {
-      await new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(img, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
-          ctx.restore();
-          avatarDrawn = true;
-          resolve();
-        };
-        img.onerror = () => resolve();
-        img.src = imgSource;
-        setTimeout(resolve, 600); // 600ms timeout max
-      });
+    // 1. Check if the DOM already rendered the explainer preview avatar!
+    const previewImg = typeof document !== 'undefined' ? document.querySelector('.explainer-preview-card img, .explainer-preview-avatar img') : null;
+    if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
+      try {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(previewImg, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
+        ctx.restore();
+        avatarDrawn = true;
+      } catch (e) {
+        // Fall through to loading from source if drawing tainted or threw
+      }
     }
-  } catch {}
+
+    if (!avatarDrawn) {
+      const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
+      let imgSource = isCustom
+        ? (explainer.avatarUrl || explainer.avatarSeed)
+        : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
+
+      // If SVG data URI, ensure width and height attributes exist so drawImage renders with non-zero dimensions
+      if (imgSource && imgSource.startsWith('data:image/svg+xml')) {
+        let decoded = decodeURIComponent(imgSource.replace(/^data:image\/svg\+xml(?:;charset=utf-8)?,/, ''));
+        if (!/width=/i.test(decoded)) {
+          decoded = decoded.replace(/<svg\b([^>]*)>/i, '<svg width="300" height="300" $1>');
+          imgSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(decoded)}`;
+        }
+      }
+
+      if (imgSource) {
+        await new Promise((resolve) => {
+          const img = new Image();
+          // ONLY set crossOrigin on external http/https URLs, NEVER on data: or blob:
+          if (/^https?:\/\//i.test(imgSource)) {
+            img.crossOrigin = 'anonymous';
+          }
+          img.onload = () => {
+            try {
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
+              ctx.closePath();
+              ctx.clip();
+              ctx.drawImage(img, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
+              ctx.restore();
+              avatarDrawn = true;
+            } catch (err) {
+              console.warn('Canvas drawImage failed:', err);
+            }
+            resolve();
+          };
+          img.onerror = (err) => {
+            console.warn('Image loading error:', err);
+            resolve();
+          };
+          img.src = imgSource;
+          setTimeout(resolve, 3000);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Avatar processing failed:', err);
+  }
 
   if (!avatarDrawn) {
     ctx.save();

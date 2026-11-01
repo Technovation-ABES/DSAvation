@@ -179,6 +179,7 @@ function account(user) {
     githubVerified: Boolean(user.githubVerifiedAt), role: user.role || 'member',
     showPublic: Boolean(user.showPublic), createdAt: user.createdAt,
     explicitSubmissionMethod: explicit,
+    cardBgUrl: user.cardBgUrl || '',
     leetcodeApproval: user.role === 'admin' ? 'approved' : (user.leetcodeApproval || 'none'),
     defaultSubmissionMethod: leetcodeApproved && user.defaultSubmissionMethod === 'leetcode' ? 'leetcode' : 'github',
   };
@@ -444,10 +445,19 @@ async function updateProfile(db, req, user, body) {
     }
     explicitSubmissionMethod = true;
   }
+  let cardBgUrl = user.cardBgUrl || '';
+  if (body.cardBgUrl !== undefined) {
+    const rawBg = String(body.cardBgUrl || '').trim();
+    if (rawBg && !/^https?:\/\//i.test(rawBg)) {
+      throw new HttpError(400, 'Custom background image URL must start with http:// or https://');
+    }
+    cardBgUrl = rawBg;
+  }
   const update = {
     name, department, studyYear, leetcodeUsername,
     defaultSubmissionMethod, explicitSubmissionMethod,
     leetcodeApproval, leetcodeRequestedAt,
+    cardBgUrl,
     avatarStyle, avatarSeed, avatarUrl, updatedAt: new Date(),
   };
   const unset = {};
@@ -1451,7 +1461,7 @@ async function listDirectory(db, url, viewer = null) {
   const [total, members, departments] = await Promise.all([
     db.collection('users').countDocuments(filter),
     db.collection('users').find(filter, {
-      projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+      projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1 },
     }).sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
     db.collection('users').find(approvedUserFilter(), { projection: { department: 1 } }).toArray(),
   ]);
@@ -1467,6 +1477,7 @@ async function listDirectory(db, url, viewer = null) {
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
         role: member.role || 'member',
+        cardBgUrl: member.cardBgUrl || '',
         ...formatAvatar(member),
       };
     }),
