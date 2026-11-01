@@ -181,59 +181,163 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey }
   const avatarR = 75;
 
   let avatarDrawn = false;
+
+  // Helper to draw an image/canvas onto the hero avatar circle
+  function drawAvatarToCanvas(imageObj) {
+    try {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(imageObj, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
+      ctx.restore();
+      return true;
+    } catch (err) {
+      console.warn('drawAvatarToCanvas failed:', err);
+      return false;
+    }
+  }
+
+  // Helper: Create an Image object from a Blob URL safely
+  function loadImageFromBlob(blob) {
+    return new Promise((resolve) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const ok = drawAvatarToCanvas(img);
+        URL.revokeObjectURL(blobUrl);
+        resolve(ok);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        resolve(false);
+      };
+      img.src = blobUrl;
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        resolve(false);
+      }, 4000);
+    });
+  }
+
+  // TRICK 1: Check if the DOM already rendered the avatar for this explainer
   try {
-    const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
-    let rawSource = isCustom
-      ? (explainer.avatarUrl || explainer.avatarSeed)
-      : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
-
-    let imgSource = rawSource;
-    let isProxied = false;
-
-    // If HTTP/HTTPS, route through local proxy to guarantee same-origin CORS and prevent canvas tainting
-    if (rawSource && /^https?:\/\//i.test(rawSource)) {
-      imgSource = `/api/proxy-image?url=${encodeURIComponent(rawSource)}`;
-      isProxied = true;
-    } else if (imgSource && imgSource.startsWith('data:image/svg+xml')) {
-      // If SVG data URI, ensure width and height attributes exist so drawImage renders with non-zero dimensions
-      let decoded = decodeURIComponent(imgSource.replace(/^data:image\/svg\+xml(?:;charset=utf-8)?,/, ''));
-      if (!/width=/i.test(decoded)) {
-        decoded = decoded.replace(/<svg\b([^>]*)>/i, '<svg width="300" height="300" $1>');
-        imgSource = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(decoded)}`;
+    const previewImg = typeof document !== 'undefined'
+      ? document.querySelector('.explainer-preview-avatar, .explainer-modal img.avatar-image')
+      : null;
+    if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
+      // If it's a data URI or blob URL, it is completely origin-clean and safe to draw immediately
+      if (previewImg.src && (previewImg.src.startsWith('data:') || previewImg.src.startsWith('blob:'))) {
+        if (drawAvatarToCanvas(previewImg)) {
+          avatarDrawn = true;
+        }
       }
     }
+  } catch (e) {
+    console.warn('DOM preview check failed:', e);
+  }
 
-    if (imgSource) {
-      await new Promise((resolve) => {
-        const img = new Image();
-        if (isProxied || /^https?:\/\//i.test(imgSource)) {
-          img.crossOrigin = 'anonymous';
-        }
-        img.onload = () => {
+  // TRICK 2: If not drawn from DOM, resolve from source with resilient fetch/blob conversion
+  if (!avatarDrawn) {
+    try {
+      const isCustom = explainer.avatarStyle === 'custom' || /^https?:\/\//i.test(explainer.avatarSeed || '') || Boolean(explainer.avatarUrl);
+      let rawSource = isCustom
+        ? (explainer.avatarUrl || explainer.avatarSeed)
+        : await createAvatarDataUri(explainer.avatarStyle, explainer.avatarSeed);
+
+      if (rawSource) {
+        // A. If HTTP/HTTPS URL (custom avatar)
+        if (/^https?:\/\//i.test(rawSource)) {
+          // Attempt 1: Fetch via proxy to get same-origin blob
           try {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(avatarCenterX, avatarCenterY, avatarR, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(img, avatarCenterX - avatarR, avatarCenterY - avatarR, avatarR * 2, avatarR * 2);
-            ctx.restore();
-            avatarDrawn = true;
-          } catch (err) {
-            console.warn('Canvas drawImage failed:', err);
+            const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(rawSource)}`;
+            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+            if (res.ok) {
+              const blob = await res.blob();
+              avatarDrawn = await loadImageFromBlob(blob);
+            }
+          } catch (e) {
+            console.warn('Proxy blob fetch failed, falling back:', e);
           }
-          resolve();
-        };
-        img.onerror = (err) => {
-          console.warn('Image loading error, falling back to gradient initial:', err);
-          resolve();
-        };
-        img.src = imgSource;
-        setTimeout(resolve, 3500);
-      });
+
+          // Attempt 2: Direct image with crossOrigin = 'anonymous' if proxy failed
+          if (!avatarDrawn) {
+            await new Promise((resolve) => {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => {
+                if (drawAvatarToCanvas(img)) avatarDrawn = true;
+                resolve();
+              };
+              img.onerror = () => resolve();
+              img.src = rawSource;
+              setTimeout(resolve, 3500);
+            });
+          }
+        }
+        // B. If SVG data URI or SVG markup (DiceBear)
+        else if (rawSource.startsWith('data:image/svg+xml') || rawSource.startsWith('<svg')) {
+          try {
+            let svgXml;
+            if (rawSource.startsWith('<svg')) {
+              svgXml = rawSource;
+            } else {
+              const commaIdx = rawSource.indexOf(',');
+              const header = rawSource.slice(0, commaIdx);
+              const data = rawSource.slice(commaIdx + 1);
+              svgXml = header.includes('base64') ? atob(data) : decodeURIComponent(data);
+            }
+            if (!/width\s*=/i.test(svgXml)) {
+              svgXml = svgXml.replace(/<svg\b([^>]*)>/i, '<svg width="200" height="200" $1>');
+            }
+            const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+            avatarDrawn = await loadImageFromBlob(blob);
+          } catch (e) {
+            console.warn('SVG blob conversion failed, trying direct:', e);
+            // Fallback: direct data URI load
+            await new Promise((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                if (drawAvatarToCanvas(img)) avatarDrawn = true;
+                resolve();
+              };
+              img.onerror = () => resolve();
+              img.src = rawSource;
+              setTimeout(resolve, 2500);
+            });
+          }
+        }
+        // C. Other data URI (PNG, JPG base64)
+        else {
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              if (drawAvatarToCanvas(img)) avatarDrawn = true;
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = rawSource;
+            setTimeout(resolve, 3000);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Avatar resolution failed:', err);
     }
-  } catch (err) {
-    console.warn('Avatar processing failed:', err);
+  }
+
+  // TRICK 3: If still not drawn and DOM has a loaded previewImg (even if external),
+  // as an emergency fallback, draw it!
+  if (!avatarDrawn && typeof document !== 'undefined') {
+    try {
+      const previewImg = document.querySelector('.explainer-preview-avatar, .explainer-modal img.avatar-image');
+      if (previewImg && previewImg.complete && previewImg.naturalWidth > 0) {
+        if (drawAvatarToCanvas(previewImg)) {
+          avatarDrawn = true;
+        }
+      }
+    } catch {}
   }
 
   if (!avatarDrawn) {

@@ -1696,21 +1696,21 @@ export async function handleApiNode(req, res, options = {}) {
       try {
         const response = await fetch(target, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DSAvation/1.0',
-            'Accept': 'image/*'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 DSAvation/1.0',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
           },
-          signal: AbortSignal.timeout(6000)
+          redirect: 'follow',
+          signal: AbortSignal.timeout(8000)
         });
         if (!response.ok) {
           throw new HttpError(response.status, 'Failed to fetch image');
         }
         const contentType = response.headers.get('content-type') || 'image/png';
         const arrayBuffer = await response.arrayBuffer();
-        res.writeHead(200, {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=86400',
-          'Access-Control-Allow-Origin': '*'
-        });
+        res.statusCode = 200;
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.end(Buffer.from(arrayBuffer));
         return;
       } catch (err) {

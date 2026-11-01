@@ -127,7 +127,7 @@ function MemberAvatar({ person, style, seed, url, className = '', label = '' }) 
     return <span className={`avatar avatar-image ${className}`} aria-label={label} title={label}>{fallbackText}</span>;
   }
 
-  return <img className={`avatar avatar-image ${className}`} src={src} alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
+  return <img className={`avatar avatar-image ${className}`} src={src} crossOrigin="anonymous" alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
 }
 
 function ProgressHeatmap({ progress }) {
@@ -1386,7 +1386,7 @@ function App() {
                 <strong>{account.name.split(' ')[0]}</strong>
                 {account.role === 'admin' && (
                   <span className="admin-verified-badge" title="Administrator">
-                    <IconifyIcon icon="reicon:verified-filled" width={14} height={14} />
+                    <IconifyIcon icon="codicon:verified" width={18} height={18} />
                   </span>
                 )}
               </span>
@@ -1630,12 +1630,59 @@ function App() {
               </>
             )}
             <div className="member-card-content-layer">
-              <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="reicon:verified-filled" width={15} height={15} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)}</p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
+              <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)}</p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
               <div className="directory-socials">
                 {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}
-                {canSeeLeetcode && (member.leetcodeUsername ? <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">LeetCode @{member.leetcodeUsername}<Icon name="external" size={12}/></a> : <span>LeetCode ID not added</span>)}
+                {canSeeLeetcode && (
+                  member.leetcodeUsername ? (
+                    <div className="directory-leetcode-row">
+                      <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">
+                        <Icon name="leetcode" size={14}/>@{member.leetcodeUsername}<Icon name="external" size={12}/>
+                      </a>
+                      <button
+                        className="text-button leetcode-inline-load-btn"
+                        type="button"
+                        disabled={leetcodeStatsBusy === member.id}
+                        onClick={() => loadDirectoryLeetcodeStats(member)}
+                      >
+                        {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'} <Icon name="arrow" size={12}/>
+                      </button>
+                    </div>
+                  ) : (
+                    <span>LeetCode ID not added</span>
+                  )
+                )}
               </div>
-              {canSeeLeetcode && member.leetcodeUsername && <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}><div className="directory-leetcode-heading"><strong>LeetCode progress</strong>{stats && <span>Updated {new Date(stats.fetchedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}</span>}</div>{lookup?.available && stats ? <><div className="leetcode-counts"><span><strong>{stats.attemptedCount ?? '—'}</strong> attempted</span><span><strong>{stats.solvedCount}</strong> solved</span></div><div className="leetcode-bars">{stats.byDifficulty.map((item) => <div className="leetcode-bar-row" key={item.difficulty}><span>{item.difficulty}</span><i><b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }}/></i><strong>{item.attempted ?? item.solved}</strong></div>)}</div>{lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}</> : <div className="leetcode-empty">{lookup?.reason && <span>{lookup.reason}</span>}<button className="text-button" type="button" disabled={leetcodeStatsBusy === member.id} onClick={() => loadDirectoryLeetcodeStats(member)}>{leetcodeStatsBusy === member.id ? 'Fetching…' : lookup ? 'Try again' : 'Load stats'} <Icon name="arrow" size={13}/></button></div>}</section>}
+              {canSeeLeetcode && member.leetcodeUsername && (stats || lookup?.reason) && (
+                <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
+                  <div className="directory-leetcode-heading">
+                    <strong>LeetCode progress</strong>
+                    {stats && <span>Updated {new Date(stats.fetchedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}</span>}
+                  </div>
+                  {lookup?.available && stats ? (
+                    <>
+                      <div className="leetcode-counts">
+                        <span><strong>{stats.attemptedCount ?? '—'}</strong> attempted</span>
+                        <span><strong>{stats.solvedCount}</strong> solved</span>
+                      </div>
+                      <div className="leetcode-bars">
+                        {stats.byDifficulty.map((item) => (
+                          <div className="leetcode-bar-row" key={item.difficulty}>
+                            <span>{item.difficulty}</span>
+                            <i><b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }}/></i>
+                            <strong>{item.attempted ?? item.solved}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
+                    </>
+                  ) : (
+                    <div className="leetcode-empty">
+                      {lookup?.reason && <span>{lookup.reason}</span>}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           </article>;
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
@@ -1976,7 +2023,7 @@ function App() {
                               {person.name}
                               {person.role === 'admin' && (
                                 <span className="admin-verified-badge" title="Administrator">
-                                  <IconifyIcon icon="reicon:verified-filled" width={13} height={13} />
+                                  <IconifyIcon icon="codicon:verified" width={16} height={16} />
                                 </span>
                               )}
                             </strong>
@@ -2008,7 +2055,7 @@ function App() {
                             <span className={`rank ${rank <= 3 ? `rank-${rank}` : ''}`}>{String(rank).padStart(2, '0')}</span>
                             <MemberAvatar person={person} label=""/>
                             <div className="leader-person">
-                              <strong>{person.name}{person.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="reicon:verified-filled" width={13} height={13} /></span>}</strong>
+                              <strong>{person.name}{person.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={16} height={16} /></span>}</strong>
                               <span>{person.department} · {person.punctuality}% punctuality</span>
                             </div>
                             <strong className="leader-score">{person.points}<small> pts</small></strong>

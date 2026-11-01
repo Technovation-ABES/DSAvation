@@ -19,7 +19,7 @@ export async function createAvatarDataUri(styleId, seed) {
   const key = `${selectedStyle}:${selectedSeed}`;
   if (avatarCache.has(key)) return avatarCache.get(key);
   const generated = Promise.all([import('@dicebear/core'), loaders[selectedStyle]()]).then(([core, module]) =>
-    new core.Avatar(new core.Style(module.default), { seed: selectedSeed }).toDataUri());
+    new core.Avatar(new core.Style(module.default), { seed: selectedSeed, size: 200 }).toDataUri());
   avatarCache.set(key, generated);
   try {
     return await generated;

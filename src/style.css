@@ -472,6 +472,7 @@ svg { flex: none; }
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  margin-left: 6px;
   color: #38bdf8;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
 }
@@ -3772,6 +3773,36 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .directory-socials { margin: 13px 0; padding: 11px 0; display: grid; gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .directory-socials a, .directory-socials > span { min-width: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: .5625rem; overflow-wrap: anywhere; }
 .directory-socials > span { color: var(--muted); }
+.directory-leetcode-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.leetcode-inline-load-btn {
+  font-size: 0.53125rem !important;
+  color: var(--green) !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  transition: all 140ms ease;
+  flex-shrink: 0;
+}
+.leetcode-inline-load-btn:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--green);
+  color: var(--green-dark) !important;
+}
+:root[data-theme="dark"] .leetcode-inline-load-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--green) !important;
+}
+:root[data-theme="dark"] .leetcode-inline-load-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--green);
+}
 .directory-leetcode { padding-top: 3px; }
 .directory-leetcode-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .directory-leetcode-heading strong { color: var(--ink); font-size: .625rem; }
