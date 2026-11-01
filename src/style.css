@@ -3715,10 +3715,14 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   overflow: hidden;
   border-radius: 14px;
   padding: 0 !important;
+  isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
 }
 .member-card-bg-layer {
   position: absolute;
   inset: 0;
+  border-radius: 14px;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -3727,13 +3731,14 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .member-card-overlay-layer {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   z-index: 2;
 }
 :root[data-theme="dark"] .member-card-overlay-layer {
-  background: rgba(18, 26, 21, 0.82);
+  background: rgba(18, 26, 21, 0.78);
 }
 .member-card-content-layer {
   position: relative;
