@@ -38,15 +38,22 @@ export function initLiquidGlass() {
   function handlePointerMove(e) {
     if (prefersReduced) return;
     const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    if (card._waterRaf) return;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    card._waterRaf = requestAnimationFrame(() => {
+      card._waterRaf = null;
+      if (!card.isConnected) return;
+      const rect = card.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
 
-    const xPercent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    const yPercent = Math.max(0, Math.min(100, (y / rect.height) * 100));
+      const xPercent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      const yPercent = Math.max(0, Math.min(100, (y / rect.height) * 100));
 
-    card.style.setProperty('--water-x', `${xPercent.toFixed(1)}%`);
-    card.style.setProperty('--water-y', `${yPercent.toFixed(1)}%`);
+      card.style.setProperty('--water-x', `${xPercent.toFixed(1)}%`);
+      card.style.setProperty('--water-y', `${yPercent.toFixed(1)}%`);
+    });
   }
 
   function handlePointerEnter(e) {
@@ -87,6 +94,10 @@ export function initLiquidGlass() {
 
   function unbindCard(card) {
     if (!card || !activeCards.has(card)) return;
+    if (card._waterRaf) {
+      cancelAnimationFrame(card._waterRaf);
+      card._waterRaf = null;
+    }
     activeCards.delete(card);
     card.removeEventListener('pointerenter', handlePointerEnter);
     card.removeEventListener('pointermove', handlePointerMove);
@@ -119,6 +130,13 @@ export function initLiquidGlass() {
   }
 
   function scanAndBind() {
+    activeCards.forEach((el) => {
+      if (!el.isConnected) {
+        unbindCard(el);
+        unbindRippleHost(el);
+      }
+    });
+
     const cardSelectors = [
       '.overview-card',
       '.panel',

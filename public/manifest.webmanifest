@@ -1,0 +1,26 @@
+{
+  "name": "DSAvation — Technovation DSA Series",
+  "short_name": "DSAvation",
+  "description": "Master 220 Data Structures and Algorithms questions, participate in daily club challenges, and track verified coding streaks.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0284c7",
+  "background_color": "#0c1b26",
+  "categories": ["education", "developer tools", "productivity"],
+  "icons": [
+    {
+      "src": "/technovation-logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/technovation-logo-transparent.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

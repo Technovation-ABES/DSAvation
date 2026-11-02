@@ -1,4 +1,9 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Analytics } from '@vercel/analytics/react';
@@ -36,6 +41,24 @@ const CLUB_DEPARTMENTS = [
   'Production',
   'Content',
 ];
+function getViewFromPath(path) {
+  if (path === '/dashboard') return 'dashboard';
+  if (path === '/members') return 'members';
+  if (path === '/challenge' || path === '/club') return 'club';
+  if (path === '/account' || path === '/progress') return 'progress';
+  if (path === '/reset-password') return 'reset-password';
+  return 'general';
+}
+
+function getPathFromView(v) {
+  if (v === 'dashboard') return '/dashboard';
+  if (v === 'members') return '/members';
+  if (v === 'club') return '/challenge';
+  if (v === 'progress') return '/account';
+  if (v === 'reset-password') return '/reset-password';
+  return '/';
+}
+
 function initialTheme() {
   const theme = localStorage.getItem('dsavation-theme') === 'dark' ? 'dark' : 'light';
   document.documentElement.dataset.theme = theme;
@@ -75,7 +98,7 @@ async function api(path, options = {}) {
   }
 }
 
-function Icon({ name, size = 17 }) {
+const Icon = React.memo(function Icon({ name, size = 17 }) {
   if (name === 'leetcode') {
     return <IconifyIcon icon="bxl:leetcode" width={size} height={size} />;
   }
@@ -102,11 +125,11 @@ function Icon({ name, size = 17 }) {
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
   };
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
-}
+});
 
-function Pill({ children, tone = '' }) { return <span className={`pill ${tone}`}>{children}</span>; }
+const Pill = React.memo(function Pill({ children, tone = '' }) { return <span className={`pill ${tone}`}>{children}</span>; });
 
-function MemberAvatar({ person, style, seed, url, className = '', label = '' }) {
+const MemberAvatar = React.memo(function MemberAvatar({ person, style, seed, url, className = '', label = '' }) {
   const avatarStyle = style || person?.avatarStyle || 'critters';
   const customUrl = url || person?.avatarUrl || (avatarStyle === 'custom' ? (seed || person?.avatarSeed) : null);
   const avatarSeed = seed || person?.avatarSeed || person?.id || 'dsavation-member';
@@ -133,9 +156,9 @@ function MemberAvatar({ person, style, seed, url, className = '', label = '' }) 
   }
 
   return <img className={`avatar avatar-image ${className}`} src={src} alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
-}
+});
 
-function ProgressHeatmap({ progress }) {
+const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   const {
@@ -401,7 +424,7 @@ function ProgressHeatmap({ progress }) {
       </div>
     </section>
   );
-}
+});
 
 function QuestionActionsGuide() {
   return <div className="question-actions-guide" aria-label="Question controls">
@@ -410,7 +433,7 @@ function QuestionActionsGuide() {
   </div>;
 }
 
-function QuestionRow({ question, solved, solvedAt, onSolve }) {
+const QuestionRow = React.memo(function QuestionRow({ question, solved, solvedAt, onSolve }) {
   const [expanded, setExpanded] = useState(false);
   const handleCardClick = (e) => {
     if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.question-analysis')) return;
@@ -431,7 +454,7 @@ function QuestionRow({ question, solved, solvedAt, onSolve }) {
       <div className="question-topic"><Pill>{question.topic}</Pill></div>
       <div className="question-level"><span className={`difficulty ${question.difficulty.toLowerCase()}`}><i/>{question.difficulty}</span></div>
       <div className="question-actions">
-        <button type="button" className={`icon-button solve-button ${solved ? 'complete' : ''}`} onClick={(e) => { e.stopPropagation(); onSolve(); }} aria-label={solved ? 'Remove from personal progress' : 'Mark in personal progress'} title={solved ? 'Remove from personal progress' : 'Mark solved for personal progress'}>{solved ? <Icon name="check" size={15}/> : <span className="check-empty"/>}</button>
+        <button type="button" className={`icon-button solve-button ${solved ? 'complete' : ''}`} onClick={(e) => { e.stopPropagation(); onSolve(question.id); }} aria-label={solved ? 'Remove from personal progress' : 'Mark in personal progress'} title={solved ? 'Remove from personal progress' : 'Mark solved for personal progress'}>{solved ? <Icon name="check" size={15}/> : <span className="check-empty"/>}</button>
       </div>
     </div>
     {expanded && <div id={`question-analysis-${question.id}`} className="question-analysis">
@@ -440,9 +463,9 @@ function QuestionRow({ question, solved, solvedAt, onSolve }) {
       <a className="text-link" href={`https://leetcode.com/problems/${question.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer">Open problem on LeetCode <Icon name="external" size={13}/></a>
     </div>}
   </article>;
-}
+});
 
-function HeroTitleTypewriter() {
+const HeroTitleTypewriter = React.memo(function HeroTitleTypewriter() {
   const line1Full = "Build the instinct.";
   const line2Full = "One problem at a time.";
   const [line1, setLine1] = useState("");
@@ -487,10 +510,52 @@ function HeroTitleTypewriter() {
       {line2 && <em>{line2}</em>}
     </h1>
   );
-}
+});
 
 function App() {
-  const [view, setView] = useState(() => window.location.pathname === '/dashboard' ? 'dashboard' : window.location.pathname === '/members' ? 'members' : window.location.pathname === '/reset-password' ? 'reset-password' : 'general');
+  const [view, setView] = useState(() => getViewFromPath(window.location.pathname));
+
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches || Boolean(window.navigator.standalone);
+  });
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setDeferredInstallPrompt(null);
+      setNotice('DSAvation app installed successfully!');
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (isAppInstalled) {
+      setNotice('DSAvation is already installed on your device.');
+      return;
+    }
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsAppInstalled(true);
+      }
+      setDeferredInstallPrompt(null);
+    } else {
+      setNotice('To install DSAvation: use "Install app" in your browser address bar/menu, or "Add to Home Screen" on mobile.');
+    }
+  };
+
   const [account, setAccount] = useState(null);
   const [theme, setTheme] = useState(initialTheme);
   const [questions, setQuestions] = useState([]);
@@ -1063,14 +1128,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!authReady || window.location.pathname !== '/dashboard' || isAdmin) return;
+    if (!authReady || view !== 'dashboard' || isAdmin) return;
     window.history.replaceState({}, '', '/');
     setView('general');
     if (account) setNotice('The member dashboard is available to administrators only.');
   }, [authReady, isAdmin]);
 
   useEffect(() => {
-    const onPopState = () => setView(window.location.pathname === '/dashboard' ? 'dashboard' : window.location.pathname === '/members' ? 'members' : window.location.pathname === '/reset-password' ? 'reset-password' : 'general');
+    const onPopState = () => setView(getViewFromPath(window.location.pathname));
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -1100,7 +1165,7 @@ function App() {
       loadClub(),
     ]).finally(() => {
       const elapsed = Date.now() - startTime;
-      const minDisplayTime = 550;
+      const minDisplayTime = 50;
       const remaining = Math.max(0, minDisplayTime - elapsed);
       setTimeout(() => {
         if (active) setAppLoading(false);
@@ -1113,7 +1178,7 @@ function App() {
   }, [authReady, account?.id]);
 
   function navigate(nextView) {
-    const path = nextView === 'dashboard' ? '/dashboard' : nextView === 'members' ? '/members' : nextView === 'reset-password' ? '/reset-password' : '/';
+    const path = getPathFromView(nextView);
     if (window.location.pathname !== path) window.history.pushState({}, '', path);
     setView(nextView);
     if (nextView === 'dashboard' && account?.role === 'admin') refreshMembers(1, memberFilter, memberQuery);
@@ -1128,6 +1193,10 @@ function App() {
     localStorage.removeItem('dsavation-font-scale');
     document.documentElement.style.fontSize = '';
   }, []);
+
+    const handleSolve = useCallback((questionId) => {
+    solvePersonal(questionId);
+  }, [account, progress]);
 
   async function solvePersonal(questionId) {
     if (!account) { setAuthMode('login'); setAuthOpen(true); setAuthError('Sign in to save private progress. This will not affect the club leaderboard.'); return; }
@@ -1551,7 +1620,7 @@ function App() {
       {account && <section className="library-section" id="library"><div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>THE QUESTION LIBRARY</div><h2>Find your next rep<span>.</span></h2></div><span className="question-total">{visibleQuestions.length} <i>/</i> 220 QUESTIONS</span></div>
         <div className="filter-bar"><label className="search-input"><Icon name="search" size={16}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a title, pattern, algorithm or LC number"/><kbd>/</kbd></label><label className="filter-select"><span>TOPIC</span><select value={topic} onChange={(event) => setTopic(event.target.value)}><option>All topics</option>{topics.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>LEVEL</span><select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><option>Any level</option>{['Easy', 'Medium', 'Hard'].map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>DATA STRUCTURE</span><select value={structure} onChange={(event) => setStructure(event.target.value)}><option>Any data structure</option>{structures.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>PATTERN</span><select value={pattern} onChange={(event) => setPattern(event.target.value)}><option>Any pattern</option>{patterns.map((item) => <option key={item}>{item}</option>)}</select></label><button className="sort-button" onClick={() => setSort((current) => current === 'day' ? 'title' : 'day')}>Sort: {sort === 'day' ? 'Day' : 'Title'} ↕</button></div>
         <QuestionActionsGuide/>
-        <div className="question-list">{visibleQuestions.length ? paginatedQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id])} solvedAt={progress[question.id]} onSolve={() => solvePersonal(question.id)}/>) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
+        <div className="question-list">{visibleQuestions.length ? paginatedQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id])} solvedAt={progress[question.id]} onSolve={handleSolve}/>) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
         {visibleQuestions.length > 0 && totalQuestionPages > 1 && (
           <div className="pagination-controls" aria-label="Question library pages">
             <button
@@ -1588,7 +1657,15 @@ function App() {
         <div>
           <div className="eyebrow"><span className="eyebrow-line"/>PERSONAL ACCOUNT</div>
           <h1>Account<span>.</span></h1>
-          <p>Update your member details and review your private DSA progress. Personal checkmarks never affect club points.</p>
+          <button
+            type="button"
+            className="button button-dark install-app-btn"
+            onClick={handleInstallApp}
+            title={isAppInstalled ? "Application installed" : "Install DSAvation as a Desktop / Mobile app"}
+          >
+            <IconifyIcon icon={isAppInstalled ? "charm:circle-tick" : "fluent:arrow-download-24-filled"} width={16} height={16} />
+            <span>{isAppInstalled ? "App Installed" : "Install App"}</span>
+          </button>
         </div>
       </div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>Your account and progress are private.</h2><p>Sign in to update your member details and keep a dated record of solved questions.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <><section className="panel account-settings"><div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>MEMBER DETAILS</div><h2>Your profile</h2></div></div><form className="account-form" key={`${account.id}:${account.githubUsername}:${account.githubVerified}:${account.defaultSubmissionMethod}:${account.leetcodeApproval}`} onSubmit={saveProfile}><label>FULL NAME<input name="name" value={profileName} onChange={(e) => setProfileName(e.target.value)} required minLength="2" maxLength="80" autoComplete="name"/></label><label>CLUB DEPARTMENT<select name="department" value={profileDepartment} onChange={(e) => setProfileDepartment(e.target.value)} required><option value="" disabled>Select your club department</option>{!CLUB_DEPARTMENTS.includes(profileDepartment) && profileDepartment && <option value={profileDepartment}>{profileDepartment}</option>}{CLUB_DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}</select></label><label>YEAR OF STUDY<select name="studyYear" value={profileStudyYear} onChange={(e) => setProfileStudyYear(e.target.value)} required><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label><label>LEETCODE USERNAME<input name="leetcodeUsername" value={profileLeetcodeUsername} onChange={(e) => setProfileLeetcodeUsername(e.target.value)} required pattern="[A-Za-z0-9_-]{1,40}"/></label><div className="account-github-section"><div className="account-github-header"><div className="account-github-title"><Icon name="github" size={18}/><strong>GITHUB USERNAME</strong></div>{account.githubVerified ? <Pill tone="green">GitHub verified</Pill> : <Pill tone="amber">GitHub not verified</Pill>}</div><div className="account-github-body"><label className="account-github-field"><input name="githubUsername" value={profileGithubUsername} onChange={(e) => setProfileGithubUsername(e.target.value)} required={!account.githubVerified && Boolean(profileGithubUsername)} pattern="[A-Za-z0-9-]{1,39}" readOnly={account.githubVerified} placeholder="Connect GitHub to fill this automatically"/><small>Read from your verified GitHub account.</small></label><div className="account-github-actions">{account.githubVerified ? <button className="button button-danger" type="button" disabled={profileBusy} onClick={disconnectGithub}>Disconnect GitHub</button> : <button className="button button-quiet" type="button" onClick={() => { window.location.href = '/api/auth/github/start'; }}><Icon name="github" size={15}/>Connect GitHub</button>}</div></div></div><div className="account-submission-pref">
@@ -1687,12 +1764,12 @@ function App() {
                   Direct LeetCode submissions require administrator approval. You can submit solutions via GitHub commit anytime.
                 </small>
               )}
-            </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview"/><div><strong>Choose your avatar</strong>{avatarDraftStyle !== 'custom' && <span>Pick a style, then select a face or shuffle the options.</span>}</div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }}/>{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16}/> : <Icon name="lock" size={14}/>}<span>{customUrlStatus.message}</span></div></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label=""/></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)}/>{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label></div><div className="account-form-actions"><button className="button button-dark" disabled={profileBusy || !isProfileDirty}>{profileBusy ? 'Saving…' : 'Save account details'} <Icon name="arrow" size={14}/></button><button className="button button-danger" type="button" onClick={logout}><Icon name="logout" size={14}/>Sign out</button></div></form></section><ProgressHeatmap progress={progress}/><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line"/>YOUR COMPLETIONS</div><h2>{solvedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('general'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Browse questions <Icon name="arrow" size={14}/></button></div>{solvedCount ? <><div className="question-list">{Object.entries(progress).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} onSolve={() => solvePersonal(question.id)}/>)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first question starts the record.</h2><p>Use the personal checkmark in the question library when you finish a problem. Club challenge submissions are tracked separately.</p><button className="button button-dark" onClick={() => navigate('general')}>Browse the library <Icon name="arrow" size={14}/></button></div>}</>}
+            </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview"/><div><strong>Choose your avatar</strong>{avatarDraftStyle !== 'custom' && <span>Pick a style, then select a face or shuffle the options.</span>}</div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }}/>{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16}/> : <Icon name="lock" size={14}/>}<span>{customUrlStatus.message}</span></div></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label=""/></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)}/>{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label></div><div className="account-form-actions"><button className="button button-dark" disabled={profileBusy || !isProfileDirty}>{profileBusy ? 'Saving…' : 'Save account details'} <Icon name="arrow" size={14}/></button><button className="button button-danger" type="button" onClick={logout}><Icon name="logout" size={14}/>Sign out</button></div></form></section><ProgressHeatmap progress={progress}/><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line"/>YOUR COMPLETIONS</div><h2>{solvedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('general'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Browse questions <Icon name="arrow" size={14}/></button></div>{solvedCount ? <><div className="question-list">{Object.entries(progress).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} onSolve={handleSolve}/>)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first question starts the record.</h2><p>Use the personal checkmark in the question library when you finish a problem. Club challenge submissions are tracked separately.</p><button className="button button-dark" onClick={() => navigate('general')}>Browse the library <Icon name="arrow" size={14}/></button></div>}</>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
 
     {view === 'members' && <main className="content-shell page-content members-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION CLUB</div><h1>Member directory<span>.</span></h1></div><div className="metric-card"><strong>{directoryPagination.total}</strong><span>APPROVED MEMBERS</span></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION CLUB</div><h1>Member directory<span>.</span></h1></div><div className="metric-card"><strong>{directoryPagination.total}</strong><span>MEMBERS</span></div></div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved ABES account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
         <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
           <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => setDirectoryQuery(event.target.value)} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
