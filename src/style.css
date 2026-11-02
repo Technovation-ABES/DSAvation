@@ -2518,6 +2518,56 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .member-search { width: min(310px, 42%); height: 34px; padding: 0 9px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 4px; color: #708f8c; background: #fffefa; }
 .member-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: #384f4b; background: transparent; font-size: 0.5625rem; }
 .member-search input::placeholder { color: #819e9b; }
+/* Heatmap toggle button in member filter tabs */
+.member-heatmap-tab {
+  min-height: 31px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #54716e;
+  background: transparent;
+  font-size: 0.5625rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.member-heatmap-tab:hover { background: #f3f4ef; }
+.member-heatmap-tab.active {
+  border-color: #c8dde0;
+  color: var(--ocean);
+  background: #eaf4f6;
+  font-weight: 600;
+}
+/* Admin heatmap panel */
+.admin-heatmap-panel {
+  margin-top: 16px;
+  padding: 16px 0 4px;
+  border-top: 1px dashed var(--line);
+  animation: heatmap-slide-in 220ms ease;
+}
+@keyframes heatmap-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.admin-heatmap-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.admin-heatmap-panel-actions { display: flex; align-items: center; gap: 6px; }
+.admin-heatmap-loading { padding: 28px; display: flex; justify-content: center; align-items: center; color: var(--muted); font-size: 0.5625rem; }
+.admin-heatmap-wrapper { width: 100%; }
+.admin-heatmap-caption { margin-bottom: 10px !important; }
+/* Dark mode overrides */
+:root[data-theme="dark"] .member-heatmap-tab { color: #7da9a5; }
+:root[data-theme="dark"] .member-heatmap-tab:hover { background: rgba(255,255,255,0.06); }
+:root[data-theme="dark"] .member-heatmap-tab.active { border-color: #2e5c64; color: #6ecfdb; background: rgba(110, 207, 219, 0.1); }
+:root[data-theme="dark"] .admin-heatmap-panel { border-top-color: var(--line); }
+
 .dashboard-member-list { display: grid; }
 .dashboard-member-row { min-width: 0; padding: 15px 0; display: flex; align-items: center; gap: 12px; border-top: 1px solid #eff0eb; }
 .dashboard-member-row > .avatar { width: 36px; height: 36px; }
