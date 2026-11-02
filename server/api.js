@@ -555,6 +555,48 @@ async function setProgress(db, req, user, questionId, solved) {
   }
 }
 
+export function getAuraBase(difficulty) {
+  const d = String(difficulty || '').toLowerCase();
+  if (d === 'hard') return 500;
+  if (d === 'medium') return 400;
+  return 300;
+}
+
+export async function computeAuraByUser(db, userIds = null) {
+  const assignments = await db.collection('assignments').find({}).toArray();
+  const assignmentMap = new Map(assignments.map((a) => [String(a._id), a]));
+
+  const submissions = await db.collection('submissions')
+    .find({ status: 'accepted' })
+    .sort({ assignmentId: 1, submittedAt: 1, _id: 1 })
+    .toArray();
+
+  const auraByUser = new Map();
+  let currentAssignmentId = null;
+  let currentRankIndex = 0;
+  let currentBase = 300;
+
+  for (const sub of submissions) {
+    const aId = String(sub.assignmentId);
+    if (aId !== currentAssignmentId) {
+      currentAssignmentId = aId;
+      currentRankIndex = 0;
+      const assignment = assignmentMap.get(aId);
+      const question = assignment ? questionById.get(Number(assignment.questionId)) : null;
+      currentBase = getAuraBase(question?.difficulty);
+    }
+
+    const calculatedAura = Math.max(1, currentBase - currentRankIndex);
+    const aura = typeof sub.aura === 'number' ? sub.aura : calculatedAura;
+    currentRankIndex++;
+
+    const uId = String(sub.userId);
+    auraByUser.set(uId, (auraByUser.get(uId) || 0) + aura);
+  }
+
+  return auraByUser;
+}
+
 async function getTodayAssignment(db) {
   return db.collection('assignments').findOne({ dateKey: dayKey() });
 }
@@ -578,8 +620,11 @@ async function getClubToday(db) {
       ...formatAvatar(profile),
     }] : [];
   });
+  const assignedQuestion = assignment ? questionById.get(Number(assignment.questionId)) : null;
+  const baseAura = getAuraBase(assignedQuestion?.difficulty);
   const dailyLeaderboard = activeSubmissions.filter((item) => item.status === 'accepted').map((item, index) => {
     const profile = profileById.get(String(item.userId));
+    const itemAura = typeof item.aura === 'number' ? item.aura : Math.max(1, baseAura - index);
     return {
       rank: index + 1,
       id: String(item._id),
@@ -590,6 +635,7 @@ async function getClubToday(db) {
       githubUsername: profile?.githubUsername || item.authorLogin || '',
       ...formatAvatar(profile, item.userId),
       points: item.points ?? 1,
+      aura: itemAura,
       submittedAt: item.submittedAt,
       commitUrl: item.commitUrl,
       submissionType: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
@@ -632,6 +678,14 @@ async function makeSubmission(db, req, user, body) {
     throw new HttpError(409, 'Submissions are only open for today’s published Question of the Day.');
   }
   const existing = await db.collection('submissions').findOne({ assignmentId: assignment._id, userId: user._id });
+  const assignedQuestionForAura = questionById.get(Number(assignment.questionId));
+  const baseAura = getAuraBase(assignedQuestionForAura?.difficulty);
+  const existingAcceptedCount = await db.collection('submissions').countDocuments({
+    assignmentId: assignment._id,
+    status: 'accepted',
+    ...(existing ? { _id: { $ne: existing._id } } : {}),
+  });
+  const submissionAura = Math.max(1, baseAura - existingAcceptedCount);
   if (existing && existing.status !== 'invalidated') throw new HttpError(409, 'You already submitted for today’s assignment.');
 
   let submission;
@@ -731,6 +785,7 @@ async function makeSubmission(db, req, user, body) {
       submittedAt: now,
       status: 'accepted',
       points: 1,
+      aura: submissionAura,
       authorLogin: leetcodeUser,
       committerLogin: leetcodeUser,
       verifiedPusher: true,
@@ -780,7 +835,7 @@ async function makeSubmission(db, req, user, body) {
       repository: `${owner}/${repository}`, commitSha: commit.sha,
       commitUrl: commit.html_url || `https://github.com/${owner}/${repository}/commit/${commit.sha}`,
       solutionPath: matchingFile.filename, solutionSizeBytes, commitDate: new Date(commitDate), submittedAt: now,
-      status: 'accepted', points: 1, authorLogin: commit.author.login, committerLogin: commit.committer.login,
+      status: 'accepted', points: 1, aura: submissionAura, authorLogin: commit.author.login, committerLogin: commit.committer.login,
       verifiedPusher: true, verificationSource: 'github-commit-api', submissionMethod: 'github', reviewedAt: now,
       reviewedBy: null, reviewNote: '', activeSlot: true,
     };
@@ -1000,9 +1055,12 @@ async function leaderboard(db, url) {
     }
   }
 
-  const profiles = await db.collection('users').find(approvedUserFilter(), {
-    projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
-  }).toArray();
+  const [profiles, auraByUser] = await Promise.all([
+    db.collection('users').find(approvedUserFilter(), {
+      projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+    }).toArray(),
+    computeAuraByUser(db),
+  ]);
   const totalById = new Map(totals.map((row) => [String(row._id), row]));
   const today = dayKey();
 
@@ -1035,6 +1093,7 @@ async function leaderboard(db, url) {
       githubUsername: profile.githubUsername,
       ...formatAvatar(profile),
       points: row.points ?? row.accepted,
+      aura: auraByUser.get(String(profile._id)) || 0,
       completed: row.accepted,
       scheduled: totalAssigned,
       punctuality,
@@ -1526,12 +1585,15 @@ async function listDirectory(db, url, viewer = null) {
     db.collection('users').find(approvedUserFilter(), { projection: { department: 1 } }).toArray(),
   ]);
   const memberIds = members.map((m) => m._id);
-  const totals = memberIds.length
-    ? await db.collection('submissions').aggregate([
-        { $match: { userId: { $in: memberIds }, status: 'accepted' } },
-        { $group: { _id: '$userId', points: { $sum: { $ifNull: ['$points', 1] } } } },
-      ]).toArray()
-    : [];
+  const [totals, auraByUser] = await Promise.all([
+    memberIds.length
+      ? db.collection('submissions').aggregate([
+          { $match: { userId: { $in: memberIds }, status: 'accepted' } },
+          { $group: { _id: '$userId', points: { $sum: { $ifNull: ['$points', 1] } } } },
+        ]).toArray()
+      : [],
+    computeAuraByUser(db, memberIds),
+  ]);
   const pointsByUser = new Map(totals.map((t) => [String(t._id), Number(t.points || 0)]));
 
   return {
@@ -1544,6 +1606,7 @@ async function listDirectory(db, url, viewer = null) {
         department: member.department,
         studyYear: member.studyYear || '',
         points: pointsByUser.get(String(member._id)) || 0,
+        aura: auraByUser.get(String(member._id)) || 0,
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
         role: member.role || 'member',
@@ -1825,7 +1888,7 @@ export async function handleApiNode(req, res, options = {}) {
     if (url.pathname === '/api/submissions' && method === 'GET') return json(res, 200, await listSubmissions(db, req, user, url));
     if (url.pathname === '/api/submissions' && method === 'POST') {
       const submission = await makeSubmission(db, req, user, await readBody(req));
-      return json(res, 201, { ok: true, submission: { status: submission.status, points: submission.points, questionId: submission.questionId, solutionPath: submission.solutionPath, commitUrl: submission.commitUrl } });
+      return json(res, 201, { ok: true, submission: { status: submission.status, points: submission.points, aura: submission.aura, questionId: submission.questionId, solutionPath: submission.solutionPath, commitUrl: submission.commitUrl } });
     }
     if (url.pathname === '/api/admin/assignments' && method === 'POST') {
       return json(res, 201, { assignment: await createAssignment(db, user, await readBody(req)) });

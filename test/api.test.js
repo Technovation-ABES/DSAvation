@@ -1353,3 +1353,84 @@ test('leaderboard ranks by points then earlier score timestamp, with punctuality
   assert.equal(charlieRow.punctuality, 0);
   assert.equal(charlieRow.points, 0);
 });
+test('aura points system: difficulty-based base points, runner order calculation, directory and leaderboard reporting', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const today = indiaDay();
+
+  // Question 217 is Easy -> base 300
+  const assignResult = await call(db, '/admin/assignments', {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { dateKey: today, questionId: 217 },
+  });
+  assert.equal(assignResult.response.status, 201);
+  const aId = assignResult.data.assignment.id;
+
+  const runner1 = await seedUser(db, { name: 'Runner One', email: 'r1@abes.ac.in', username: 'runner1' });
+  const runner2 = await seedUser(db, { name: 'Runner Two', email: 'r2@abes.ac.in', username: 'runner2' });
+  const runner3 = await seedUser(db, { name: 'Runner Three', email: 'r3@abes.ac.in', username: 'runner3' });
+
+  const t1 = new Date('2026-11-02T10:00:00.000Z');
+  const t2 = new Date('2026-11-02T10:15:00.000Z');
+  const t3 = new Date('2026-11-02T10:30:00.000Z');
+
+  // Insert accepted submissions in order
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId: new ObjectId(aId),
+    userId: runner1.user._id,
+    questionId: 217,
+    status: 'accepted',
+    points: 1,
+    aura: 300,
+    submittedAt: t1,
+  });
+
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId: new ObjectId(aId),
+    userId: runner2.user._id,
+    questionId: 217,
+    status: 'accepted',
+    points: 1,
+    aura: 299,
+    submittedAt: t2,
+  });
+
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId: new ObjectId(aId),
+    userId: runner3.user._id,
+    questionId: 217,
+    status: 'accepted',
+    points: 1,
+    aura: 298,
+    submittedAt: t3,
+  });
+
+  // 1. Verify getClubToday dailyLeaderboard has aura: 300, 299, 298
+  const todayClub = await call(db, '/club/today', { cookie: admin.cookie });
+  assert.equal(todayClub.data.dailyLeaderboard.length, 3);
+  assert.equal(todayClub.data.dailyLeaderboard[0].aura, 300);
+  assert.equal(todayClub.data.dailyLeaderboard[1].aura, 299);
+  assert.equal(todayClub.data.dailyLeaderboard[2].aura, 298);
+
+  // 2. Verify listDirectory returns aura on members
+  const dir = await call(db, '/members', { cookie: admin.cookie });
+  const m1 = dir.data.members.find((m) => m.githubUsername === 'runner1');
+  const m2 = dir.data.members.find((m) => m.githubUsername === 'runner2');
+  const m3 = dir.data.members.find((m) => m.githubUsername === 'runner3');
+  assert.equal(m1.aura, 300);
+  assert.equal(m2.aura, 299);
+  assert.equal(m3.aura, 298);
+
+  // 3. Verify leaderboard returns aura on profiles
+  const board = await call(db, '/club/leaderboard', { cookie: admin.cookie });
+  const p1 = board.data.leaderboard.find((p) => p.githubUsername === 'runner1');
+  const p2 = board.data.leaderboard.find((p) => p.githubUsername === 'runner2');
+  const p3 = board.data.leaderboard.find((p) => p.githubUsername === 'runner3');
+  assert.equal(p1.aura, 300);
+  assert.equal(p2.aura, 299);
+  assert.equal(p3.aura, 298);
+});
