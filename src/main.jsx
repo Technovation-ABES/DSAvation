@@ -474,7 +474,19 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
           monthActive += 1;
           if (count > peak.count) peak = { date: dateKey, count };
         }
-        const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : count <= 10 ? 3 : 4;
+        const level = count === 0
+          ? 0
+          : count < 5
+          ? 1
+          : count < 10
+          ? 2
+          : count < 15
+          ? 3
+          : count < 20
+          ? 4
+          : count < 30
+          ? 5
+          : 6;
         days.push({ date: dateKey, day, dayOfWeek: (firstDayOfWeek + day - 1) % 7, count, level, inRange });
       }
 
@@ -518,17 +530,7 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
           </button>
         ))}
       </div>
-      <div className="practice-history-layout admin-heatmap-layout">
-        <div className="practice-stats-col practice-stats-col-left heatmap-stats-strip">
-          <div className="heatmap-stat-item">
-            <strong>{totalSubmissions}</strong>
-            <span>Total Accepted</span>
-          </div>
-          <div className="heatmap-stat-item">
-            <strong>{activeDays}</strong>
-            <span>Active Days</span>
-          </div>
-        </div>
+      <div className="admin-heatmap-calendar-wrap">
         <div className="practice-calendar-col">
           {activeMonth && (
             <div className="month-detail-card">
@@ -565,20 +567,14 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
           )}
           <div className="heatmap-legend">
             <span>Less</span>
-            {[0, 1, 2, 3, 4].map((level) => (
-              <i key={level} className={`heatmap-cell level-${level}`} title={`Level ${level}`} />
+            {[0, 1, 2, 3, 4, 5, 6].map((level) => (
+              <i
+                key={level}
+                className={`heatmap-cell level-${level}`}
+                title={level === 0 ? '0' : level === 1 ? '1–4' : level === 2 ? '5+' : level === 3 ? '10+' : level === 4 ? '15+' : level === 5 ? '20+' : '30+'}
+              />
             ))}
-            <span>More</span>
-          </div>
-        </div>
-        <div className="practice-stats-col practice-stats-col-right heatmap-stats-strip">
-          <div className="heatmap-stat-item">
-            <strong>{peakDay.count} <small>subs</small></strong>
-            <span>Peak Day</span>
-          </div>
-          <div className="heatmap-stat-item">
-            <strong>{peakDay.date ? peakDay.date.slice(5) : '—'}</strong>
-            <span>Peak Date</span>
+            <span>30+</span>
           </div>
         </div>
       </div>
@@ -749,6 +745,7 @@ function App() {
   const [membersPagination, setMembersPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
   const [memberCounts, setMemberCounts] = useState({ pending: 0, approved: 0, leetcodePending: 0 });
   const [directoryMembers, setDirectoryMembers] = useState([]);
+  const [adminOverlayMember, setAdminOverlayMember] = useState(null);
   const [directoryDepartments, setDirectoryDepartments] = useState([]);
   const [directoryPagination, setDirectoryPagination] = useState({ page: 1, pageSize: 60, total: 0, totalPages: 1 });
   const [directoryQuery, setDirectoryQuery] = useState('');
@@ -1944,7 +1941,7 @@ function App() {
     </main>}
 
     {view === 'members' && <main className="content-shell page-content members-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION CLUB</div><h1>Member directory<span>.</span></h1></div><div className="metric-card"><strong>{directoryPagination.total}</strong><span>MEMBERS</span></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION CLUB</div><h1>Member directory<span>.</span></h1></div><div className="metric-card"><strong>{directoryPagination.total}</strong></div></div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved ABES account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
         <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
           <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => setDirectoryQuery(event.target.value)} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
@@ -1959,7 +1956,15 @@ function App() {
           const lookup = directoryLeetcodeStats[member.id];
           const stats = lookup?.stats;
           const maxActivity = Math.max(1, ...(stats?.byDifficulty || []).map((item) => item.attempted ?? item.solved));
-          return <article className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''}`} key={member.id}>
+          return <article
+            className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
+            key={member.id}
+            onClick={(e) => {
+              if (isAdmin && !e.target.closest('a, button, input, select')) {
+                setAdminOverlayMember(member);
+              }
+            }}
+          >
             {member.cardBgUrl && (
               <>
                 <div className="member-card-bg-layer" style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }} aria-hidden="true" />
@@ -1967,7 +1972,30 @@ function App() {
               </>
             )}
             <div className="member-card-content-layer">
-              <header className="directory-card-header"><MemberAvatar person={member} className="directory-avatar" label=""/><div><h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2><p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0} Aura</span></p></div><Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill></header>
+              <header className="directory-card-header">
+                <MemberAvatar person={member} className="directory-avatar" label=""/>
+                <div>
+                  <h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2>
+                  <p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0} Aura</span></p>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="admin-member-manage-btn"
+                      title={`Manage ${member.name}`}
+                      aria-label={`Manage ${member.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAdminOverlayMember(member);
+                      }}
+                    >
+                      <IconifyIcon icon="lucide:settings-2" width={14} height={14} />
+                    </button>
+                  )}
+                </div>
+              </header>
               <div className="directory-socials">
                 {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}
                 {canSeeLeetcode && (
@@ -2024,6 +2052,121 @@ function App() {
           </article>;
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
         {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>Previous</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>Next</button></div>}
+        {adminOverlayMember && (
+          <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)}>
+            <div className="member-admin-overlay-card panel" onClick={(e) => e.stopPropagation()}>
+              <div className="member-admin-overlay-header">
+                <div className="member-admin-overlay-identity">
+                  <MemberAvatar person={adminOverlayMember} className="overlay-avatar" label=""/>
+                  <div>
+                    <h2>{adminOverlayMember.name}</h2>
+                    <p>{adminOverlayMember.department} · {studyYearLabel(adminOverlayMember.studyYear)}</p>
+                    <div className="member-admin-overlay-meta">
+                      {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
+                      {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="modal-close"
+                  onClick={() => setAdminOverlayMember(null)}
+                  aria-label="Close overlay"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="member-admin-overlay-actions">
+                <label className="admin-overlay-role-label">
+                  <span>ROLE</span>
+                  <select
+                    aria-label={`Role for ${adminOverlayMember.name}`}
+                    value={adminOverlayMember.role || 'member'}
+                    disabled={memberBusy === adminOverlayMember.id || adminOverlayMember.id === account.id}
+                    onChange={async (event) => {
+                      const newRole = event.target.value;
+                      await updateRole(adminOverlayMember, newRole);
+                      setAdminOverlayMember((prev) => prev ? { ...prev, role: newRole } : null);
+                      setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, role: newRole } : m));
+                    }}
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  disabled={memberBusy === adminOverlayMember.id}
+                  onClick={() => generateResetLink(adminOverlayMember)}
+                >
+                  <IconifyIcon icon="lucide:key-round" width={14} height={14} />
+                  Generate reset link
+                </button>
+
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  disabled={memberBusy === adminOverlayMember.id || adminOverlayMember.id === account.id}
+                  onClick={async () => {
+                    await setMemberApproval(adminOverlayMember, 'pending');
+                    setDirectoryMembers((prev) => prev.filter((m) => m.id !== adminOverlayMember.id));
+                    setAdminOverlayMember(null);
+                  }}
+                >
+                  <IconifyIcon icon="lucide:user-x" width={14} height={14} />
+                  De-approve
+                </button>
+
+                {adminOverlayMember.leetcodeApproval === 'approved' ? (
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    disabled={memberBusy === adminOverlayMember.id || adminOverlayMember.id === account.id}
+                    onClick={async () => {
+                      await setMemberLeetcodeApproval(adminOverlayMember, 'none');
+                      setAdminOverlayMember((prev) => prev ? { ...prev, leetcodeApproval: 'none' } : null);
+                      setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, leetcodeApproval: 'none' } : m));
+                    }}
+                  >
+                    <IconifyIcon icon="simple-icons:leetcode" width={14} height={14} />
+                    Revoke LC
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    disabled={memberBusy === adminOverlayMember.id}
+                    onClick={async () => {
+                      await setMemberLeetcodeApproval(adminOverlayMember, 'approved');
+                      setAdminOverlayMember((prev) => prev ? { ...prev, leetcodeApproval: 'approved' } : null);
+                      setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, leetcodeApproval: 'approved' } : m));
+                    }}
+                  >
+                    <IconifyIcon icon="simple-icons:leetcode" width={14} height={14} />
+                    Grant LC
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="button button-danger"
+                  disabled={memberBusy === adminOverlayMember.id || adminOverlayMember.id === account.id}
+                  onClick={async () => {
+                    await deleteMember(adminOverlayMember);
+                    setDirectoryMembers((prev) => prev.filter((m) => m.id !== adminOverlayMember.id));
+                    setAdminOverlayMember(null);
+                  }}
+                >
+                  <Icon name="logout" size={14}/>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
@@ -2037,10 +2180,13 @@ function App() {
           <MemberAvatar person={member} label=""/>
           <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber">LC Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
           <div className="dashboard-member-actions">
-            <select aria-label={`Role for ${member.name}`} value={member.role} disabled={memberBusy === member.id || member.id === account.id || member.approvalStatus !== 'approved'} onChange={(event) => updateRole(member, event.target.value)}><option value="member">Member</option><option value="admin">Admin</option></select>
-            <button className="button button-quiet" disabled={memberBusy === member.id} onClick={() => generateResetLink(member)}>Generate reset link</button>
-            {member.approvalStatus === 'approved' ? <button className="button button-quiet" disabled={memberBusy === member.id || member.id === account.id} onClick={() => setMemberApproval(member, 'pending')}>De-approve</button> : <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberApproval(member, 'approved')}>{memberBusy === member.id ? 'Saving…' : 'Approve account'} <Icon name="check" size={14}/></button>}
-            {member.leetcodeApproval === 'pending' ? (
+            {member.approvalStatus !== 'approved' && (
+              <>
+                <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberApproval(member, 'approved')}>{memberBusy === member.id ? 'Saving…' : 'Approve account'} <Icon name="check" size={14}/></button>
+                <button className="button button-danger" disabled={memberBusy === member.id || member.id === account.id} onClick={() => deleteMember(member)}>Delete</button>
+              </>
+            )}
+            {member.leetcodeApproval === 'pending' && (
               <>
                 <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'approved')}>
                   {memberBusy === member.id ? 'Saving…' : 'Approve LC'} <Icon name="check" size={14}/>
@@ -2049,31 +2195,22 @@ function App() {
                   Reject LC
                 </button>
               </>
-            ) : member.leetcodeApproval === 'approved' ? (
-              <button className="button button-quiet" disabled={memberBusy === member.id || member.id === account.id} onClick={() => setMemberLeetcodeApproval(member, 'none')}>
-                Revoke LC
-              </button>
-            ) : (
-              <button className="button button-quiet" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'approved')}>
-                Grant LC
-              </button>
             )}
-            <button className="button button-danger" disabled={memberBusy === member.id || member.id === account.id} onClick={() => deleteMember(member)}>Delete</button>
           </div>
         </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
-        {showMembersHeatmap && (
-          <div className="admin-heatmap-panel">
-            <div className="admin-heatmap-panel-header">
-              <div className="eyebrow"><span className="eyebrow-line"/>SUBMISSION ACTIVITY</div>
-              <div className="admin-heatmap-panel-actions">
-                <button type="button" className="button button-quiet refresh-members" title="Refresh heatmap" aria-label="Refresh heatmap" onClick={loadSubmissionHeatmap} disabled={submissionHeatmapBusy}><IconifyIcon icon="charm:refresh" width={14} height={14} /></button>
-              </div>
-            </div>
-            {submissionHeatmapBusy ? <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div> : <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />}
-          </div>
-        )}
       </section>
+      {showMembersHeatmap && (
+        <section className="panel dashboard-activity-panel dashboard-heatmap-card water-glass-card">
+          <div className="panel-heading">
+            <div><div className="eyebrow"><span className="eyebrow-line"/>SUBMISSION ACTIVITY</div><h2>Submission heatmap</h2></div>
+            <div className="admin-heatmap-panel-actions">
+              <button type="button" className="button button-quiet refresh-members" title="Refresh heatmap" aria-label="Refresh heatmap" onClick={loadSubmissionHeatmap} disabled={submissionHeatmapBusy}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
+            </div>
+          </div>
+          {submissionHeatmapBusy ? <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div> : <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />}
+        </section>
+      )}
       <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
@@ -2498,7 +2635,6 @@ function App() {
                             <span>{person.department || 'Club Member'}{submittedTimeStr ? ` · ${submittedTimeStr}` : ''}</span>
                           </div>
                           <div className="daily-leader-actions">
-                            <strong className="leader-score">{person.points}<small> pt{person.points === 1 ? '' : 's'}</small></strong>
                             {person.aura !== undefined && (
                               <span className="daily-aura-badge" title="Daily Aura earned">
                                 <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.aura}
@@ -2531,7 +2667,14 @@ function App() {
                               <strong>{person.name}{person.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={16} height={16} /></span>}</strong>
                               <span>{person.department} · {person.punctuality}% punctuality</span>
                             </div>
-                            <strong className="leader-score">{person.points}<small> pts</small></strong>
+                            <div className="leader-score-cell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                              {person.aura !== undefined && (
+                                <span className="daily-aura-badge" title="Total Aura points">
+                                  <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.aura}
+                                </span>
+                              )}
+                              <span className="leader-score" style={{ fontSize: '0.625rem', color: 'var(--muted)' }}>{person.points} pt{person.points === 1 ? '' : 's'}</span>
+                            </div>
                           </div>
                         );
                       })}

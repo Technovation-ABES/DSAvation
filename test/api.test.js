@@ -1358,7 +1358,7 @@ test('aura points system: difficulty-based base points, runner order calculation
   const admin = await seedAdmin(db);
   const today = indiaDay();
 
-  // Question 217 is Easy -> base 300
+  // Question 217 is Easy -> base 150, 5 deducted per rank
   const assignResult = await call(db, '/admin/assignments', {
     method: 'POST',
     cookie: admin.cookie,
@@ -1383,7 +1383,7 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 300,
+    aura: 150,
     submittedAt: t1,
   });
 
@@ -1394,7 +1394,7 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 299,
+    aura: 145,
     submittedAt: t2,
   });
 
@@ -1405,32 +1405,32 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 298,
+    aura: 140,
     submittedAt: t3,
   });
 
-  // 1. Verify getClubToday dailyLeaderboard has aura: 300, 299, 298
+  // 1. Verify getClubToday dailyLeaderboard has aura: 150, 145, 140
   const todayClub = await call(db, '/club/today', { cookie: admin.cookie });
   assert.equal(todayClub.data.dailyLeaderboard.length, 3);
-  assert.equal(todayClub.data.dailyLeaderboard[0].aura, 300);
-  assert.equal(todayClub.data.dailyLeaderboard[1].aura, 299);
-  assert.equal(todayClub.data.dailyLeaderboard[2].aura, 298);
+  assert.equal(todayClub.data.dailyLeaderboard[0].aura, 150);
+  assert.equal(todayClub.data.dailyLeaderboard[1].aura, 145);
+  assert.equal(todayClub.data.dailyLeaderboard[2].aura, 140);
 
   // 2. Verify listDirectory returns aura on members
   const dir = await call(db, '/members', { cookie: admin.cookie });
   const m1 = dir.data.members.find((m) => m.githubUsername === 'runner1');
   const m2 = dir.data.members.find((m) => m.githubUsername === 'runner2');
   const m3 = dir.data.members.find((m) => m.githubUsername === 'runner3');
-  assert.equal(m1.aura, 300);
-  assert.equal(m2.aura, 299);
-  assert.equal(m3.aura, 298);
+  assert.equal(m1.aura, 150);
+  assert.equal(m2.aura, 145);
+  assert.equal(m3.aura, 140);
 
-  // 3. Verify leaderboard returns aura on profiles
+  // 3. Verify leaderboard returns aura on profiles and ranks by aura
   const board = await call(db, '/club/leaderboard', { cookie: admin.cookie });
-  const p1 = board.data.leaderboard.find((p) => p.githubUsername === 'runner1');
-  const p2 = board.data.leaderboard.find((p) => p.githubUsername === 'runner2');
-  const p3 = board.data.leaderboard.find((p) => p.githubUsername === 'runner3');
-  assert.equal(p1.aura, 300);
-  assert.equal(p2.aura, 299);
-  assert.equal(p3.aura, 298);
+  assert.equal(board.data.leaderboard[0].githubUsername, 'runner1');
+  assert.equal(board.data.leaderboard[0].aura, 150);
+  assert.equal(board.data.leaderboard[1].githubUsername, 'runner2');
+  assert.equal(board.data.leaderboard[1].aura, 145);
+  assert.equal(board.data.leaderboard[2].githubUsername, 'runner3');
+  assert.equal(board.data.leaderboard[2].aura, 140);
 });

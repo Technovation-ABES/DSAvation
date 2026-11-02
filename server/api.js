@@ -557,9 +557,9 @@ async function setProgress(db, req, user, questionId, solved) {
 
 export function getAuraBase(difficulty) {
   const d = String(difficulty || '').toLowerCase();
-  if (d === 'hard') return 500;
-  if (d === 'medium') return 400;
-  return 300;
+  if (d === 'hard') return 250;
+  if (d === 'medium') return 200;
+  return 150;
 }
 
 export async function computeAuraByUser(db, userIds = null) {
@@ -574,7 +574,7 @@ export async function computeAuraByUser(db, userIds = null) {
   const auraByUser = new Map();
   let currentAssignmentId = null;
   let currentRankIndex = 0;
-  let currentBase = 300;
+  let currentBase = 150;
 
   for (const sub of submissions) {
     const aId = String(sub.assignmentId);
@@ -586,8 +586,8 @@ export async function computeAuraByUser(db, userIds = null) {
       currentBase = getAuraBase(question?.difficulty);
     }
 
-    const calculatedAura = Math.max(1, currentBase - currentRankIndex);
-    const aura = typeof sub.aura === 'number' ? sub.aura : calculatedAura;
+    const calculatedAura = Math.max(0, currentBase - currentRankIndex * 5);
+    const aura = calculatedAura;
     currentRankIndex++;
 
     const uId = String(sub.userId);
@@ -624,7 +624,7 @@ async function getClubToday(db) {
   const baseAura = getAuraBase(assignedQuestion?.difficulty);
   const dailyLeaderboard = activeSubmissions.filter((item) => item.status === 'accepted').map((item, index) => {
     const profile = profileById.get(String(item.userId));
-    const itemAura = typeof item.aura === 'number' ? item.aura : Math.max(1, baseAura - index);
+    const itemAura = typeof item.aura === 'number' ? item.aura : Math.max(0, baseAura - index * 5);
     return {
       rank: index + 1,
       id: String(item._id),
@@ -685,7 +685,7 @@ async function makeSubmission(db, req, user, body) {
     status: 'accepted',
     ...(existing ? { _id: { $ne: existing._id } } : {}),
   });
-  const submissionAura = Math.max(1, baseAura - existingAcceptedCount);
+  const submissionAura = Math.max(0, baseAura - existingAcceptedCount * 5);
   if (existing && existing.status !== 'invalidated') throw new HttpError(409, 'You already submitted for today’s assignment.');
 
   let submission;
@@ -1101,11 +1101,15 @@ async function leaderboard(db, url) {
       lastAcceptedAt: row.lastAcceptedAt || null,
     };
   }).sort((a, b) => {
-    // 1. Overall Leaderboard ranking depends on points
+    // 1. Overall Leaderboard ranking depends primarily on aura points
+    if (b.aura !== a.aura) {
+      return b.aura - a.aura;
+    }
+    // 2. Then regular points if aura ties
     if (b.points !== a.points) {
       return b.points - a.points;
     }
-    // 2. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
+    // 3. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
     if (a.points > 0 && b.points > 0) {
       const timeA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
       const timeB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
@@ -1113,11 +1117,11 @@ async function leaderboard(db, url) {
         return timeA - timeB;
       }
     }
-    // 3. Punctuality
+    // 4. Punctuality
     if (b.punctuality !== a.punctuality) {
       return b.punctuality - a.punctuality;
     }
-    // 4. Alphabetical tiebreaker
+    // 5. Alphabetical tiebreaker
     return a.name.localeCompare(b.name);
   });
   const { page, pageSize, skip } = pageOptions(url, 20, 50);
