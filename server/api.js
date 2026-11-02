@@ -1215,6 +1215,23 @@ async function listSubmissions(db, req, user, url) {
   })), pagination: pageMeta(page, pageSize, total) };
 }
 
+async function getSubmissionsHeatmap(db, user) {
+  requireRole(user, 'lead', 'admin');
+  // Pull only the submittedAt field for accepted submissions (lightweight)
+  const items = await db.collection('submissions')
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1 } })
+    .toArray();
+  const IST = 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const counts = {};
+  for (const item of items) {
+    if (!item.submittedAt) continue;
+    const dateKey = fmt.format(new Date(item.submittedAt));
+    counts[dateKey] = (counts[dateKey] || 0) + 1;
+  }
+  return { counts };
+}
+
 async function getTodaySubmissions(db, req, user, url) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
@@ -1902,6 +1919,9 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (url.pathname === '/api/admin/submissions' && method === 'GET') {
       return json(res, 200, await listSubmissions(db, req, user, url));
+    }
+    if (url.pathname === '/api/admin/submissions-heatmap' && method === 'GET') {
+      return json(res, 200, await getSubmissionsHeatmap(db, user));
     }
     if (url.pathname === '/api/admin/today-submissions' && method === 'GET') {
       const result = await getTodaySubmissions(db, req, user, url);

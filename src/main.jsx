@@ -432,6 +432,160 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   );
 });
 
+const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts }) {
+  const [selectedMonthKey, setSelectedMonthKey] = useState(null);
+
+  const {
+    monthsData,
+    totalSubmissions,
+    activeDays,
+    peakDay,
+  } = useMemo(() => {
+    const today = localDay();
+    const todayDate = new Date(`${today}T00:00:00.000Z`);
+    const currentYear = todayDate.getUTCFullYear();
+    const currentMonth = todayDate.getUTCMonth();
+
+    const mList = [];
+    let totalSubs = 0;
+    let totalActive = 0;
+    let peak = { date: '', count: 0 };
+
+    for (let i = 11; i >= 0; i--) {
+      const mDate = new Date(Date.UTC(currentYear, currentMonth - i, 1));
+      const year = mDate.getUTCFullYear();
+      const monthIndex = mDate.getUTCMonth();
+      const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+      const monthName = mDate.toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+      const shortMonth = mDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+      const numDays = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+      const firstDayOfWeek = new Date(Date.UTC(year, monthIndex, 1)).getUTCDay();
+
+      const days = [];
+      let monthTotal = 0;
+      let monthActive = 0;
+
+      for (let day = 1; day <= numDays; day++) {
+        const dateKey = `${monthKey}-${String(day).padStart(2, '0')}`;
+        const inRange = dateKey <= today;
+        const count = inRange ? (counts[dateKey] || 0) : 0;
+        if (count > 0) {
+          monthTotal += count;
+          monthActive += 1;
+          if (count > peak.count) peak = { date: dateKey, count };
+        }
+        const level = count === 0 ? 0 : count <= 2 ? 1 : count <= 5 ? 2 : count <= 10 ? 3 : 4;
+        days.push({ date: dateKey, day, dayOfWeek: (firstDayOfWeek + day - 1) % 7, count, level, inRange });
+      }
+
+      totalSubs += monthTotal;
+      totalActive += monthActive;
+
+      mList.push({ monthKey, monthName, shortMonth, year, firstDayOfWeek, numDays, days, totalSolved: monthTotal, activeDays: monthActive });
+    }
+
+    return { monthsData: mList, totalSubmissions: totalSubs, activeDays: totalActive, peakDay: peak };
+  }, [counts]);
+
+  const activeMonth = useMemo(() => {
+    if (selectedMonthKey) {
+      const found = monthsData.find((m) => m.monthKey === selectedMonthKey);
+      if (found) return found;
+    }
+    return monthsData[monthsData.length - 1] || null;
+  }, [selectedMonthKey, monthsData]);
+
+  const activeMonthIndex = useMemo(() => {
+    if (!activeMonth) return 0;
+    const idx = monthsData.findIndex((m) => m.monthKey === activeMonth.monthKey);
+    return idx >= 0 ? idx : monthsData.length - 1;
+  }, [activeMonth, monthsData]);
+
+  const handlePrevMonth = () => { if (activeMonthIndex > 0) setSelectedMonthKey(monthsData[activeMonthIndex - 1].monthKey); };
+  const handleNextMonth = () => { if (activeMonthIndex < monthsData.length - 1) setSelectedMonthKey(monthsData[activeMonthIndex + 1].monthKey); };
+
+  return (
+    <div className="admin-heatmap-wrapper">
+      <p className="heatmap-caption admin-heatmap-caption">
+        Each square represents the number of accepted submissions on that day across all club members.
+      </p>
+      <div className="heatmap-month-selector" role="tablist" aria-label="Select month">
+        {monthsData.map((m) => (
+          <button key={m.monthKey} type="button" className={`month-tab ${activeMonth?.monthKey === m.monthKey ? 'active' : ''}`}
+            onClick={() => setSelectedMonthKey(m.monthKey)} role="tab" aria-selected={activeMonth?.monthKey === m.monthKey}>
+            <span>{m.shortMonth}</span>
+            {m.totalSolved > 0 && <span className="month-tab-badge">{m.totalSolved}</span>}
+          </button>
+        ))}
+      </div>
+      <div className="practice-history-layout admin-heatmap-layout">
+        <div className="practice-stats-col practice-stats-col-left heatmap-stats-strip">
+          <div className="heatmap-stat-item">
+            <strong>{totalSubmissions}</strong>
+            <span>Total Accepted</span>
+          </div>
+          <div className="heatmap-stat-item">
+            <strong>{activeDays}</strong>
+            <span>Active Days</span>
+          </div>
+        </div>
+        <div className="practice-calendar-col">
+          {activeMonth && (
+            <div className="month-detail-card">
+              <div className="month-detail-top">
+                <div className="month-nav-controls">
+                  <button type="button" className="month-nav-btn" disabled={activeMonthIndex <= 0} onClick={handlePrevMonth} aria-label="Previous month" title="Previous month">‹</button>
+                  <h3>{activeMonth.monthName} {activeMonth.year}</h3>
+                  <button type="button" className="month-nav-btn" disabled={activeMonthIndex >= monthsData.length - 1} onClick={handleNextMonth} aria-label="Next month" title="Next month">›</button>
+                </div>
+                <div className="month-detail-totals">
+                  <span><strong>{activeMonth.totalSolved}</strong> submissions</span>
+                  <span><strong>{activeMonth.activeDays}</strong> active days</span>
+                </div>
+              </div>
+              <div className="month-detail-calendar">
+                <div className="month-detail-weekdays">
+                  <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div className="month-detail-grid">
+                  {Array.from({ length: activeMonth.firstDayOfWeek }).map((_, i) => (
+                    <div key={`admin-pad-${i}`} className="month-detail-cell empty" />
+                  ))}
+                  {activeMonth.days.map((day) => (
+                    <div key={day.date}
+                      className={`month-detail-cell level-${day.level} ${day.inRange ? '' : 'outside-range'} ${day.count > 0 ? 'has-activity' : ''}`}
+                      title={`${day.count} ${day.count === 1 ? 'submission' : 'submissions'} on ${day.date}`}>
+                      <span className="day-number">{day.day}</span>
+                      {day.count > 0 && <span className="day-count-badge">{day.count}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="heatmap-legend">
+            <span>Less</span>
+            {[0, 1, 2, 3, 4].map((level) => (
+              <i key={level} className={`heatmap-cell level-${level}`} title={`Level ${level}`} />
+            ))}
+            <span>More</span>
+          </div>
+        </div>
+        <div className="practice-stats-col practice-stats-col-right heatmap-stats-strip">
+          <div className="heatmap-stat-item">
+            <strong>{peakDay.count} <small>subs</small></strong>
+            <span>Peak Day</span>
+          </div>
+          <div className="heatmap-stat-item">
+            <strong>{peakDay.date ? peakDay.date.slice(5) : '—'}</strong>
+            <span>Peak Date</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 function QuestionActionsGuide() {
   return <div className="question-actions-guide" aria-label="Question controls">
     <span><i className="guide-check"><Icon name="check" size={12}/></i>Mark solved for personal progress</span>
@@ -649,6 +803,9 @@ function App() {
   const [auditCardOpen, setAuditCardOpen] = useState(false);
   const [acceptedSubmissionsOpen, setAcceptedSubmissionsOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showMembersHeatmap, setShowMembersHeatmap] = useState(false);
+  const [submissionHeatmapCounts, setSubmissionHeatmapCounts] = useState({});
+  const [submissionHeatmapBusy, setSubmissionHeatmapBusy] = useState(false);
 
   useEffect(() => {
     if (!account) return;
@@ -942,6 +1099,14 @@ function App() {
       setPending(result.submissions || []);
       setPendingPagination(result.pagination || { page, pageSize: 10, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+  }
+
+  async function loadSubmissionHeatmap() {
+    setSubmissionHeatmapBusy(true);
+    try {
+      const result = await api('/admin/submissions-heatmap');
+      setSubmissionHeatmapCounts(result.counts || {});
+    } catch (error) { setNotice(error.message); } finally { setSubmissionHeatmapBusy(false); }
   }
 
   async function refreshTodaySubmissions() {
@@ -1867,7 +2032,7 @@ function App() {
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Member dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" title="Refresh accounts" aria-label="Refresh accounts" onClick={() => refreshMembers(membersPagination.page)}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button></div>
-        <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['leetcode', `LeetCode reqs · ${memberCounts.leetcodePending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); refreshMembers(1, key, memberQuery); }}>{label}</button>)}</div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
+        <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['leetcode', `LeetCode reqs · ${memberCounts.leetcodePending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); setShowMembersHeatmap(false); refreshMembers(1, key, memberQuery); }}>{label}</button>)}<button type="button" className={`member-heatmap-tab ${showMembersHeatmap ? 'active' : ''}`} title="Submission activity heatmap" aria-pressed={showMembersHeatmap} onClick={() => { const next = !showMembersHeatmap; setShowMembersHeatmap(next); if (next && Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap(); }}><IconifyIcon icon="griddy-icons:calendar-date" width={13} height={13} />{submissionHeatmapBusy ? 'Loading…' : 'Heatmap'}</button></div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
         {displayedMembers.length ? <div className="dashboard-member-list">{displayedMembers.map((member) => <article className="dashboard-member-row" key={member.id}>
           <MemberAvatar person={member} label=""/>
           <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber">LC Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
@@ -1897,6 +2062,17 @@ function App() {
           </div>
         </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
+        {showMembersHeatmap && (
+          <div className="admin-heatmap-panel">
+            <div className="admin-heatmap-panel-header">
+              <div className="eyebrow"><span className="eyebrow-line"/>SUBMISSION ACTIVITY</div>
+              <div className="admin-heatmap-panel-actions">
+                <button type="button" className="button button-quiet refresh-members" title="Refresh heatmap" aria-label="Refresh heatmap" onClick={loadSubmissionHeatmap} disabled={submissionHeatmapBusy}><IconifyIcon icon="charm:refresh" width={14} height={14} /></button>
+              </div>
+            </div>
+            {submissionHeatmapBusy ? <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div> : <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />}
+          </div>
+        )}
       </section>
       <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
