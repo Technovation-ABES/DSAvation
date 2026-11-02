@@ -764,7 +764,7 @@ async function makeSubmission(db, req, user, body) {
     const commitDate = commit.commit?.committer?.date;
     const authorDate = commit.commit?.author?.date;
     if (!isOnAssignmentDay(commitDate, assignment.dateKey) || !isOnAssignmentDay(authorDate, assignment.dateKey)) {
-      throw new HttpError(400, 'The file must be created and committed during the assignment day in Asia/Kolkata.');
+      throw new HttpError(400, 'The file must be created and committed during the assignment day.');
     }
     const matchingFiles = (commit.files || []).filter((file) => file.status !== 'removed' && isAssignmentSolutionPath(file.filename, assignment.questionId));
     if (!matchingFiles.length) throw new HttpError(400, `This commit must create or change ${assignment.questionId}/solution.txt (or .cpp, .py, .java, .js, .c).`);
@@ -1070,7 +1070,7 @@ async function createAssignment(db, user, body) {
   const questionId = Number(body.questionId);
   const dateKey = String(body.dateKey || '');
   if (!questionById.has(questionId)) throw new HttpError(400, 'Choose a question from the 220-question curriculum.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || dateKey < dayKey()) throw new HttpError(400, 'Choose today or a future date in Asia/Kolkata.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || dateKey < dayKey()) throw new HttpError(400, 'Choose today or a future date.');
   const existing = await db.collection('assignments').findOne({ dateKey });
   if (existing) throw new HttpError(409, 'A question is already published for this date. Only one Question of the Day can be published per date.');
   const assignment = {
