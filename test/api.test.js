@@ -1375,7 +1375,7 @@ test('aura points system: difficulty-based base points, runner order calculation
   const t2 = new Date('2026-11-02T10:15:00.000Z');
   const t3 = new Date('2026-11-02T10:30:00.000Z');
 
-  // Insert accepted submissions in order
+  // Insert accepted submissions with legacy/stale aura in DB (e.g. 300, 281, etc.)
   await db.collection('submissions').insertOne({
     _id: new ObjectId(),
     assignmentId: new ObjectId(aId),
@@ -1383,7 +1383,7 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 150,
+    aura: 999, // Stale legacy aura value
     submittedAt: t1,
   });
 
@@ -1394,7 +1394,7 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 145,
+    aura: 281, // Stale legacy aura value
     submittedAt: t2,
   });
 
@@ -1405,7 +1405,7 @@ test('aura points system: difficulty-based base points, runner order calculation
     questionId: 217,
     status: 'accepted',
     points: 1,
-    aura: 140,
+    aura: 280, // Stale legacy aura value
     submittedAt: t3,
   });
 

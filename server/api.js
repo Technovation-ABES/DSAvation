@@ -588,6 +588,9 @@ export async function computeAuraByUser(db, userIds = null) {
 
     const calculatedAura = Math.max(0, currentBase - currentRankIndex * 5);
     const aura = calculatedAura;
+    if (sub.aura !== calculatedAura) {
+      db.collection('submissions').updateOne({ _id: sub._id }, { $set: { aura: calculatedAura } }).catch(() => {});
+    }
     currentRankIndex++;
 
     const uId = String(sub.userId);
@@ -624,7 +627,10 @@ async function getClubToday(db) {
   const baseAura = getAuraBase(assignedQuestion?.difficulty);
   const dailyLeaderboard = activeSubmissions.filter((item) => item.status === 'accepted').map((item, index) => {
     const profile = profileById.get(String(item.userId));
-    const itemAura = typeof item.aura === 'number' ? item.aura : Math.max(0, baseAura - index * 5);
+    const itemAura = Math.max(0, baseAura - index * 5);
+    if (item.aura !== itemAura) {
+      db.collection('submissions').updateOne({ _id: item._id }, { $set: { aura: itemAura } }).catch(() => {});
+    }
     return {
       rank: index + 1,
       id: String(item._id),
