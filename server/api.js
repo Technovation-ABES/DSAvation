@@ -1107,13 +1107,13 @@ async function leaderboard(db, url) {
       lastAcceptedAt: row.lastAcceptedAt || null,
     };
   }).sort((a, b) => {
-    // 1. Overall Leaderboard ranking depends primarily on aura points
-    if (b.aura !== a.aura) {
-      return b.aura - a.aura;
-    }
-    // 2. Then regular points if aura ties
+    // 1. Overall Leaderboard ranking prioritizes normal points
     if (b.points !== a.points) {
       return b.points - a.points;
+    }
+    // 2. If two have the same points, sort with aura
+    if (b.aura !== a.aura) {
+      return b.aura - a.aura;
     }
     // 3. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
     if (a.points > 0 && b.points > 0) {

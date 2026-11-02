@@ -1425,7 +1425,7 @@ test('aura points system: difficulty-based base points, runner order calculation
   assert.equal(m2.aura, 145);
   assert.equal(m3.aura, 140);
 
-  // 3. Verify leaderboard returns aura on profiles and ranks by aura
+  // 3. Verify leaderboard prioritizes normal points, but sorts by aura when points tie
   const board = await call(db, '/club/leaderboard', { cookie: admin.cookie });
   assert.equal(board.data.leaderboard[0].githubUsername, 'runner1');
   assert.equal(board.data.leaderboard[0].aura, 150);
@@ -1433,4 +1433,44 @@ test('aura points system: difficulty-based base points, runner order calculation
   assert.equal(board.data.leaderboard[1].aura, 145);
   assert.equal(board.data.leaderboard[2].githubUsername, 'runner3');
   assert.equal(board.data.leaderboard[2].aura, 140);
+});
+
+test('leaderboard prioritizes normal points over aura, and uses aura as tiebreaker when points are equal', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+
+  const uHighPoints = await seedUser(db, { name: 'High Points', email: 'hp@abes.ac.in', username: 'high-pts' });
+  const uHighAura = await seedUser(db, { name: 'High Aura', email: 'ha@abes.ac.in', username: 'high-aura' });
+  const uLowAura = await seedUser(db, { name: 'Low Aura', email: 'la@abes.ac.in', username: 'low-aura' });
+
+  const a1 = await db.collection('assignments').insertOne({ _id: new ObjectId(), dateKey: '2026-11-01', questionId: 1 });
+  const a2 = await db.collection('assignments').insertOne({ _id: new ObjectId(), dateKey: '2026-11-02', questionId: 2 });
+
+  // uHighPoints has 2 points (solved both), aura = 100 + 100 = 200
+  await db.collection('submissions').insertOne({ _id: new ObjectId(), assignmentId: a1.insertedId, userId: uHighPoints.user._id, status: 'accepted', points: 1, submittedAt: new Date('2026-11-01T12:00:00Z') });
+  await db.collection('submissions').insertOne({ _id: new ObjectId(), assignmentId: a2.insertedId, userId: uHighPoints.user._id, status: 'accepted', points: 1, submittedAt: new Date('2026-11-02T12:00:00Z') });
+
+  // uHighAura has 1 point, was 1st runner on a Hard question (Base 250) -> aura 250
+  const aHard = await db.collection('assignments').insertOne({ _id: new ObjectId(), dateKey: '2026-11-03', questionId: 4 }); // Median of Two Sorted Arrays is Hard
+  await db.collection('submissions').insertOne({ _id: new ObjectId(), assignmentId: aHard.insertedId, userId: uHighAura.user._id, status: 'accepted', points: 1, submittedAt: new Date('2026-11-03T10:00:00Z') });
+
+  // uLowAura has 1 point, was 2nd runner on a Hard question -> aura 245
+  await db.collection('submissions').insertOne({ _id: new ObjectId(), assignmentId: aHard.insertedId, userId: uLowAura.user._id, status: 'accepted', points: 1, submittedAt: new Date('2026-11-03T11:00:00Z') });
+
+  const board = await call(db, '/club/leaderboard');
+  const lb = board.data.leaderboard;
+
+  // 1. High Points is #1 because 2 points > 1 point, even though High Aura has 250 aura
+  assert.equal(lb[0].githubUsername, 'high-pts');
+  assert.equal(lb[0].points, 2);
+
+  // 2. High Aura is #2 because both have 1 point, but High Aura (250) > Low Aura (245)
+  assert.equal(lb[1].githubUsername, 'high-aura');
+  assert.equal(lb[1].points, 1);
+  assert.equal(lb[1].aura, 250);
+
+  // 3. Low Aura is #3
+  assert.equal(lb[2].githubUsername, 'low-aura');
+  assert.equal(lb[2].points, 1);
+  assert.equal(lb[2].aura, 245);
 });
