@@ -2680,11 +2680,15 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 16px;
   margin-top: 10px;
 }
 .account-form-actions .button-danger {
-  margin-left: auto;
+  margin-left: 0;
+}
+.account-form-actions .install-app-btn {
+  margin-top: 0;
 }
 
 /* Password Input with Peek / Hide Toggle */
@@ -4712,4 +4716,42 @@ details[open] > .admin-activity-summary svg {
 }
 .install-app-btn:active {
   transform: translateY(0);
+}
+
+/* Aura Points Styling */
+.member-aura-chip {
+  color: #ea580c;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  margin-left: 5px;
+}
+:root[data-theme="dark"] .member-aura-chip {
+  color: #fb923c;
+}
+.member-directory-card.has-custom-bg .member-aura-chip {
+  color: #ea580c;
+}
+:root[data-theme="dark"] .member-directory-card.has-custom-bg .member-aura-chip {
+  color: #fb923c;
+}
+
+.daily-aura-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #ea580c;
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.2);
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+:root[data-theme="dark"] .daily-aura-badge {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.16);
+  border-color: rgba(251, 146, 60, 0.25);
 }
