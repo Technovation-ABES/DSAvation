@@ -1974,27 +1974,13 @@ function App() {
             <div className="member-card-content-layer">
               <header className="directory-card-header">
                 <MemberAvatar person={member} className="directory-avatar" label=""/>
-                <div>
+                <div className="directory-card-identity">
                   <h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2>
-                  <p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0} Aura</span></p>
+                  <p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}</span></p>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {member.role === 'admin'  && (<div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      className="admin-member-manage-btn"
-                      title={`Manage ${member.name}`}
-                      aria-label={`Manage ${member.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAdminOverlayMember(member);
-                      }}
-                    >
-                      <IconifyIcon icon="lucide:settings-2" width={14} height={14} />
-                    </button>
-                  )}
-                </div>
+                </div>)}
               </header>
               <div className="directory-socials">
                 {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}

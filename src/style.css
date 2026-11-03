@@ -4362,10 +4362,11 @@ details[open] > .admin-activity-summary svg {
   position: absolute;
   inset: -1px;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
   z-index: 2;
+  background: rgba(18, 26, 21, 0.25);
+  background: rgba(106, 108, 113, 0.295);
 }
 :root[data-theme="dark"] .member-card-overlay-layer {
   background: rgba(18, 26, 21, 0.78);
@@ -4386,17 +4387,17 @@ details[open] > .admin-activity-summary svg {
 
 /* Light mode text backdrops: frosted extra whitish blurred layer for readability */
 .member-directory-card.has-custom-bg .directory-card-header > div {
-  background: rgba(255, 255, 255, 0.76);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   padding: 6px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 2px 8px -2px rgba(15, 30, 45, 0.06);
+  background: rgba(106, 108, 113, 0.295);
 }
 .member-directory-card.has-custom-bg .directory-card-header h2 {
-  color: #0c1b26;
+  color: black;
   font-weight: 700;
+  mix-blend-mode: difference!important;
 }
 .member-directory-card.has-custom-bg .directory-card-header p {
   color: #475569;
@@ -4405,28 +4406,29 @@ details[open] > .admin-activity-summary svg {
   color: var(--green-dark);
 }
 .member-directory-card.has-custom-bg .directory-socials {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   padding: 8px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 2px 8px -2px rgba(15, 30, 45, 0.05);
+  background: rgba(106, 108, 113, 0.295);
 }
 .member-directory-card.has-custom-bg .directory-socials a,
 .member-directory-card.has-custom-bg .directory-socials > span {
-  color: var(--green-dark);
+  color: #bbe1f1;
 }
 .member-directory-card.has-custom-bg .directory-socials > span {
   color: #64748b;
 }
 .member-directory-card.has-custom-bg .leetcode-inline-load-btn {
-  background: rgba(13, 148, 136, 0.12);
-  color: var(--green-dark) !important;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  color: #bbe1f1 !important;
+  background: transparent;
 }
 .member-directory-card.has-custom-bg .leetcode-inline-load-btn:hover {
+  color: #bbe1f1 !important;
   background: rgba(13, 148, 136, 0.22);
-  color: var(--green-dark) !important;
 }
 .member-directory-card.has-custom-bg .directory-leetcode {
   background: rgba(255, 255, 255, 0.72);
@@ -4459,7 +4461,6 @@ details[open] > .admin-activity-summary svg {
 
 /* Dark mode text container overrides */
 :root[data-theme="dark"] .member-directory-card.has-custom-bg .directory-card-header > div {
-  background: rgba(15, 23, 42, 0.6);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
@@ -4473,7 +4474,7 @@ details[open] > .admin-activity-summary svg {
   color: #34d399;
 }
 :root[data-theme="dark"] .member-directory-card.has-custom-bg .directory-socials {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.1);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
@@ -4531,7 +4532,8 @@ details[open] > .admin-activity-summary svg {
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
-.directory-card-header > div { min-width: 0; flex: 1; }
+.directory-card-header > div { min-width: 0; flex-shrink: 0; }
+.directory-card-header .directory-card-identity { flex-grow: 1; }
 .directory-card-header h2 { margin: 0 0 4px; overflow: hidden; color: var(--ink); font: 600 .875rem var(--display); text-overflow: ellipsis; white-space: nowrap; }
 .directory-card-header p { margin: 0; color: var(--muted); font-size: .5625rem; overflow-wrap: anywhere; }
 .member-points-chip {
@@ -4544,8 +4546,9 @@ details[open] > .admin-activity-summary svg {
 :root[data-theme="dark"] .member-points-chip {
   color: #34d399;
 }
-.directory-socials { margin: 13px 0; padding: 11px 0; display: grid; gap: 8px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.directory-socials { margin: 13px 0; padding: 11px 0; display: grid; gap: 8px; border-bottom: 1px solid var(--line); }
 .directory-socials a, .directory-socials > span { min-width: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: .5625rem; overflow-wrap: anywhere; }
+.directory-socials a {max-width: max-content;}
 .directory-socials > span { color: var(--muted); }
 .directory-leetcode-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .leetcode-inline-load-btn {
