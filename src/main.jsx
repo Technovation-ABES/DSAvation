@@ -790,6 +790,11 @@ function App() {
   const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('token') || '');
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState('');
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [commitUrl, setCommitUrl] = useState('');
   const [profileName, setProfileName] = useState(() => account?.name || '');
@@ -1581,6 +1586,17 @@ function App() {
       }
     } catch (error) { setAuthError(error.message); }
     finally { setAuthBusy(false); }
+  }
+
+  async function requestPasswordReset(event) {
+    event.preventDefault(); setForgotError(''); setForgotBusy(true); setForgotSuccess(false);
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+      await api('/auth/request-password-reset', { method: 'POST', body: { email: values.email } });
+      setForgotSuccess(true);
+      setForgotEmail('');
+    } catch (error) { setForgotError(error.message); }
+    finally { setForgotBusy(false); }
   }
 
   async function logout() {
@@ -3401,6 +3417,8 @@ function App() {
 
     {resetLink && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetLink(null); }}><section className="auth-modal reset-link-modal" role="dialog" aria-modal="true" aria-labelledby="reset-link-title"><button className="modal-close" onClick={() => setResetLink(null)} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>ONE-TIME PASSWORD RESET</div><h2 id="reset-link-title">Reset link for {resetLink.name}<span>.</span></h2><p className="auth-lede">This link expires at {new Date(resetLink.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} India time and works once. Share it directly with the member. The server stores only a hash.</p><label className="reset-link-field">RESET URL<input value={resetLink.url} readOnly onFocus={(event) => event.target.select()}/></label><button className="button button-dark auth-submit" onClick={copyResetLink}>Copy one-time link <Icon name="arrow" size={14}/></button></section></div>}
 
+    {forgotOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="forgot-title"><button className="modal-close" onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>RESET YOUR PASSWORD</div><h2 id="forgot-title">Forgot password?<span>.</span></h2><p className="auth-lede">Enter your email address and we'll send you a one-time reset link. The link expires in 30 minutes.</p>{forgotSuccess ? <><p className="auth-success">Reset link successfully sent! Check your email.</p><button className="button button-dark auth-submit" onClick={() => { setForgotOpen(false); setForgotSuccess(false); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></> : <><form onSubmit={requestPasswordReset} className="auth-form"><label>ABES EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}/></label>{forgotError && <p className="form-error" role="alert">{forgotError}</p>}<button className="button button-dark auth-submit" disabled={forgotBusy}>{forgotBusy ? 'Sending…' : 'Send reset link'} <Icon name="arrow" size={14}/></button></form><p className="auth-switch"><button onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></p></>}</section></div>}
+
     {authOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setAuthOpen(false); setShowPassword(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button className="modal-close" onClick={() => { setAuthOpen(false); setShowPassword(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>DSAVATION MEMBER ACCESS</div><h2 id="auth-title">{authMode === 'signup' ? 'Create your account' : 'Welcome back'}<span>.</span></h2><p className="auth-lede">{authMode === 'signup' ? 'Use your college email to request access to the private tracker and club challenge. An administrator must approve your account.' : 'Sign in to save private progress and submit to the club challenge.'}</p>
         <form onSubmit={submitAuth} className="auth-form">
           {authMode === 'signup' && <><label>FULL NAME<input name="name" autoComplete="name" required minLength="2" maxLength="80" placeholder="Your name"/></label><label>CLUB DEPARTMENT<select name="department" required defaultValue=""><option value="" disabled>Select your club department</option>{CLUB_DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}</select></label><label>YEAR OF STUDY<select name="studyYear" required defaultValue=""><option value="" disabled>Select your current year</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label><label>ABES EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" title="Use your @abes.ac.in email" placeholder="you@abes.ac.in"/></label><label>GITHUB USERNAME<input name="githubUsername" required pattern="[A-Za-z0-9-]{1,39}" placeholder="your-github-handle"/><small>After signup, connect GitHub to replace this with your verified username.</small></label><label>LEETCODE USERNAME<input name="leetcodeUsername" required pattern="[A-Za-z0-9_-]{1,40}" placeholder="your-leetcode-id"/></label><label className="password-input-label">PASSWORD<div className="password-input-wrapper"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength="10" maxLength="128" required placeholder="At least 10 characters"/><button type="button" className="password-toggle-btn" onClick={() => setShowPassword((prev) => !prev)} title={showPassword ? 'Hide password' : 'Peek password'} aria-label={showPassword ? 'Hide password' : 'Peek password'}><IconifyIcon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} width={18} height={18}/></button></div></label></>}
@@ -3408,7 +3426,7 @@ function App() {
           {authError && <p className="form-error" role="alert">{authError}</p>}
           <button className="button button-dark auth-submit" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signup' ? 'Request account' : 'Sign in'} <Icon name="arrow" size={14}/></button>
         </form>
-        <div className="auth-switch">{authMode === 'signup' ? 'Already a member?' : 'New to DSAvation?'} <button onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setAuthError(''); setShowPassword(false); }}>{authMode === 'signup' ? 'Sign in' : 'Create account'}</button>{authMode === 'login' && <><span> · </span><button onClick={() => setAuthError('Ask an administrator to generate a one-time password reset link for your account.')}>Forgot password?</button></>}</div>
+        <div className="auth-switch">{authMode === 'signup' ? 'Already a member?' : 'New to DSAvation?'} <button onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setAuthError(''); setShowPassword(false); }}>{authMode === 'signup' ? 'Sign in' : 'Create account'}</button>{authMode === 'login' && <><span> · </span><button onClick={() => { setAuthOpen(false); setForgotOpen(true); }}>Forgot password?</button></>}</div>
         <p className="auth-privacy"><Icon name="lock" size={13}/> Personal checkmarks are private and never count toward the club scoreboard.</p>
       </section></div>}
     <div className={`mobile-bottom-nav ${account ? 'has-account' : ''} ${isAdmin ? 'admin-nav' : ''}`}><button className={view === 'general' ? 'active' : ''} onClick={() => navigate('general')}><IconifyIcon icon="bi:journal-bookmark" width={17} height={17}/>General</button><button className={view === 'progress' ? 'active' : ''} onClick={() => { navigate('progress'); if (!account) { setAuthMode('login'); setAuthOpen(true); } }}><Icon name="check" size={17}/>Account</button>{account && <button className={view === 'members' ? 'active' : ''} onClick={() => navigate('members')}><Icon name="users" size={17}/>Members</button>}<button className={view === 'club' ? 'active' : ''} onClick={() => navigate('club')}><Icon name="users" size={17}/>Club</button>{isAdmin && <button className={view === 'dashboard' ? 'active' : ''} onClick={() => navigate('dashboard')}><Icon name="users" size={17}/>Admin</button>}</div>

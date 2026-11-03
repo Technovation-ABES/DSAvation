@@ -8,7 +8,7 @@ function localApi() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith('/api/')) return next();
-        return handleApiNode(req, res);
+        return handleApiNode(req, res).catch(next);
       });
     },
   };

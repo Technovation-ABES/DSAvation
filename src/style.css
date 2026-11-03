@@ -3358,6 +3358,7 @@ details[open] > .admin-activity-summary svg {
 .auth-switch button { padding: 0; border: 0; color: var(--green); background: transparent; font-size: 0.5625rem; font-weight: 600; }
 .auth-privacy { margin: 15px 0 0; display: flex; align-items: center; justify-content: center; gap: 6px; color: #63817e; font-size: 0.5rem; }
 .form-error { margin: 0; color: var(--red); font-size: 0.5625rem; line-height: 1.5; }
+.auth-success { margin: 8px 0 16px; color: var(--green); font-size: 0.5625rem; font-weight: 600; text-align: center; }
 
 @media (min-width: 1500px) { .content-shell { padding-top: 47px; } .overview-card { min-height: 180px; } }
 @media (max-width: 1080px) {
