@@ -18,6 +18,7 @@ import { AVATAR_STYLES, createAvatarDataUri, createAvatarSeeds } from './avatar.
 import { downloadExplainerImage, copyExplainerImage } from './explainerCard.js';
 import { initLiquidGlass } from './liquidGlass.js';
 import { AtmosphereBackdrop } from './components/atmosphere/AtmosphereBackdrop.jsx';
+import { useAdaptiveCardTheme } from './utils/useAdaptiveCardTheme.js';
 import './style.css';
 
 function normalizeQuestions(rows = []) {
@@ -667,6 +668,165 @@ const HeroTitleTypewriter = React.memo(function HeroTitleTypewriter() {
       {line1.length === line1Full.length && <br />}
       {line2 && <em>{line2}</em>}
     </h1>
+  );
+});
+
+const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
+  member,
+  isAdmin,
+  lookup,
+  stats,
+  maxActivity,
+  isSectionVisible,
+  canSeeLeetcode,
+  leetcodeStatsBusy,
+  onAdminSelect,
+  onOpenStats,
+  onLoadStats,
+}) {
+  const cardTheme = useAdaptiveCardTheme(member.cardBgUrl);
+
+  return (
+    <article
+      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''} water-glass-card`}
+      data-card-theme={member.cardBgUrl ? cardTheme.theme : undefined}
+      style={member.cardBgUrl ? cardTheme.cssVariables : undefined}
+      onClick={(e) => {
+        if (isAdmin && !e.target.closest('a, button, input, select')) {
+          onAdminSelect(member);
+        }
+      }}
+    >
+      {member.cardBgUrl && (
+        <>
+          <div
+            className="member-card-bg-layer"
+            style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }}
+            aria-hidden="true"
+          />
+          <div className="member-card-overlay-layer" aria-hidden="true" />
+        </>
+      )}
+      <div className="member-card-content-layer">
+        <header className="directory-card-header">
+          <MemberAvatar person={member} className="directory-avatar" label="" />
+          <div className="directory-card-identity">
+            <h2>
+              {member.name}
+              {member.role === 'admin' && (
+                <span className="admin-verified-badge" title="Administrator">
+                  <IconifyIcon icon="codicon:verified" width={18} height={18} />
+                </span>
+              )}
+            </h2>
+            <p>
+              {member.department} · {studyYearLabel(member.studyYear)} ·{' '}
+              <span className="member-points-chip" title="Total club points">
+                <IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts
+              </span>{' '}
+              <span className="member-points-chip member-aura-chip" title="Total Aura points">
+                <IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}
+              </span>
+            </p>
+          </div>
+          {member.role === 'admin' && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>
+                {member.role === 'lead' ? 'Club lead' : member.role}
+              </Pill>
+            </div>
+          )}
+        </header>
+
+        <div className="directory-socials">
+          {member.githubUsername ? (
+            <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer">
+              <Icon name="github" size={14} />@{member.githubUsername}
+              <Icon name="external" size={12} />
+            </a>
+          ) : (
+            <span>GitHub not linked</span>
+          )}
+          {canSeeLeetcode && (
+            member.leetcodeUsername ? (
+              <div className="directory-leetcode-row">
+                <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">
+                  <Icon name="leetcode" size={14} />@{member.leetcodeUsername}
+                  <Icon name="external" size={12} />
+                </a>
+                <button
+                  className="text-button leetcode-inline-load-btn"
+                  type="button"
+                  disabled={leetcodeStatsBusy === member.id}
+                  onClick={() => {
+                    onOpenStats(member.id);
+                    onLoadStats(member);
+                  }}
+                >
+                  {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'}{' '}
+                  <Icon name="arrow" size={12} />
+                </button>
+              </div>
+            ) : (
+              <span>LeetCode ID not added</span>
+            )
+          )}
+        </div>
+
+        {isSectionVisible && (
+          <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
+            <div className="directory-leetcode-heading">
+              <strong>LeetCode progress</strong>
+              {stats && (
+                <span>
+                  Updated{' '}
+                  {new Date(stats.fetchedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    timeZone: 'Asia/Kolkata',
+                  })}
+                </span>
+              )}
+            </div>
+            {lookup?.available && stats ? (
+              <>
+                <div className="leetcode-counts">
+                  <span>
+                    <strong>{stats.attemptedCount ?? '—'}</strong> attempted
+                  </span>
+                  <span>
+                    <strong>{stats.solvedCount}</strong> solved
+                  </span>
+                </div>
+                <div className="leetcode-bars">
+                  {stats.byDifficulty.map((item) => (
+                    <div className="leetcode-bar-row" key={item.difficulty}>
+                      <span>{item.difficulty}</span>
+                      <i>
+                        <b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }} />
+                      </i>
+                      <strong>{item.attempted ?? item.solved}</strong>
+                    </div>
+                  ))}
+                </div>
+                {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
+              </>
+            ) : lookup?.reason ? (
+              <div className="leetcode-empty">
+                <span>{lookup.reason}</span>
+              </div>
+            ) : (
+              <div className="leetcode-empty">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconifyIcon icon="charm:refresh" width={14} height={14} className="spin-icon" />
+                  Loading LeetCode stats…
+                </span>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </article>
   );
 });
 
@@ -2229,96 +2389,22 @@ function App() {
               ? true
               : (isSelf ? Boolean(stats || lookup?.reason) : Boolean(individuallyOpenedStats[member.id]))
           );
-          return <article
-            className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
-            key={member.id}
-            onClick={(e) => {
-              if (isAdmin && !e.target.closest('a, button, input, select')) {
-                setAdminOverlayMember(member);
-              }
-            }}
-          >
-            {member.cardBgUrl && (
-              <>
-                <div className="member-card-bg-layer" style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }} aria-hidden="true" />
-                <div className="member-card-overlay-layer" aria-hidden="true" />
-              </>
-            )}
-            <div className="member-card-content-layer">
-              <header className="directory-card-header">
-                <MemberAvatar person={member} className="directory-avatar" label=""/>
-                <div className="directory-card-identity">
-                  <h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2>
-                  <p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}</span></p>
-                </div>
-                {member.role === 'admin'  && (<div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill>
-                </div>)}
-              </header>
-              <div className="directory-socials">
-                {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}
-                {canSeeLeetcode && (
-                  member.leetcodeUsername ? (
-                    <div className="directory-leetcode-row">
-                      <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">
-                        <Icon name="leetcode" size={14}/>@{member.leetcodeUsername}<Icon name="external" size={12}/>
-                      </a>
-                      <button
-                        className="text-button leetcode-inline-load-btn"
-                        type="button"
-                        disabled={leetcodeStatsBusy === member.id}
-                        onClick={() => {
-                          setIndividuallyOpenedStats((prev) => ({ ...prev, [member.id]: true }));
-                          loadDirectoryLeetcodeStats(member);
-                        }}
-                      >
-                        {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'} <Icon name="arrow" size={12}/>
-                      </button>
-                    </div>
-                  ) : (
-                    <span>LeetCode ID not added</span>
-                  )
-                )}
-              </div>
-              {isSectionVisible && (
-                <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
-                  <div className="directory-leetcode-heading">
-                    <strong>LeetCode progress</strong>
-                    {stats && <span>Updated {new Date(stats.fetchedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}</span>}
-                  </div>
-                  {lookup?.available && stats ? (
-                    <>
-                      <div className="leetcode-counts">
-                        <span><strong>{stats.attemptedCount ?? '—'}</strong> attempted</span>
-                        <span><strong>{stats.solvedCount}</strong> solved</span>
-                      </div>
-                      <div className="leetcode-bars">
-                        {stats.byDifficulty.map((item) => (
-                          <div className="leetcode-bar-row" key={item.difficulty}>
-                            <span>{item.difficulty}</span>
-                            <i><b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }}/></i>
-                            <strong>{item.attempted ?? item.solved}</strong>
-                          </div>
-                        ))}
-                      </div>
-                      {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
-                    </>
-                  ) : lookup?.reason ? (
-                    <div className="leetcode-empty">
-                      <span>{lookup.reason}</span>
-                    </div>
-                  ) : (
-                    <div className="leetcode-empty">
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <IconifyIcon icon="charm:refresh" width={14} height={14} className="spin-icon" />
-                        Loading LeetCode stats…
-                      </span>
-                    </div>
-                  )}
-                </section>
-              )}
-            </div>
-          </article>;
+          return (
+            <MemberDirectoryCard
+              key={member.id}
+              member={member}
+              isAdmin={isAdmin}
+              lookup={lookup}
+              stats={stats}
+              maxActivity={maxActivity}
+              isSectionVisible={isSectionVisible}
+              canSeeLeetcode={canSeeLeetcode}
+              leetcodeStatsBusy={leetcodeStatsBusy}
+              onAdminSelect={setAdminOverlayMember}
+              onOpenStats={(id) => setIndividuallyOpenedStats((prev) => ({ ...prev, [id]: true }))}
+              onLoadStats={loadDirectoryLeetcodeStats}
+            />
+          );
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
         {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
         {adminOverlayMember && (
