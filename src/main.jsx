@@ -688,7 +688,7 @@ const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
 
   return (
     <article
-      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
+      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''} water-glass-card`}
       data-card-theme={member.cardBgUrl ? cardTheme.theme : undefined}
       style={member.cardBgUrl ? cardTheme.cssVariables : undefined}
       onClick={(e) => {
@@ -2317,7 +2317,7 @@ function App() {
     </main>}
 
     {view === 'members' && <main className="content-shell page-content members-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card"><strong>{directoryPagination.total}</strong></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card water-glass-card"><strong>{directoryPagination.total}</strong></div></div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
         <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
           <label className="directory-search-field">
@@ -2677,7 +2677,7 @@ function App() {
           </>
         )}
       </section>
-      <section className={`panel dashboard-activity-panel ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
           <div className="panel-heading-actions">
@@ -2753,7 +2753,7 @@ function App() {
           </>
         )}
       </section>
-      <section className={`panel dashboard-activity-panel ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>
           <div>
             <div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div>
