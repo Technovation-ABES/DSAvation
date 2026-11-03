@@ -4892,6 +4892,93 @@ details[open] > .admin-activity-summary svg {
   font-size: 0.625rem;
   font-weight: 500;
 }
+.admin-overlay-aura-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+}
+.admin-overlay-aura-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.admin-overlay-aura-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #ea580c;
+  font: 600 0.53125rem var(--mono);
+  letter-spacing: 0.5px;
+}
+.admin-overlay-aura-current {
+  font: 500 0.53125rem var(--mono);
+  color: var(--muted);
+}
+.admin-overlay-aura-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.admin-overlay-aura-chip-btn {
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(234, 88, 12, 0.25);
+  background: rgba(234, 88, 12, 0.08);
+  color: #ea580c;
+  font: 600 0.5625rem var(--mono);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.admin-overlay-aura-chip-btn:hover:not(:disabled) {
+  background: rgba(234, 88, 12, 0.18);
+  transform: translateY(-1px);
+}
+.admin-overlay-aura-chip-btn.chip-deduct {
+  border-color: rgba(244, 63, 94, 0.25);
+  background: rgba(244, 63, 94, 0.08);
+  color: #f43f5e;
+}
+.admin-overlay-aura-chip-btn.chip-deduct:hover:not(:disabled) {
+  background: rgba(244, 63, 94, 0.18);
+}
+.admin-overlay-aura-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-overlay-aura-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: 0.625rem var(--mono);
+  outline: none;
+}
+.admin-overlay-aura-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+.award-aura-submit-btn {
+  height: 36px !important;
+  width: auto !important;
+  padding: 0 14px !important;
+  font-size: 0.625rem !important;
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%) !important;
+  color: #fff !important;
+  border: none !important;
+}
+.award-aura-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+}
 .member-admin-overlay-actions .button {
   width: 100%;
   height: 38px;
@@ -4937,4 +5024,18 @@ details[open] > .admin-activity-summary svg {
   background: #23342b;
   color: #2dd4bf;
   border-color: #2dd4bf;
+}
+:root[data-theme="dark"] .admin-overlay-aura-box {
+  background: #18231d;
+  border-color: #27372d;
+}
+:root[data-theme="dark"] .admin-overlay-aura-chip-btn {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.25);
+  background: rgba(251, 146, 60, 0.1);
+}
+:root[data-theme="dark"] .admin-overlay-aura-input {
+  background: #111a16;
+  border-color: #314539;
+  color: #e2ebe3;
 }

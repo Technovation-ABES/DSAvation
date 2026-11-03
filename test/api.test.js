@@ -1544,3 +1544,73 @@ test('leaderboard prioritizes normal points over aura, and uses aura as tiebreak
   assert.equal(lb[2].points, 1);
   assert.equal(lb[2].aura, 245);
 });
+
+test('admins can award custom aura points to a member, updating directory, audit logs, and leaderboard', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const member = await seedUser(db, { name: 'Aura Member', email: 'aura@abes.ac.in', username: 'aura-gh' });
+  const other = await seedUser(db, { name: 'Other Guy', email: 'other@abes.ac.in', username: 'other-gh' });
+
+  // 1. Non-admin cannot award aura
+  const denied = await call(db, `/admin/members/${member.user._id}/aura`, {
+    method: 'POST',
+    cookie: other.cookie,
+    body: { aura: 50 },
+  });
+  assert.equal(denied.response.status, 403);
+
+  // 2. Invalid aura amount rejected
+  const badAmount = await call(db, `/admin/members/${member.user._id}/aura`, {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { aura: 0 },
+  });
+  assert.equal(badAmount.response.status, 400);
+
+  // 3. Admin awards 50 custom aura points
+  const award1 = await call(db, `/admin/members/${member.user._id}/aura`, {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { aura: 50, note: 'Solution explainer spotlight bonus' },
+  });
+  assert.equal(award1.response.status, 200);
+  assert.equal(award1.data.ok, true);
+  assert.equal(award1.data.customAura, 50);
+  assert.equal(award1.data.totalAura, 50);
+
+  // Verify member directory returns customAura and updated aura
+  const dir = await call(db, '/members', { cookie: admin.cookie });
+  const memberInDir = dir.data.members.find((m) => m.id === String(member.user._id));
+  assert.equal(memberInDir.customAura, 50);
+  assert.equal(memberInDir.aura, 50);
+
+  // Verify audit activity logged
+  const activity = await call(db, '/admin/activity', { cookie: admin.cookie });
+  const auraLog = activity.data.activity.find((a) => a.action === 'member_aura_awarded');
+  assert.ok(auraLog);
+  assert.equal(auraLog.details.amount, 50);
+
+  // 4. Admin awards another 25 aura
+  const award2 = await call(db, `/admin/members/${member.user._id}/aura`, {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { aura: 25 },
+  });
+  assert.equal(award2.data.customAura, 75);
+  assert.equal(award2.data.totalAura, 75);
+
+  // 5. Admin sets custom aura to 100 via mode: 'set'
+  const setAura = await call(db, `/admin/members/${member.user._id}/aura`, {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { aura: 100, mode: 'set' },
+  });
+  assert.equal(setAura.data.customAura, 100);
+  assert.equal(setAura.data.totalAura, 100);
+
+  // 6. Verify overall leaderboard reflects custom aura
+  const lbRes = await call(db, '/club/leaderboard');
+  const lbMember = lbRes.data.leaderboard.find((m) => m.githubUsername === 'aura-gh');
+  assert.ok(lbMember);
+  assert.equal(lbMember.aura, 100);
+});

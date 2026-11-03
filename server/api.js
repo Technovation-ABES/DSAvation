@@ -599,6 +599,20 @@ export async function computeAuraByUser(db, userIds = null) {
     auraByUser.set(uId, (auraByUser.get(uId) || 0) + aura);
   }
 
+  // Include custom / bonus aura from users collection
+  const idArray = userIds && userIds.length
+    ? userIds.map((id) => (id instanceof ObjectId ? id : new ObjectId(String(id))))
+    : null;
+  const userFilter = idArray
+    ? { _id: { $in: idArray }, customAura: { $exists: true, $ne: 0 } }
+    : { customAura: { $exists: true, $ne: 0 } };
+  const customUsers = await db.collection('users').find(userFilter, { projection: { customAura: 1 } }).toArray();
+  for (const u of customUsers) {
+    const uId = String(u._id);
+    const bonus = Number(u.customAura || 0);
+    auraByUser.set(uId, (auraByUser.get(uId) || 0) + bonus);
+  }
+
   return auraByUser;
 }
 
@@ -1657,7 +1671,7 @@ async function listDirectory(db, url, viewer = null) {
   const filter = filters.length === 1 ? filters[0] : { $and: filters };
   const { page, pageSize, skip } = pageOptions(url, 60, 100);
   const cursor = db.collection('users').find(filter, {
-    projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1 },
+    projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1, customAura: 1 },
   });
   if (typeof cursor.collation === 'function') {
     cursor.collation({ locale: 'en', strength: 2 });
@@ -1690,6 +1704,7 @@ async function listDirectory(db, url, viewer = null) {
         studyYear: member.studyYear || '',
         points: pointsByUser.get(String(member._id)) || 0,
         aura: auraByUser.get(String(member._id)) || 0,
+        customAura: Number(member.customAura || 0),
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
         role: member.role || 'member',
@@ -1818,6 +1833,9 @@ async function updateMember(db, user, memberId, body) {
       }
     }
   }
+  if (body.customAura !== undefined) {
+    update.customAura = Math.round(Number(body.customAura) || 0);
+  }
   if (!Object.keys(update).length) throw new HttpError(400, 'No member settings were provided.');
   const unset = body.approvalStatus === 'pending' ? { approvedAt: '', approvedBy: '' } : undefined;
   const operation = { $set: update, ...(unset ? { $unset: unset } : {}) };
@@ -1854,6 +1872,40 @@ async function deleteMember(db, user, memberId) {
   await db.collection('users').deleteOne({ _id: id });
   await recordAdminActivity(db, user, 'member_deleted', { id, label: `${member.name} · ${member.email}` });
   return { ok: true };
+}
+
+async function awardMemberAura(db, user, memberId, body) {
+  requireRole(user, 'admin');
+  if (!ObjectId.isValid(memberId)) throw new HttpError(404, 'Member not found.');
+  const amount = Math.round(Number(body.aura));
+  if (!amount || Number.isNaN(amount)) {
+    throw new HttpError(400, 'Enter a valid non-zero aura points amount.');
+  }
+
+  const member = await db.collection('users').findOne({ _id: new ObjectId(memberId) });
+  if (!member) throw new HttpError(404, 'Member not found.');
+
+  const isSet = body.mode === 'set';
+  const prevCustomAura = Number(member.customAura || 0);
+  const newCustomAura = isSet ? amount : prevCustomAura + amount;
+
+  await db.collection('users').updateOne(
+    { _id: member._id },
+    { $set: { customAura: newCustomAura, updatedAt: new Date() } }
+  );
+
+  await recordAdminActivity(db, user, 'member_aura_awarded', { id: memberId, label: `${member.name} · ${member.email}` }, {
+    amount,
+    mode: isSet ? 'set' : 'add',
+    previousCustomAura: prevCustomAura,
+    newCustomAura,
+    note: String(body.note || '').trim().slice(0, 300),
+  });
+
+  const auraMap = await computeAuraByUser(db, [member._id]);
+  const totalAura = auraMap.get(String(memberId)) || 0;
+
+  return { ok: true, memberId: String(memberId), customAura: newCustomAura, totalAura };
 }
 
 async function listAdminActivity(db, url) {
@@ -2027,6 +2079,10 @@ export async function handleApiNode(req, res, options = {}) {
     if (resetMatch && method === 'POST') {
       const admin = await requireUser(req, db);
       return json(res, 201, await generatePasswordReset(db, req, admin, resetMatch[1]));
+    }
+    const auraMatch = url.pathname.match(/^\/api\/admin\/members\/([a-f0-9]{24})\/aura$/i);
+    if (auraMatch && method === 'POST') {
+      return json(res, 200, await awardMemberAura(db, user, auraMatch[1], await readBody(req)));
     }
     if (url.pathname === '/api/admin/activity' && method === 'GET') {
       const admin = await requireUser(req, db);

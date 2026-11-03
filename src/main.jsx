@@ -746,6 +746,8 @@ function App() {
   const [memberCounts, setMemberCounts] = useState({ pending: 0, approved: 0, leetcodePending: 0 });
   const [directoryMembers, setDirectoryMembers] = useState([]);
   const [adminOverlayMember, setAdminOverlayMember] = useState(null);
+  const [auraAwardAmount, setAuraAwardAmount] = useState('');
+  const [auraAwardBusy, setAuraAwardBusy] = useState(false);
   const [directoryDepartments, setDirectoryDepartments] = useState([]);
   const [directoryPagination, setDirectoryPagination] = useState({ page: 1, pageSize: 60, total: 0, totalPages: 1 });
   const [directoryQuery, setDirectoryQuery] = useState('');
@@ -1585,6 +1587,33 @@ function App() {
     finally { setMemberBusy(''); }
   }
 
+  async function handleAwardCustomAura(amountToAward) {
+    if (!adminOverlayMember || auraAwardBusy) return;
+    const amount = Math.round(Number(amountToAward ?? auraAwardAmount));
+    if (!amount || Number.isNaN(amount)) {
+      setNotice('Please enter a valid non-zero aura points amount.');
+      return;
+    }
+    setAuraAwardBusy(true);
+    try {
+      const res = await api(`/admin/members/${adminOverlayMember.id}/aura`, {
+        method: 'POST',
+        body: { aura: amount },
+      });
+      if (res.ok) {
+        setAdminOverlayMember((prev) => prev ? { ...prev, aura: res.totalAura, customAura: res.customAura } : null);
+        setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, aura: res.totalAura, customAura: res.customAura } : m));
+        setNotice(`Awarded ${amount > 0 ? '+' : ''}${amount} Aura to ${adminOverlayMember.name}! New Total: ${res.totalAura} Aura`);
+        setAuraAwardAmount('');
+        refreshActivity(activityPagination.page).catch(() => {});
+      }
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setAuraAwardBusy(false);
+    }
+  }
+
   async function updatePublicPreference(showPublic) {
     setPublicPreferenceBusy(true);
     try { const result = await api('/auth/profile', { method: 'PATCH', body: { showPublic } }); setAccount(result.user); await loadClub(); }
@@ -2093,6 +2122,7 @@ function App() {
                     <div className="member-admin-overlay-meta">
                       {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
                       {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
+                      <span className="member-aura-chip" title="Current Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.aura ?? 0} Aura</span>
                     </div>
                   </div>
                 </div>
@@ -2124,6 +2154,65 @@ function App() {
                     <option value="admin">Admin</option>
                   </select>
                 </label>
+
+                <div className="admin-overlay-aura-box">
+                  <div className="admin-overlay-aura-header">
+                    <span className="admin-overlay-aura-label">
+                      <IconifyIcon icon="at-icons:fire" width={14} height={14} /> AWARD CUSTOM AURA
+                    </span>
+                    <span className="admin-overlay-aura-current" title="Current total Aura">
+                      {adminOverlayMember.aura ?? 0} total
+                      {adminOverlayMember.customAura ? ` (${adminOverlayMember.customAura > 0 ? '+' : ''}${adminOverlayMember.customAura} custom)` : ''}
+                    </span>
+                  </div>
+                  <div className="admin-overlay-aura-quick-chips">
+                    {[10, 25, 50, 100].map((pts) => (
+                      <button
+                        key={pts}
+                        type="button"
+                        className="admin-overlay-aura-chip-btn"
+                        disabled={auraAwardBusy}
+                        onClick={() => handleAwardCustomAura(pts)}
+                      >
+                        +{pts}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="admin-overlay-aura-chip-btn chip-deduct"
+                      disabled={auraAwardBusy}
+                      onClick={() => handleAwardCustomAura(-10)}
+                      title="Deduct 10 aura"
+                    >
+                      -10
+                    </button>
+                  </div>
+                  <div className="admin-overlay-aura-input-row">
+                    <input
+                      type="number"
+                      placeholder="Custom points (e.g. 50)"
+                      value={auraAwardAmount}
+                      onChange={(e) => setAuraAwardAmount(e.target.value)}
+                      disabled={auraAwardBusy}
+                      className="admin-overlay-aura-input"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAwardCustomAura();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="button button-green award-aura-submit-btn"
+                      disabled={auraAwardBusy || !auraAwardAmount || Number(auraAwardAmount) === 0}
+                      onClick={() => handleAwardCustomAura()}
+                    >
+                      <IconifyIcon icon="at-icons:fire" width={13} height={13} />
+                      {auraAwardBusy ? 'Awarding…' : 'Award'}
+                    </button>
+                  </div>
+                </div>
 
                 <button
                   type="button"
