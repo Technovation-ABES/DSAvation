@@ -712,10 +712,13 @@ const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
           <MemberAvatar person={member} className="directory-avatar" label="" />
           <div className="directory-card-identity">
             <h2>
-              {member.name}
+              <span className="directory-name-text">{member.name}</span>
               {member.role === 'admin' && (
-                <span className="admin-verified-badge" title="Administrator">
-                  <IconifyIcon icon="codicon:verified" width={18} height={18} />
+                <span className="directory-admin-pill-group">
+                  <Pill tone="green">{member.role === 'lead' ? 'Club lead' : member.role}</Pill>
+                  <span className="admin-verified-badge" title="Administrator">
+                    <IconifyIcon icon="codicon:verified" width={18} height={18} />
+                  </span>
                 </span>
               )}
             </h2>
@@ -729,13 +732,6 @@ const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
               </span>
             </p>
           </div>
-          {member.role === 'admin' && (
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>
-                {member.role === 'lead' ? 'Club lead' : member.role}
-              </Pill>
-            </div>
-          )}
         </header>
 
         <div className="directory-socials">
@@ -2891,7 +2887,6 @@ function App() {
                                 {submissionBusy ? 'Verifying…' : 'Verify and submit'} <Icon name="arrow" size={13} />
                               </button>
                             </div>
-                            <small>Enter a commit hash (e.g. <code>76c3f95</code>) or full commit URL. Required changed file: <code>{assignedQuestion.id}/solution.*</code> (.txt, .cpp, .py, .java, .js, or .c, at least 1 byte). The linked GitHub account must own the repository.</small>
                           </form>
                         )
                       ) : (
