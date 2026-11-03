@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
 import curriculum from './data/questions.json' with { type: 'json' };
 import { getDatabase } from './db.js';
+import { sendPasswordResetEmail, verifyEmailConfig } from './email.js';
 
 const TZ = 'Asia/Kolkata';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -361,7 +362,52 @@ async function generatePasswordReset(db, req, user, memberId) {
     createdAt: new Date(), expiresAt,
   });
   await recordAdminActivity(db, user, 'password_reset_link_generated', { id: targetId, label: `${target.name} · ${target.email}` }, { expiresAt });
-  return { resetUrl: `${baseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`, expiresAt };
+
+  const resetUrl = `${baseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
+  let emailSent = false;
+  let emailError = null;
+  try {
+    await sendPasswordResetEmail(target.email, target.name, resetUrl, expiresAt);
+    emailSent = true;
+  } catch (error) {
+    emailError = error.message;
+    console.error('[API] Failed to send password reset email:', error);
+  }
+
+  return { resetUrl, expiresAt, emailSent, emailError };
+}
+
+async function requestPasswordReset(db, req, res, body) {
+  await allowRequest(db, req, 'request-pw-reset', 5, 60 * 60 * 1000);
+  const email = String(body.email || '').toLowerCase().trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address.');
+  const user = await db.collection('users').findOne({ email }, { projection: { _id: 1, name: 1, email: 1, approvalStatus: 1 } });
+  if (!user) {
+    return { ok: true };
+  }
+  if (user.approvalStatus !== 'approved') {
+    return { ok: true };
+  }
+  const token = `${Date.now().toString(36)}-${randomBytes(24).toString('base64url')}`;
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  await db.collection('passwordResets').insertOne({
+    tokenHash: hash(token),
+    userId: user._id,
+    createdBy: user._id,
+    createdAt: new Date(),
+    expiresAt,
+  });
+  const resetUrl = `${baseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
+  let emailSent = false;
+  let emailError = null;
+  try {
+    await sendPasswordResetEmail(user.email, user.name, resetUrl, expiresAt);
+    emailSent = true;
+  } catch (error) {
+    emailError = error.message;
+    console.error('[API] Failed to send password reset email:', error);
+  }
+  return { ok: true, emailSent, emailError };
 }
 
 async function resetPassword(db, req, res, body) {
@@ -1867,6 +1913,7 @@ export async function handleApiNode(req, res, options = {}) {
     db = await getDb();
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
+    if (url.pathname === '/api/auth/request-password-reset' && method === 'POST') return json(res, 200, await requestPasswordReset(db, req, res, await readBody(req)));
     if (url.pathname === '/api/auth/reset-password' && method === 'POST') return json(res, 200, await resetPassword(db, req, res, await readBody(req)));
     if (url.pathname === '/api/auth/logout' && method === 'POST') {
       const token = getCookie(req, 'dsavation_session');
