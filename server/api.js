@@ -1414,16 +1414,16 @@ async function pickTodayExplainer(db, user, body = {}) {
     throw new HttpError(400, 'No Question of the Day is published for today.');
   }
 
-  const isRepick = Boolean(body?.repick || body?.reselect || body?.force || body?.userId);
+  const previousExplainerId = assignment.explainerUserId
+    ? String(assignment.explainerUserId)
+    : (assignment.explainer?.userId || assignment.explainer?.id || null);
+
+  const isRepick = Boolean(previousExplainerId && (body?.repick || body?.reselect || body?.force || body?.userId));
 
   // 1. If already selected for today and not re-picking, return the locked explainer!
   if (assignment.explainer && !isRepick) {
     return { explainer: assignment.explainer, isExisting: true };
   }
-
-  const previousExplainerId = assignment.explainerUserId
-    ? String(assignment.explainerUserId)
-    : (assignment.explainer?.userId || assignment.explainer?.id || null);
 
   // 2. Query today's submissions (non-invalidated)
   const submissions = await db.collection('submissions')
@@ -1556,6 +1556,18 @@ async function pickTodayExplainer(db, user, body = {}) {
     { _id: assignment._id },
     { $set: { explainerUserId: new ObjectId(chosen.userId), explainer } }
   );
+
+  if (isRepick && previousExplainerId && String(chosen.userId) !== String(previousExplainerId)) {
+    // Whenever re-pick happens, previous selected person suffers -50 aura points automatically
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(previousExplainerId) },
+      { $inc: { customAura: -50 }, $set: { updatedAt: new Date() } }
+    );
+    await recordAdminActivity(db, user, 'member_aura_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
+      amount: -50,
+      reason: 'Replaced during Today’s Explainer re-pick',
+    });
+  }
 
   await recordAdminActivity(db, user, isRepick ? 'explainer_repicked' : 'explainer_selected', { id: assignment._id, label: assignment.dateKey }, {
     explainerUserId: chosen.userId,
@@ -1692,9 +1704,16 @@ async function adjustSubmissionPoints(db, user, submissionId, body) {
 async function listMembers(db, url) {
   const status = url.searchParams.get('status') || 'all';
   const query = String(url.searchParams.get('q') || '').trim().slice(0, 80);
+  const pendingFilter = {
+    $or: [
+      { approvalStatus: 'pending' },
+      { approvalStatus: { $exists: false }, verifiedAt: null },
+      { leetcodeApproval: 'pending' },
+    ],
+  };
   const filters = [];
   if (status === 'approved') filters.push(approvedUserFilter());
-  if (status === 'pending') filters.push({ $or: [{ approvalStatus: 'pending' }, { approvalStatus: { $exists: false }, verifiedAt: null }] });
+  if (status === 'pending') filters.push(pendingFilter);
   if (status === 'leetcode' || status === 'leetcode-pending') filters.push({ leetcodeApproval: 'pending' });
   if (query) {
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1712,7 +1731,7 @@ async function listMembers(db, url) {
   const [total, members, pending, approved, leetcodePending] = await Promise.all([
     db.collection('users').countDocuments(filter),
     cursor.sort({ name: 1 }).skip(skip).limit(pageSize).toArray(),
-    db.collection('users').countDocuments({ $or: [{ approvalStatus: 'pending' }, { approvalStatus: { $exists: false }, verifiedAt: null }] }),
+    db.collection('users').countDocuments(pendingFilter),
     db.collection('users').countDocuments(approvedUserFilter()),
     db.collection('users').countDocuments({ leetcodeApproval: 'pending' }),
   ]);

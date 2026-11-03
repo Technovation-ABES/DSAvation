@@ -802,8 +802,9 @@ function App() {
   const [publicPreferenceBusy, setPublicPreferenceBusy] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportTarget, setExportTarget] = useState('attempted');
-  const [exportStudyYear, setExportStudyYear] = useState('all');
+  const [exportStudyYear, setExportStudyYear] = useState('second-year');
   const [exportDepartment, setExportDepartment] = useState('all');
+  const [refreshingLeaderboard, setRefreshingLeaderboard] = useState(false);
   const [auditCardOpen, setAuditCardOpen] = useState(false);
   const [acceptedSubmissionsOpen, setAcceptedSubmissionsOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -904,14 +905,21 @@ function App() {
   const isLeetcodeApproved = Boolean(account && (account.role === 'admin' || account.leetcodeApproval === 'approved'));
   const editingTodayAssignment = club.assignment?.dateKey === localDay();
   const assignedQuestion = club.assignment ? byId.get(Number(club.assignment.questionId)) : null;
-  const pendingMembers = members.filter((member) => member.approvalStatus !== 'approved');
+  const pendingMembers = members.filter((member) => member.approvalStatus !== 'approved' || member.leetcodeApproval === 'pending');
   const approvedMembers = members.filter((member) => member.approvalStatus === 'approved');
-  const leetcodeMembers = members.filter((member) => member.leetcodeApproval === 'pending');
   const displayedMembers = (
     memberFilter === 'approved' ? approvedMembers :
-    memberFilter === 'leetcode' ? leetcodeMembers :
     memberFilter === 'all' ? members : pendingMembers
   ).filter((member) => !memberQuery.trim() || `${member.name} ${member.department} ${member.email} ${member.githubUsername || ''} ${member.leetcodeUsername || ''}`.toLowerCase().includes(memberQuery.trim().toLowerCase()));
+
+  async function refreshLeaderboardData() {
+    setRefreshingLeaderboard(true);
+    try {
+      await loadClub();
+    } finally {
+      setRefreshingLeaderboard(false);
+    }
+  }
 
   async function loadClub() {
     try {
@@ -1126,23 +1134,29 @@ function App() {
     }
   }
 
+  const secondYearSubmissions = useMemo(
+    () => (todaySubmissionsData.submissions || []).filter((s) => s.studyYear === 'second-year'),
+    [todaySubmissionsData.submissions]
+  );
+  const secondYearNotAttempted = useMemo(
+    () => (todaySubmissionsData.notAttempted || []).filter((s) => s.studyYear === 'second-year'),
+    [todaySubmissionsData.notAttempted]
+  );
+
   const exportPool = useMemo(() => {
     let pool = [];
     if (exportTarget === 'not_attempted') {
-      pool = todaySubmissionsData.notAttempted || [];
+      pool = secondYearNotAttempted;
     } else if (exportTarget === 'all') {
-      pool = [...(todaySubmissionsData.submissions || []), ...(todaySubmissionsData.notAttempted || [])];
+      pool = [...secondYearSubmissions, ...secondYearNotAttempted];
     } else {
-      pool = todaySubmissionsData.submissions || [];
-    }
-    if (exportStudyYear !== 'all') {
-      pool = pool.filter((s) => s.studyYear === exportStudyYear);
+      pool = secondYearSubmissions;
     }
     if (exportDepartment !== 'all') {
       pool = pool.filter((s) => s.department === exportDepartment);
     }
     return pool;
-  }, [exportTarget, exportStudyYear, exportDepartment, todaySubmissionsData]);
+  }, [exportTarget, exportDepartment, secondYearSubmissions, secondYearNotAttempted]);
 
   const matchingExportCount = exportPool.length;
 
@@ -2042,7 +2056,7 @@ function App() {
     </main>}
 
     {view === 'members' && <main className="content-shell page-content members-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION CLUB</div><h1>Member directory<span>.</span></h1></div><div className="metric-card"><strong>{directoryPagination.total}</strong></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card"><strong>{directoryPagination.total}</strong></div></div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved ABES account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
         <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
           <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => setDirectoryQuery(event.target.value)} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
@@ -2319,13 +2333,13 @@ function App() {
     </main>}
 
     {view === 'dashboard' && isAdmin && <main className="content-shell page-content dashboard-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Member dashboard<span>.</span></h1></div></div>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Admin Dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" title="Refresh accounts" aria-label="Refresh accounts" onClick={() => refreshMembers(membersPagination.page)}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button></div>
-        <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['leetcode', `LeetCode reqs · ${memberCounts.leetcodePending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); setShowMembersHeatmap(false); refreshMembers(1, key, memberQuery); }}>{label}</button>)}<button type="button" className={`member-heatmap-tab ${showMembersHeatmap ? 'active' : ''}`} title="Submission activity heatmap" aria-pressed={showMembersHeatmap} onClick={() => { const next = !showMembersHeatmap; setShowMembersHeatmap(next); if (next && Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap(); }}><IconifyIcon icon="griddy-icons:calendar-date" width={13} height={13} />{submissionHeatmapBusy ? 'Loading…' : 'Heatmap'}</button></div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
+        <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); setShowMembersHeatmap(false); refreshMembers(1, key, memberQuery); }}>{label}</button>)}<button type="button" className={`member-heatmap-tab ${showMembersHeatmap ? 'active' : ''}`} title="Submission activity heatmap" aria-pressed={showMembersHeatmap} onClick={() => { const next = !showMembersHeatmap; setShowMembersHeatmap(next); if (next && Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap(); }}><IconifyIcon icon="griddy-icons:calendar-date" width={13} height={13} />{submissionHeatmapBusy ? 'Loading…' : 'Heatmap'}</button></div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
         {displayedMembers.length ? <div className="dashboard-member-list">{displayedMembers.map((member) => <article className="dashboard-member-row" key={member.id}>
           <MemberAvatar person={member} label=""/>
-          <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber">LC Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
+          <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber"><Icon name="leetcode" size={12}/> LeetCode Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
           <div className="dashboard-member-actions">
             {member.approvalStatus !== 'approved' && (
               <>
@@ -2344,7 +2358,7 @@ function App() {
               </>
             )}
           </div>
-        </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : memberFilter === 'leetcode' && !memberQuery ? '⚡' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts are waiting.' : memberFilter === 'leetcode' && !memberQuery ? 'No pending LeetCode requests.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups will appear here for review.' : memberFilter === 'leetcode' && !memberQuery ? 'Users requesting LeetCode submission access will appear here.' : 'Try another name, email, or status filter.'}</p></div>}
+        </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts or requests are waiting.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups and LeetCode requests will appear here for review.' : 'Try another name, email, or status filter.'}</p></div>}
         {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
       </section>
       {showMembersHeatmap && (
@@ -2637,19 +2651,8 @@ function App() {
                     disabled={!club.assignment || pickExplainerBusy}
                     title={club.assignment?.explainer ? "View today's selected explainer share card" : "Select an explainer for today's question"}
                   >
-                    <Icon name="dice" size={14}/> <span>{club.assignment?.explainer ? 'View Share Card' : 'Pick Explainer'}</span>
+                    <IconifyIcon icon="andrsrxn:eye-scan" width={14} height={14}/> <span>{club.assignment?.explainer ? 'View Share Card' : 'Pick Explainer'}</span>
                   </button>
-                  {club.assignment?.explainer && (
-                    <button
-                      type="button"
-                      className="button button-quiet repick-explainer-head-btn"
-                      onClick={openRepickModal}
-                      disabled={pickExplainerBusy}
-                      title="Re-pick another explainer and restore current member's turn"
-                    >
-                      <IconifyIcon icon="charm:refresh" width={14} height={14} /> <span>Re-pick</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -2659,12 +2662,21 @@ function App() {
                     <MemberAvatar person={club.assignment.explainer} label=""/>
                     <div>
                       <div className="explainer-banner-badge">
-                        <Icon name="dice" size={12}/> TODAY'S SELECTED EXPLAINER
+                        <IconifyIcon icon="andrsrxn:eye-scan" width={13} height={13}/> TODAY'S SELECTED EXPLAINER
                       </div>
                       <strong>{club.assignment.explainer.name}</strong>
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="button button-quiet repick-banner-btn"
+                    onClick={openRepickModal}
+                    disabled={pickExplainerBusy}
+                    title="Re-pick another explainer and restore current member's turn"
+                  >
+                    <IconifyIcon icon="charm:refresh" width={14} height={14} /> <span>Re-pick</span>
+                  </button>
                 </div>
               )}
 
@@ -2730,17 +2742,29 @@ function App() {
           <section className="panel leaderboard-panel">
             <div className="panel-heading">
               <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB STANDINGS</div><h2><Icon name="trophy" size={18}/> Leaderboard</h2></div>
-              {isLeader && (
+              <div className="panel-heading-actions">
                 <button
                   type="button"
-                  className="button button-quiet export-csv-btn"
-                  onClick={() => setExportModalOpen(true)}
-                  disabled={!club.assignment && !todaySubmissionsData.questionId}
-                  title="Export today's question activity report as CSV"
+                  className="button button-quiet leaderboard-refresh-btn"
+                  onClick={refreshLeaderboardData}
+                  disabled={refreshingLeaderboard}
+                  title="Refresh leaderboard"
+                  aria-label="Refresh leaderboard"
                 >
-                  <Icon name="download" size={14}/> <span>Export as .CSV</span>
+                  <IconifyIcon icon="charm:refresh" width={16} height={16} className={refreshingLeaderboard ? 'spin-icon' : ''} />
                 </button>
-              )}
+                {isLeader && (
+                  <button
+                    type="button"
+                    className="button button-quiet export-csv-btn"
+                    onClick={() => setExportModalOpen(true)}
+                    disabled={!club.assignment && !todaySubmissionsData.questionId}
+                    title="Export today's question activity report as CSV"
+                  >
+                    <Icon name="download" size={14}/> <span>Export as .CSV</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="leaderboard-scope-toggle">
@@ -2921,34 +2945,12 @@ function App() {
           <div className="explainer-modal-actions">
             <button
               type="button"
-              className="button button-green"
-              onClick={handleDownloadExplainerImage}
-              disabled={imageExporting}
-            >
-              <Icon name="download" size={14}/> {imageExporting ? 'Generating Image…' : 'Download Share Image (PNG)'}
-            </button>
-            <button
-              type="button"
               className="button button-dark"
               onClick={handleCopyExplainerImage}
               disabled={imageExporting}
             >
               <Icon name="copy" size={14}/> {copiedNotice ? '✓ Copied to Clipboard!' : 'Copy Card Image'}
             </button>
-            {isLeader && (
-              <button
-                type="button"
-                className="button button-quiet repick-explainer-btn"
-                onClick={() => {
-                  setExplainerModalOpen(false);
-                  openRepickModal();
-                }}
-                disabled={pickExplainerBusy || imageExporting}
-                title="Re-pick another explainer and restore current member's turn"
-              >
-                <IconifyIcon icon="charm:refresh" width={14} height={14} /> Re-pick Explainer
-              </button>
-            )}
           </div>
         </section>
       </div>
@@ -3102,7 +3104,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>Attempted today's question</strong>
-                    <span>Members who submitted a solution ({todaySubmissionsData.submissions?.length || 0})</span>
+                    <span>Members who submitted a solution ({secondYearSubmissions.length})</span>
                   </div>
                 </label>
 
@@ -3116,7 +3118,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>Not attempted today's question</strong>
-                    <span>Approved members who haven't submitted today ({todaySubmissionsData.notAttempted?.length || 0})</span>
+                    <span>Approved members who haven't submitted today ({secondYearNotAttempted.length})</span>
                   </div>
                 </label>
 
@@ -3130,7 +3132,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>All club members</strong>
-                    <span>Everyone with their submission status ({(todaySubmissionsData.submissions?.length || 0) + (todaySubmissionsData.notAttempted?.length || 0)})</span>
+                    <span>All second-year members ({secondYearSubmissions.length + secondYearNotAttempted.length})</span>
                   </div>
                 </label>
               </div>
@@ -3139,13 +3141,8 @@ function App() {
             <div className="export-filters-grid">
               <label className="export-select-field">
                 <span>FILTER BY YEAR OF STUDY</span>
-                <select value={exportStudyYear} onChange={(e) => setExportStudyYear(e.target.value)}>
-                  <option value="all">All years of study</option>
-                  <option value="first-year">First year</option>
-                  <option value="second-year">Second year</option>
-                  <option value="third-year">Third year</option>
-                  <option value="fourth-year">Fourth year</option>
-                  <option value="passed">Passed out</option>
+                <select value="second-year" disabled>
+                  <option value="second-year">Second year only</option>
                 </select>
               </label>
 
@@ -3168,7 +3165,7 @@ function App() {
                   <p>
                     {matchingExportCount === 0
                       ? 'No members match the current filter selection.'
-                      : `Will export ${exportTarget === 'not_attempted' ? 'unattempted' : exportTarget === 'attempted' ? 'attempted' : 'all'} members${exportStudyYear !== 'all' ? ` in ${studyYearLabel(exportStudyYear)}` : ''}${exportDepartment !== 'all' ? ` (${exportDepartment})` : ''}. LeetCode IDs are excluded.`}
+                      : `Will export ${exportTarget === 'not_attempted' ? 'unattempted' : exportTarget === 'attempted' ? 'attempted' : 'all'} second-year members${exportDepartment !== 'all' ? ` (${exportDepartment})` : ''}. LeetCode IDs are excluded.`}
                   </p>
                 </div>
               </div>

@@ -1091,6 +1091,10 @@ test('explainer selection prioritizes second-year students, locks for today, and
   assert.equal(repick.data.isRepick, true);
   assert.equal(repick.data.explainer.name, 'Sophomore Bob');
 
+  // Alice (the previous explainer who was replaced) must automatically suffer -50 aura points
+  const aliceAfterRepick = await db.collection('users').findOne({ _id: secondYearA.user._id });
+  assert.equal(aliceAfterRepick.customAura, -50);
+
   // Check assignment in DB: explainerUserId is now Bob, Alice was replaced
   const assignmentInDb = await db.collection('assignments').findOne({ _id: new ObjectId(assignmentId) });
   assert.equal(String(assignmentInDb.explainerUserId), String(secondYearB.user._id));
@@ -1337,6 +1341,12 @@ test('LeetCode submission requires admin approval: member request, admin approva
   assert.equal(lcList.response.status, 200);
   assert.equal(lcList.data.counts.leetcodePending, 1);
   assert.equal(lcList.data.members.some((m) => m.id === String(member.user._id)), true);
+
+  // 3b. LeetCode pending request also appears under status=pending tab
+  const pendingTabList = await call(db, '/admin/members?status=pending', { cookie: admin.cookie });
+  assert.equal(pendingTabList.response.status, 200);
+  assert.equal(pendingTabList.data.members.some((m) => m.id === String(member.user._id)), true);
+  assert.equal(pendingTabList.data.counts.pending >= 1, true);
 
   // 4. Admin approves LeetCode access for member
   const approveRes = await call(db, `/admin/members/${member.user._id}`, {
