@@ -182,7 +182,7 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
   ctx.fillStyle = '#38bdf8';
   ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.letterSpacing = '1.5px';
-  ctx.fillText('ABES TECHNOVATION CLUB  ·  DSAVATION', 118, 68);
+  ctx.fillText('TECHNOVATION CLUB  ·  DSAVATION', 118, 68);
 
   // Main Heading
   ctx.fillStyle = '#ffffff';
@@ -396,7 +396,7 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
 
   ctx.fillStyle = '#cbd5e1';
   ctx.font = '600 14px system-ui, -apple-system, sans-serif';
-  ctx.fillText('DSAvation  ·  ABES Engineering College  ·  Technovation Club', 84, height - 58);
+  ctx.fillText('DSAvation  ·  Technovation Club', 84, height - 58);
   ctx.textAlign = 'right';
   ctx.fillText("Randomly selected among today's submitters", width - 84, height - 58);
   ctx.restore();

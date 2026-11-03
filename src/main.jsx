@@ -18,6 +18,7 @@ import { AVATAR_STYLES, createAvatarDataUri, createAvatarSeeds } from './avatar.
 import { downloadExplainerImage, copyExplainerImage } from './explainerCard.js';
 import { initLiquidGlass } from './liquidGlass.js';
 import { AtmosphereBackdrop } from './components/atmosphere/AtmosphereBackdrop.jsx';
+import { useAdaptiveCardTheme } from './utils/useAdaptiveCardTheme.js';
 import './style.css';
 
 function normalizeQuestions(rows = []) {
@@ -667,6 +668,165 @@ const HeroTitleTypewriter = React.memo(function HeroTitleTypewriter() {
       {line1.length === line1Full.length && <br />}
       {line2 && <em>{line2}</em>}
     </h1>
+  );
+});
+
+const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
+  member,
+  isAdmin,
+  lookup,
+  stats,
+  maxActivity,
+  isSectionVisible,
+  canSeeLeetcode,
+  leetcodeStatsBusy,
+  onAdminSelect,
+  onOpenStats,
+  onLoadStats,
+}) {
+  const cardTheme = useAdaptiveCardTheme(member.cardBgUrl);
+
+  return (
+    <article
+      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''} water-glass-card`}
+      data-card-theme={member.cardBgUrl ? cardTheme.theme : undefined}
+      style={member.cardBgUrl ? cardTheme.cssVariables : undefined}
+      onClick={(e) => {
+        if (isAdmin && !e.target.closest('a, button, input, select')) {
+          onAdminSelect(member);
+        }
+      }}
+    >
+      {member.cardBgUrl && (
+        <>
+          <div
+            className="member-card-bg-layer"
+            style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }}
+            aria-hidden="true"
+          />
+          <div className="member-card-overlay-layer" aria-hidden="true" />
+        </>
+      )}
+      <div className="member-card-content-layer">
+        <header className="directory-card-header">
+          <MemberAvatar person={member} className="directory-avatar" label="" />
+          <div className="directory-card-identity">
+            <h2>
+              {member.name}
+              {member.role === 'admin' && (
+                <span className="admin-verified-badge" title="Administrator">
+                  <IconifyIcon icon="codicon:verified" width={18} height={18} />
+                </span>
+              )}
+            </h2>
+            <p>
+              {member.department} · {studyYearLabel(member.studyYear)} ·{' '}
+              <span className="member-points-chip" title="Total club points">
+                <IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts
+              </span>{' '}
+              <span className="member-points-chip member-aura-chip" title="Total Aura points">
+                <IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}
+              </span>
+            </p>
+          </div>
+          {member.role === 'admin' && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>
+                {member.role === 'lead' ? 'Club lead' : member.role}
+              </Pill>
+            </div>
+          )}
+        </header>
+
+        <div className="directory-socials">
+          {member.githubUsername ? (
+            <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer">
+              <Icon name="github" size={14} />@{member.githubUsername}
+              <Icon name="external" size={12} />
+            </a>
+          ) : (
+            <span>GitHub not linked</span>
+          )}
+          {canSeeLeetcode && (
+            member.leetcodeUsername ? (
+              <div className="directory-leetcode-row">
+                <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">
+                  <Icon name="leetcode" size={14} />@{member.leetcodeUsername}
+                  <Icon name="external" size={12} />
+                </a>
+                <button
+                  className="text-button leetcode-inline-load-btn"
+                  type="button"
+                  disabled={leetcodeStatsBusy === member.id}
+                  onClick={() => {
+                    onOpenStats(member.id);
+                    onLoadStats(member);
+                  }}
+                >
+                  {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'}{' '}
+                  <Icon name="arrow" size={12} />
+                </button>
+              </div>
+            ) : (
+              <span>LeetCode ID not added</span>
+            )
+          )}
+        </div>
+
+        {isSectionVisible && (
+          <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
+            <div className="directory-leetcode-heading">
+              <strong>LeetCode progress</strong>
+              {stats && (
+                <span>
+                  Updated{' '}
+                  {new Date(stats.fetchedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    timeZone: 'Asia/Kolkata',
+                  })}
+                </span>
+              )}
+            </div>
+            {lookup?.available && stats ? (
+              <>
+                <div className="leetcode-counts">
+                  <span>
+                    <strong>{stats.attemptedCount ?? '—'}</strong> attempted
+                  </span>
+                  <span>
+                    <strong>{stats.solvedCount}</strong> solved
+                  </span>
+                </div>
+                <div className="leetcode-bars">
+                  {stats.byDifficulty.map((item) => (
+                    <div className="leetcode-bar-row" key={item.difficulty}>
+                      <span>{item.difficulty}</span>
+                      <i>
+                        <b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }} />
+                      </i>
+                      <strong>{item.attempted ?? item.solved}</strong>
+                    </div>
+                  ))}
+                </div>
+                {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
+              </>
+            ) : lookup?.reason ? (
+              <div className="leetcode-empty">
+                <span>{lookup.reason}</span>
+              </div>
+            ) : (
+              <div className="leetcode-empty">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconifyIcon icon="charm:refresh" width={14} height={14} className="spin-icon" />
+                  Loading LeetCode stats…
+                </span>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+    </article>
   );
 });
 
@@ -2171,17 +2331,28 @@ function App() {
     </main>}
 
     {view === 'members' && <main className="content-shell page-content members-page">
-      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card"><strong>{directoryPagination.total}</strong></div></div>
-      {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved ABES account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
+      <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card"><strong>{directoryPagination.total}</strong></div></div>
+      {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
         <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
-          <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => {
-            const val = event.target.value;
-            setDirectoryQuery(val);
-            if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
-            directoryDebounceRef.current = setTimeout(() => {
-              loadDirectory(1, val, directoryDepartment, directoryYear);
-            }, 350);
-          }} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
+          <label className="directory-search-field">
+            <span>SEARCH</span>
+            <div className="member-search">
+              <Icon name="search" size={15}/>
+              <input
+                value={directoryQuery}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setDirectoryQuery(val);
+                  if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
+                  directoryDebounceRef.current = setTimeout(() => {
+                    loadDirectory(1, val, directoryDepartment, directoryYear);
+                  }, 350);
+                }}
+                placeholder="Search name, Club Department, or username"
+                aria-label="Search members"
+              />
+            </div>
+          </label>
           <label className="directory-select"><span>CLUB DEPARTMENT</span><select value={directoryDepartment} onChange={(event) => { if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); setDirectoryDepartment(event.target.value); loadDirectory(1, directoryQuery, event.target.value, directoryYear); }}><option value="">All departments</option>{directoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
           <label className="directory-select"><span>YEAR</span><select value={directoryYear} onChange={(event) => { if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); setDirectoryYear(event.target.value); loadDirectory(1, directoryQuery, directoryDepartment, event.target.value); }}><option value="">All years</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label>
           {isAdmin ? (
@@ -2218,96 +2389,22 @@ function App() {
               ? true
               : (isSelf ? Boolean(stats || lookup?.reason) : Boolean(individuallyOpenedStats[member.id]))
           );
-          return <article
-            className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
-            key={member.id}
-            onClick={(e) => {
-              if (isAdmin && !e.target.closest('a, button, input, select')) {
-                setAdminOverlayMember(member);
-              }
-            }}
-          >
-            {member.cardBgUrl && (
-              <>
-                <div className="member-card-bg-layer" style={{ backgroundImage: `url(${JSON.stringify(member.cardBgUrl)})` }} aria-hidden="true" />
-                <div className="member-card-overlay-layer" aria-hidden="true" />
-              </>
-            )}
-            <div className="member-card-content-layer">
-              <header className="directory-card-header">
-                <MemberAvatar person={member} className="directory-avatar" label=""/>
-                <div className="directory-card-identity">
-                  <h2>{member.name}{member.role === 'admin' && <span className="admin-verified-badge" title="Administrator"><IconifyIcon icon="codicon:verified" width={18} height={18} /></span>}</h2>
-                  <p>{member.department} · {studyYearLabel(member.studyYear)} · <span className="member-points-chip" title="Total club points"><IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts</span> <span className="member-points-chip member-aura-chip" title="Total Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}</span></p>
-                </div>
-                {member.role === 'admin'  && (<div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Pill tone={member.role === 'admin' ? 'green' : 'neutral'}>{member.role === 'lead' ? 'Club lead' : member.role}</Pill>
-                </div>)}
-              </header>
-              <div className="directory-socials">
-                {member.githubUsername ? <a href={`https://github.com/${encodeURIComponent(member.githubUsername)}`} target="_blank" rel="noreferrer"><Icon name="github" size={14}/>@{member.githubUsername}<Icon name="external" size={12}/></a> : <span>GitHub not linked</span>}
-                {canSeeLeetcode && (
-                  member.leetcodeUsername ? (
-                    <div className="directory-leetcode-row">
-                      <a href={`https://leetcode.com/${encodeURIComponent(member.leetcodeUsername)}/`} target="_blank" rel="noreferrer">
-                        <Icon name="leetcode" size={14}/>@{member.leetcodeUsername}<Icon name="external" size={12}/>
-                      </a>
-                      <button
-                        className="text-button leetcode-inline-load-btn"
-                        type="button"
-                        disabled={leetcodeStatsBusy === member.id}
-                        onClick={() => {
-                          setIndividuallyOpenedStats((prev) => ({ ...prev, [member.id]: true }));
-                          loadDirectoryLeetcodeStats(member);
-                        }}
-                      >
-                        {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'} <Icon name="arrow" size={12}/>
-                      </button>
-                    </div>
-                  ) : (
-                    <span>LeetCode ID not added</span>
-                  )
-                )}
-              </div>
-              {isSectionVisible && (
-                <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
-                  <div className="directory-leetcode-heading">
-                    <strong>LeetCode progress</strong>
-                    {stats && <span>Updated {new Date(stats.fetchedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}</span>}
-                  </div>
-                  {lookup?.available && stats ? (
-                    <>
-                      <div className="leetcode-counts">
-                        <span><strong>{stats.attemptedCount ?? '—'}</strong> attempted</span>
-                        <span><strong>{stats.solvedCount}</strong> solved</span>
-                      </div>
-                      <div className="leetcode-bars">
-                        {stats.byDifficulty.map((item) => (
-                          <div className="leetcode-bar-row" key={item.difficulty}>
-                            <span>{item.difficulty}</span>
-                            <i><b style={{ width: `${Math.max(2, Math.round(((item.attempted ?? item.solved) / maxActivity) * 100))}%` }}/></i>
-                            <strong>{item.attempted ?? item.solved}</strong>
-                          </div>
-                        ))}
-                      </div>
-                      {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
-                    </>
-                  ) : lookup?.reason ? (
-                    <div className="leetcode-empty">
-                      <span>{lookup.reason}</span>
-                    </div>
-                  ) : (
-                    <div className="leetcode-empty">
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <IconifyIcon icon="charm:refresh" width={14} height={14} className="spin-icon" />
-                        Loading LeetCode stats…
-                      </span>
-                    </div>
-                  )}
-                </section>
-              )}
-            </div>
-          </article>;
+          return (
+            <MemberDirectoryCard
+              key={member.id}
+              member={member}
+              isAdmin={isAdmin}
+              lookup={lookup}
+              stats={stats}
+              maxActivity={maxActivity}
+              isSectionVisible={isSectionVisible}
+              canSeeLeetcode={canSeeLeetcode}
+              leetcodeStatsBusy={leetcodeStatsBusy}
+              onAdminSelect={setAdminOverlayMember}
+              onOpenStats={(id) => setIndividuallyOpenedStats((prev) => ({ ...prev, [id]: true }))}
+              onLoadStats={loadDirectoryLeetcodeStats}
+            />
+          );
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
         {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
         {adminOverlayMember && (
@@ -2753,16 +2850,6 @@ function App() {
                 </div>
                 <div className="panel-heading-actions">
                   {assignedQuestion && <Pill tone={assignedQuestion.difficulty.toLowerCase()}>{assignedQuestion.difficulty}</Pill>}
-                  <button
-                    type="button"
-                    className="button button-quiet card-header-refresh-btn"
-                    onClick={refreshLeaderboardData}
-                    disabled={refreshingLeaderboard}
-                    title="Refresh today's challenge"
-                    aria-label="Refresh today's challenge"
-                  >
-                    <IconifyIcon icon="charm:refresh" width={16} height={16} className={refreshingLeaderboard ? 'spin-icon' : ''} />
-                  </button>
                 </div>
               </div>
               {assignedQuestion ? (
@@ -2785,7 +2872,7 @@ function App() {
                   {!account ? (
                     <div className="inline-callout">
                       <Icon name="lock" size={16} />
-                      <span>Sign in with an approved ABES account to submit a club solution.</span>
+                      <span>Sign in with an approved account to submit a club solution.</span>
                       <button onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in</button>
                     </div>
                   ) : submissions.some((item) => item.assignment?.dateKey === club.assignment.dateKey && item.status !== 'invalidated') ? (
@@ -2960,19 +3047,7 @@ function App() {
           <section className="panel history-panel">
             <div className="panel-heading">
               <div><div className="eyebrow"><span className="eyebrow-line"/>ASSIGNMENT LOG</div><h2>Published days</h2></div>
-              <div className="panel-heading-actions">
-                <span className="micro-count">{historyPagination.total}</span>
-                <button
-                  type="button"
-                  className="button button-quiet card-header-refresh-btn"
-                  disabled={historyBusy}
-                  onClick={() => loadHistoryPage(historyPagination.page)}
-                  title="Refresh published days"
-                  aria-label="Refresh published days"
-                >
-                  <IconifyIcon icon="charm:refresh" width={16} height={16} className={historyBusy ? 'spin-icon' : ''} />
-                </button>
-              </div>
+              <span className="micro-count">{historyPagination.total}</span>
             </div>
             {history.length ? (
               <>
@@ -3164,7 +3239,7 @@ function App() {
               <div className="explainer-brand-lockup">
                 <img src="/technovation-logo.png" alt="Logo" className="explainer-card-logo" />
                 <div>
-                  <span className="explainer-preview-brand">ABES TECHNOVATION CLUB</span>
+                  <span className="explainer-preview-brand">TECHNOVATION CLUB</span>
                   <span className="explainer-sub-brand">DSAvation · Daily Problem Spotlight</span>
                 </div>
               </div>
@@ -3472,12 +3547,12 @@ function App() {
 
     {resetLink && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetLink(null); }}><section className="auth-modal reset-link-modal" role="dialog" aria-modal="true" aria-labelledby="reset-link-title"><button className="modal-close" onClick={() => setResetLink(null)} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>ONE-TIME PASSWORD RESET</div><h2 id="reset-link-title">Reset link for {resetLink.name}<span>.</span></h2><p className="auth-lede">This link expires at {new Date(resetLink.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} India time and works once. Share it directly with the member. The server stores only a hash.</p><label className="reset-link-field">RESET URL<input value={resetLink.url} readOnly onFocus={(event) => event.target.select()}/></label><button className="button button-dark auth-submit" onClick={copyResetLink}>Copy one-time link <Icon name="arrow" size={14}/></button></section></div>}
 
-    {forgotOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="forgot-title"><button className="modal-close" onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>RESET YOUR PASSWORD</div><h2 id="forgot-title">Forgot password?<span>.</span></h2><p className="auth-lede">Enter your email address and we'll send you a one-time reset link. The link expires in 30 minutes.</p>{forgotSuccess ? <><p className="auth-success">Reset link successfully sent! Check your email.</p><button className="button button-dark auth-submit" onClick={() => { setForgotOpen(false); setForgotSuccess(false); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></> : <><form onSubmit={requestPasswordReset} className="auth-form"><label>ABES EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}/></label>{forgotError && <p className="form-error" role="alert">{forgotError}</p>}<button className="button button-dark auth-submit" disabled={forgotBusy}>{forgotBusy ? 'Sending…' : 'Send reset link'} <Icon name="arrow" size={14}/></button></form><p className="auth-switch"><button onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></p></>}</section></div>}
+    {forgotOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="forgot-title"><button className="modal-close" onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>RESET YOUR PASSWORD</div><h2 id="forgot-title">Forgot password?<span>.</span></h2><p className="auth-lede">Enter your email address and we'll send you a one-time reset link. The link expires in 30 minutes.</p>{forgotSuccess ? <><p className="auth-success">Reset link successfully sent! Check your email.</p><button className="button button-dark auth-submit" onClick={() => { setForgotOpen(false); setForgotSuccess(false); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></> : <><form onSubmit={requestPasswordReset} className="auth-form"><label>COLLEGE EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}/></label>{forgotError && <p className="form-error" role="alert">{forgotError}</p>}<button className="button button-dark auth-submit" disabled={forgotBusy}>{forgotBusy ? 'Sending…' : 'Send reset link'} <Icon name="arrow" size={14}/></button></form><p className="auth-switch"><button onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></p></>}</section></div>}
 
     {authOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setAuthOpen(false); setShowPassword(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button className="modal-close" onClick={() => { setAuthOpen(false); setShowPassword(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>DSAVATION MEMBER ACCESS</div><h2 id="auth-title">{authMode === 'signup' ? 'Create your account' : 'Welcome back'}<span>.</span></h2><p className="auth-lede">{authMode === 'signup' ? 'Use your college email to request access to the private tracker and club challenge. An administrator must approve your account.' : 'Sign in to save private progress and submit to the club challenge.'}</p>
         <form onSubmit={submitAuth} className="auth-form">
-          {authMode === 'signup' && <><label>FULL NAME<input name="name" autoComplete="name" required minLength="2" maxLength="80" placeholder="Your name"/></label><label>CLUB DEPARTMENT<select name="department" required defaultValue=""><option value="" disabled>Select your club department</option>{CLUB_DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}</select></label><label>YEAR OF STUDY<select name="studyYear" required defaultValue=""><option value="" disabled>Select your current year</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label><label>ABES EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" title="Use your @abes.ac.in email" placeholder="you@abes.ac.in"/></label><label>GITHUB USERNAME<input name="githubUsername" required pattern="[A-Za-z0-9-]{1,39}" placeholder="your-github-handle"/><small>After signup, connect GitHub to replace this with your verified username.</small></label><label>LEETCODE USERNAME<input name="leetcodeUsername" required pattern="[A-Za-z0-9_-]{1,40}" placeholder="your-leetcode-id"/></label><label className="password-input-label">PASSWORD<div className="password-input-wrapper"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength="10" maxLength="128" required placeholder="At least 10 characters"/><button type="button" className="password-toggle-btn" onClick={() => setShowPassword((prev) => !prev)} title={showPassword ? 'Hide password' : 'Peek password'} aria-label={showPassword ? 'Hide password' : 'Peek password'}><IconifyIcon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} width={18} height={18}/></button></div></label></>}
-          {authMode === 'login' && <><label>ABES EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in"/></label><label className="password-input-label">PASSWORD<div className="password-input-wrapper"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required placeholder="Your password"/><button type="button" className="password-toggle-btn" onClick={() => setShowPassword((prev) => !prev)} title={showPassword ? 'Hide password' : 'Peek password'} aria-label={showPassword ? 'Hide password' : 'Peek password'}><IconifyIcon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} width={18} height={18}/></button></div></label></>}
+          {authMode === 'signup' && <><label>FULL NAME<input name="name" autoComplete="name" required minLength="2" maxLength="80" placeholder="Your name"/></label><label>CLUB DEPARTMENT<select name="department" required defaultValue=""><option value="" disabled>Select your club department</option>{CLUB_DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}</select></label><label>YEAR OF STUDY<select name="studyYear" required defaultValue=""><option value="" disabled>Select your current year</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label><label>COLLEGE EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" title="Use your college email" placeholder="you@abes.ac.in"/></label><label>GITHUB USERNAME<input name="githubUsername" required pattern="[A-Za-z0-9-]{1,39}" placeholder="your-github-handle"/><small>After signup, connect GitHub to replace this with your verified username.</small></label><label>LEETCODE USERNAME<input name="leetcodeUsername" required pattern="[A-Za-z0-9_-]{1,40}" placeholder="your-leetcode-id"/></label><label className="password-input-label">PASSWORD<div className="password-input-wrapper"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength="10" maxLength="128" required placeholder="At least 10 characters"/><button type="button" className="password-toggle-btn" onClick={() => setShowPassword((prev) => !prev)} title={showPassword ? 'Hide password' : 'Peek password'} aria-label={showPassword ? 'Hide password' : 'Peek password'}><IconifyIcon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} width={18} height={18}/></button></div></label></>}
+          {authMode === 'login' && <><label>COLLEGE EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in"/></label><label className="password-input-label">PASSWORD<div className="password-input-wrapper"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required placeholder="Your password"/><button type="button" className="password-toggle-btn" onClick={() => setShowPassword((prev) => !prev)} title={showPassword ? 'Hide password' : 'Peek password'} aria-label={showPassword ? 'Hide password' : 'Peek password'}><IconifyIcon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} width={18} height={18}/></button></div></label></>}
           {authError && <p className="form-error" role="alert">{authError}</p>}
           <button className="button button-dark auth-submit" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signup' ? 'Request account' : 'Sign in'} <Icon name="arrow" size={14}/></button>
         </form>

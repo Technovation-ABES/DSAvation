@@ -219,7 +219,7 @@ async function currentUser(req, db) {
 
 async function requireUser(req, db) {
   const user = await currentUser(req, db);
-  if (!user) throw new HttpError(401, 'Sign in with an approved ABES account to continue.');
+  if (!user) throw new HttpError(401, 'Sign in with an approved account to continue.');
   return user;
 }
 
@@ -333,6 +333,9 @@ async function signup(db, req, res, body) {
 async function login(db, req, res, body) {
   await allowRequest(db, req, 'login', 15, 15 * 60 * 1000);
   const email = String(body.email || '').trim().toLowerCase();
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpError(400, 'Enter a valid email address.');
+  }
   await allowRequest(db, req, `login-account:${hash(email)}`, 5, 15 * 60 * 1000);
   let user = await db.collection('users').findOne({ email });
   if (!user) throw new HttpError(404, 'No account was found for this email. Check the address or create an account.');
@@ -373,25 +376,28 @@ async function generatePasswordReset(db, req, user, memberId) {
     emailSent = true;
   } catch (error) {
     emailError = error.message;
-    console.error('[API] Failed to send password reset email:', error);
+    if (process.env.NODE_ENV !== 'test' && !error.message.includes('SMTP configuration is incomplete')) {
+      console.warn(`[API] Could not email password reset to ${target.email}:`, error.message);
+    }
   }
 
   return { resetUrl, expiresAt, emailSent, emailError };
 }
 
 async function requestPasswordReset(db, req, res, body) {
-  await allowRequest(db, req, 'request-pw-reset', 5, 60 * 60 * 1000);
   const email = String(body.email || '').toLowerCase().trim();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Enter a valid email address.');
+  if (!email || email.length > 254 || !/^[a-z0-9.+_-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) {
+    throw new HttpError(400, 'Enter a valid email address.');
+  }
+  await allowRequest(db, req, 'request-pw-reset', 20, 60 * 60 * 1000);
+  await allowRequest(db, req, `request-pw-reset:${hash(email)}`, 5, 60 * 60 * 1000);
   const user = await db.collection('users').findOne({ email }, { projection: { _id: 1, name: 1, email: 1, approvalStatus: 1 } });
-  if (!user) {
-    return { ok: true };
+  if (!user || user.approvalStatus !== 'approved') {
+    return { ok: true, emailSent: false };
   }
-  if (user.approvalStatus !== 'approved') {
-    return { ok: true };
-  }
-  const token = `${Date.now().toString(36)}-${randomBytes(24).toString('base64url')}`;
+  const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  await db.collection('passwordResets').deleteMany({ userId: user._id });
   await db.collection('passwordResets').insertOne({
     tokenHash: hash(token),
     userId: user._id,
@@ -407,30 +413,50 @@ async function requestPasswordReset(db, req, res, body) {
     emailSent = true;
   } catch (error) {
     emailError = error.message;
-    console.error('[API] Failed to send password reset email:', error);
+    if (process.env.NODE_ENV !== 'test' && !error.message.includes('SMTP configuration is incomplete')) {
+      console.warn(`[API] Could not email password reset to ${user.email}:`, error.message);
+    }
   }
   return { ok: true, emailSent, emailError };
 }
 
 async function resetPassword(db, req, res, body) {
   await allowRequest(db, req, 'password-reset', 10, 15 * 60 * 1000);
-  const token = String(body.token || '');
+  const token = String(body.token || '').trim();
   const password = String(body.password || '');
-  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) throw new HttpError(400, 'This password reset link is invalid or expired. Ask an administrator for a new one.');
-  if (password.length < 10 || password.length > 128) throw new HttpError(400, 'Use a password between 10 and 128 characters.');
+  if (!token || !/^[A-Za-z0-9_-]{20,128}$/.test(token)) {
+    throw new HttpError(400, 'This password reset link is invalid or expired. Ask an administrator for a new one.');
+  }
+  if (password.length < 10 || password.length > 128) {
+    throw new HttpError(400, 'Use a password between 10 and 128 characters.');
+  }
   const now = new Date();
-  const reset = await db.collection('passwordResets').findOne({ tokenHash: hash(token), expiresAt: { $gt: now }, usedAt: { $exists: false } });
-  if (!reset) throw new HttpError(400, 'This password reset link is invalid or expired. Ask an administrator for a new one.');
+  const reset = await db.collection('passwordResets').findOne({
+    tokenHash: hash(token),
+    expiresAt: { $gt: now },
+    usedAt: { $exists: false },
+  });
+  if (!reset) {
+    const previous = await db.collection('passwordResets').findOne({ tokenHash: hash(token) });
+    if (previous?.usedAt) {
+      throw new HttpError(400, 'This password reset link has already been used. Ask an administrator for a new one.');
+    }
+    throw new HttpError(400, 'This password reset link is invalid or expired. Ask an administrator for a new one.');
+  }
   const consumed = await db.collection('passwordResets').updateOne(
     { _id: reset._id, expiresAt: { $gt: now }, usedAt: { $exists: false } },
     { $set: { usedAt: now } },
   );
-  if (!consumed.matchedCount) throw new HttpError(400, 'This password reset link has already been used. Ask an administrator for a new one.');
+  if (!consumed.matchedCount) {
+    throw new HttpError(400, 'This password reset link has already been used. Ask an administrator for a new one.');
+  }
   const updated = await db.collection('users').updateOne(
     { _id: reset.userId },
     { $set: { passwordHash: await bcrypt.hash(password, 12), updatedAt: now } },
   );
-  if (!updated.matchedCount) throw new HttpError(400, 'The account for this reset link no longer exists.');
+  if (!updated.matchedCount) {
+    throw new HttpError(400, 'The account for this reset link no longer exists.');
+  }
   await db.collection('sessions').deleteMany({ userId: reset.userId });
   clearCookie(res, req, 'dsavation_session');
   return { ok: true };
@@ -1157,8 +1183,8 @@ async function leaderboard(db, url, viewer = null) {
 
     return {
       userId: String(profile._id),
-      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'ABES member',
-      department: profile.showPublic ? profile.department : 'ABES member',
+      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'Club member',
+      department: profile.showPublic ? profile.department : 'Club member',
       githubUsername: profile.githubUsername,
       ...formatAvatar(profile),
       points: row.points ?? row.accepted,
