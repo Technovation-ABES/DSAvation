@@ -20,13 +20,13 @@
 
 | 🚀 Start Here | 🧠 Explore the System |
 | :--- | :--- |
-| [🌐 Live Platform Access](#-live-platform-access) | [🎮 Visual Platform Tour](#-visual-platform-tour) |
-| [⚡ Onboarding Pipeline](#-the-onboarding-pipeline) | [🏆 Scoring & Blaze Mechanics](#-scoring-rules--Blaze-mechanics) |
-| [🏠 Home — Mission Control](#1️⃣--home-page--mission-control--private-library) | [📦 GitHub Verification](#-github-commit-verification-protocol) |
-| [⚔️ Club Challenge](#2️⃣--club-challenge--the-daily-battleground) | [📚 220-Question Curriculum](#-the-220-question-curriculum-blueprint) |
-| [👥 Member Directory](#3️⃣--member-directory--community--standings) | [🏛️ Architecture Overview](#-architecture-overview) |
-| [🧠 Direct LeetCode Verification](#-direct-leetcode-verification) | [💖 Technical Team](#made-with--by-the-technical-team-technovation) |
-| [👤 Profile & Avatar Studio](#4️⃣--profile--avatar-studio--identity--habit-tracker) | |
+| <a href="#-live-platform-access">🌐 Live Platform Access</a> | <a href="#-visual-platform-tour">🎮 Visual Platform Tour</a> |
+| <a href="#-the-onboarding-pipeline">⚡ Onboarding Pipeline</a> | <a href="#-scoring-rules--blaze-mechanics">🏆 Scoring &amp; Blaze Mechanics</a> |
+| <a href="#1️⃣--home-page--mission-control--private-library">🏠 Home — Mission Control</a> | <a href="#-github-commit-verification-protocol">📦 GitHub Verification</a> |
+| <a href="#2️⃣--club-challenge--the-daily-battleground">⚔️ Club Challenge</a> | <a href="#-the-220-question-curriculum-blueprint">📚 220-Question Curriculum</a> |
+| <a href="#3️⃣--member-directory--community--standings">👥 Member Directory</a> | <a href="#-architecture-overview">🏛️ Architecture Overview</a> |
+| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#made-with--by-the-technical-team-technovation">💖 Technical Team</a> |
+| <a href="#4️⃣--profile--avatar-studio--identity--habit-tracker">👤 Profile &amp; Avatar Studio</a> | |
 
 ---
 
@@ -34,7 +34,7 @@
 
 > 🚀 **24/7 LIVE ON VERCEL**
 >
-> <a href="https://dsavation.vercel.app/"><kbd>⚡ OPEN DSAVATION ↗</kbd></a>
+> <a href="https://dsavation.vercel.app/" target="_blank" rel="noopener noreferrer"><kbd>⚡ OPEN DSAVATION ↗</kbd></a>
 
 ```text
 [ 🚀 Production Platform ]  ──▶  LIVE ON VERCEL
@@ -266,10 +266,10 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
 
 | # | Contributor | GitHub |
 | :-: | :--- | :---: |
-| **01** | **Yash Prajapati** **[Tech Lead]** | 🔗 [Yash-1704](https://github.com/Yash-1704) |
-| **02** | **Harsh Tiwari** |  🔗 [harshtiwari47](https://github.com/harshtiwari47) |
-| **03** | **Dishant Gahlot** | 🔗 [dishantgahlot](https://github.com/dishantgahlot) |
-| **04** | **Vadanta Kumar Chauhaan** | 🔗 [VedisVigourous](https://github.com/vedisvigourous) |
+| **01** | **Yash Prajapati** **[Tech Lead]** | 🔗 <a href="https://github.com/Yash-1704" target="_blank" rel="noopener noreferrer">Yash-1704</a> |
+| **02** | **Harsh Tiwari** | 🔗 <a href="https://github.com/harshtiwari47" target="_blank" rel="noopener noreferrer">harshtiwari47</a> |
+| **03** | **Dishant Gahlot** | 🔗 <a href="https://github.com/dishantgahlot" target="_blank" rel="noopener noreferrer">dishantgahlot</a> |
+| **04** | **Vadanta Kumar Chauhaan** | 🔗 <a href="https://github.com/vedisvigourous" target="_blank" rel="noopener noreferrer">VedisVigourous</a> |
 
 </div>
 
