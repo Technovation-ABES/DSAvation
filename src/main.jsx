@@ -1220,29 +1220,36 @@ function App() {
     }
   }
 
-  const secondYearSubmissions = useMemo(
-    () => (todaySubmissionsData.submissions || []).filter((s) => s.studyYear === 'second-year'),
-    [todaySubmissionsData.submissions]
-  );
-  const secondYearNotAttempted = useMemo(
-    () => (todaySubmissionsData.notAttempted || []).filter((s) => s.studyYear === 'second-year'),
-    [todaySubmissionsData.notAttempted]
-  );
+  const filteredSubmissions = useMemo(() => {
+    let list = todaySubmissionsData.submissions || [];
+    if (exportStudyYear !== 'all') {
+      list = list.filter((s) => s.studyYear === exportStudyYear);
+    }
+    return list;
+  }, [todaySubmissionsData.submissions, exportStudyYear]);
+
+  const filteredNotAttempted = useMemo(() => {
+    let list = todaySubmissionsData.notAttempted || [];
+    if (exportStudyYear !== 'all') {
+      list = list.filter((s) => s.studyYear === exportStudyYear);
+    }
+    return list;
+  }, [todaySubmissionsData.notAttempted, exportStudyYear]);
 
   const exportPool = useMemo(() => {
     let pool = [];
     if (exportTarget === 'not_attempted') {
-      pool = secondYearNotAttempted;
+      pool = filteredNotAttempted;
     } else if (exportTarget === 'all') {
-      pool = [...secondYearSubmissions, ...secondYearNotAttempted];
+      pool = [...filteredSubmissions, ...filteredNotAttempted];
     } else {
-      pool = secondYearSubmissions;
+      pool = filteredSubmissions;
     }
     if (exportDepartment !== 'all') {
       pool = pool.filter((s) => s.department === exportDepartment);
     }
     return pool;
-  }, [exportTarget, exportDepartment, secondYearSubmissions, secondYearNotAttempted]);
+  }, [exportTarget, exportDepartment, filteredSubmissions, filteredNotAttempted]);
 
   const matchingExportCount = exportPool.length;
 
@@ -2488,6 +2495,18 @@ function App() {
         <div className="panel-heading">
           <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
           <div className="panel-heading-actions">
+            {memberFilter === 'heatmap' && (
+              <button
+                type="button"
+                className={`button button-quiet heatmap-year-toggle-btn ${heatmapSecondYearOnly ? 'active' : ''}`}
+                onClick={() => setHeatmapSecondYearOnly((prev) => !prev)}
+                title={heatmapSecondYearOnly ? "Showing second year data only (Click to show all members)" : "Filter heatmap: Show second year data only"}
+                aria-pressed={heatmapSecondYearOnly}
+              >
+                <IconifyIcon icon={heatmapSecondYearOnly ? "charm:circle-tick" : "charm:filter"} width={14} height={14} />
+                <span>{heatmapSecondYearOnly ? '2nd Year Only' : '2nd Year'}</span>
+              </button>
+            )}
             <button
               className="button button-quiet refresh-members"
               disabled={memberFilter === 'heatmap' ? submissionHeatmapBusy : membersBusy}
@@ -2503,18 +2522,6 @@ function App() {
             >
               <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' ? submissionHeatmapBusy : membersBusy) ? 'spin-icon' : ''} />
             </button>
-            {memberFilter === 'heatmap' && (
-              <button
-                type="button"
-                className={`button button-quiet heatmap-year-toggle-btn ${heatmapSecondYearOnly ? 'active' : ''}`}
-                onClick={() => setHeatmapSecondYearOnly((prev) => !prev)}
-                title={heatmapSecondYearOnly ? "Showing second year data only (Click to show all members)" : "Filter heatmap: Show second year data only"}
-                aria-pressed={heatmapSecondYearOnly}
-              >
-                <IconifyIcon icon={heatmapSecondYearOnly ? "charm:circle-tick" : "charm:filter"} width={14} height={14} />
-                <span>{heatmapSecondYearOnly ? '2nd Year Only' : '2nd Year'}</span>
-              </button>
-            )}
           </div>
         </div>
         <div className="member-dashboard-toolbar">
@@ -2600,8 +2607,8 @@ function App() {
       <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" disabled={scoredBusy} title="Refresh submissions" aria-label="Refresh submissions" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={scoredBusy ? 'spin-icon' : ''} /></button>
+          <div className="panel-heading-actions">
+            <button className="button button-quiet card-header-refresh-btn" disabled={scoredBusy} title="Refresh submissions" aria-label="Refresh submissions" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={scoredBusy ? 'spin-icon' : ''} /></button>
           </div>
         </div>
         {acceptedSubmissionsOpen && (
@@ -2679,8 +2686,8 @@ function App() {
             <div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div>
             <h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" disabled={activityBusy} title="Refresh activity" aria-label="Refresh activity" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={activityBusy ? 'spin-icon' : ''} /></button>
+          <div className="panel-heading-actions">
+            <button className="button button-quiet card-header-refresh-btn" disabled={activityBusy} title="Refresh activity" aria-label="Refresh activity" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={activityBusy ? 'spin-icon' : ''} /></button>
           </div>
         </div>
         {auditCardOpen && (
@@ -2746,6 +2753,16 @@ function App() {
                 </div>
                 <div className="panel-heading-actions">
                   {assignedQuestion && <Pill tone={assignedQuestion.difficulty.toLowerCase()}>{assignedQuestion.difficulty}</Pill>}
+                  <button
+                    type="button"
+                    className="button button-quiet card-header-refresh-btn"
+                    onClick={refreshLeaderboardData}
+                    disabled={refreshingLeaderboard}
+                    title="Refresh today's challenge"
+                    aria-label="Refresh today's challenge"
+                  >
+                    <IconifyIcon icon="charm:refresh" width={16} height={16} className={refreshingLeaderboard ? 'spin-icon' : ''} />
+                  </button>
                 </div>
               </div>
               {assignedQuestion ? (
@@ -2943,7 +2960,19 @@ function App() {
           <section className="panel history-panel">
             <div className="panel-heading">
               <div><div className="eyebrow"><span className="eyebrow-line"/>ASSIGNMENT LOG</div><h2>Published days</h2></div>
-              <span className="micro-count">{historyPagination.total}</span>
+              <div className="panel-heading-actions">
+                <span className="micro-count">{historyPagination.total}</span>
+                <button
+                  type="button"
+                  className="button button-quiet card-header-refresh-btn"
+                  disabled={historyBusy}
+                  onClick={() => loadHistoryPage(historyPagination.page)}
+                  title="Refresh published days"
+                  aria-label="Refresh published days"
+                >
+                  <IconifyIcon icon="charm:refresh" width={16} height={16} className={historyBusy ? 'spin-icon' : ''} />
+                </button>
+              </div>
             </div>
             {history.length ? (
               <>
@@ -2968,6 +2997,20 @@ function App() {
             <div className="panel-heading">
               <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB STANDINGS</div><h2><Icon name="trophy" size={18}/> Leaderboard</h2></div>
               <div className="panel-heading-actions">
+                {isLeader && (
+                  <button
+                    type="button"
+                    className="button button-quiet export-csv-btn"
+                    onClick={() => {
+                      setExportStudyYear('second-year');
+                      setExportModalOpen(true);
+                    }}
+                    disabled={!club.assignment && !todaySubmissionsData.questionId}
+                    title="Export today's question activity report as CSV"
+                  >
+                    <Icon name="download" size={14}/> <span>Export as .CSV</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="button button-quiet leaderboard-refresh-btn"
@@ -2978,17 +3021,6 @@ function App() {
                 >
                   <IconifyIcon icon="charm:refresh" width={16} height={16} className={refreshingLeaderboard ? 'spin-icon' : ''} />
                 </button>
-                {isLeader && (
-                  <button
-                    type="button"
-                    className="button button-quiet export-csv-btn"
-                    onClick={() => setExportModalOpen(true)}
-                    disabled={!club.assignment && !todaySubmissionsData.questionId}
-                    title="Export today's question activity report as CSV"
-                  >
-                    <Icon name="download" size={14}/> <span>Export as .CSV</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -3343,7 +3375,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>Attempted today's question</strong>
-                    <span>Members who submitted a solution ({secondYearSubmissions.length})</span>
+                    <span>Members who submitted a solution ({filteredSubmissions.length})</span>
                   </div>
                 </label>
 
@@ -3357,7 +3389,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>Not attempted today's question</strong>
-                    <span>Approved members who haven't submitted today ({secondYearNotAttempted.length})</span>
+                    <span>Approved members who haven't submitted today ({filteredNotAttempted.length})</span>
                   </div>
                 </label>
 
@@ -3371,7 +3403,7 @@ function App() {
                   />
                   <div className="export-radio-info">
                     <strong>All club members</strong>
-                    <span>All second-year members ({secondYearSubmissions.length + secondYearNotAttempted.length})</span>
+                    <span>{exportStudyYear === 'all' ? 'All club members' : `All ${studyYearLabel(exportStudyYear).toLowerCase()} members`} ({filteredSubmissions.length + filteredNotAttempted.length})</span>
                   </div>
                 </label>
               </div>
@@ -3380,8 +3412,13 @@ function App() {
             <div className="export-filters-grid">
               <label className="export-select-field">
                 <span>FILTER BY YEAR OF STUDY</span>
-                <select value="second-year" disabled>
-                  <option value="second-year">Second year only</option>
+                <select value={exportStudyYear} onChange={(e) => setExportStudyYear(e.target.value)}>
+                  <option value="all">All years</option>
+                  <option value="second-year">Second year</option>
+                  <option value="first-year">First year</option>
+                  <option value="third-year">Third year</option>
+                  <option value="fourth-year">Fourth year</option>
+                  <option value="passed">Passed out</option>
                 </select>
               </label>
 
@@ -3404,7 +3441,7 @@ function App() {
                   <p>
                     {matchingExportCount === 0
                       ? 'No members match the current filter selection.'
-                      : `Will export ${exportTarget === 'not_attempted' ? 'unattempted' : exportTarget === 'attempted' ? 'attempted' : 'all'} second-year members${exportDepartment !== 'all' ? ` (${exportDepartment})` : ''}. LeetCode IDs are excluded.`}
+                      : `Will export ${exportTarget === 'not_attempted' ? 'unattempted' : exportTarget === 'attempted' ? 'attempted' : 'all'} ${exportStudyYear === 'all' ? 'club' : studyYearLabel(exportStudyYear).toLowerCase()} members${exportDepartment !== 'all' ? ` (${exportDepartment})` : ''}. LeetCode IDs are excluded.`}
                   </p>
                 </div>
               </div>
