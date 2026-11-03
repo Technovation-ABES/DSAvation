@@ -432,7 +432,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   );
 });
 
-const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts }) {
+const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false }) {
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   const {
@@ -519,7 +519,9 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
   return (
     <div className="admin-heatmap-wrapper">
       <p className="heatmap-caption admin-heatmap-caption">
-        Each square represents the number of accepted submissions on that day across all club members.
+        {secondYearOnly
+          ? 'Each square represents accepted submissions on that day by second-year members.'
+          : 'Each square represents the number of accepted submissions on that day across all club members.'}
       </p>
       <div className="heatmap-month-selector" role="tablist" aria-label="Select month">
         {monthsData.map((m) => (
@@ -810,6 +812,8 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [showMembersHeatmap, setShowMembersHeatmap] = useState(false);
   const [submissionHeatmapCounts, setSubmissionHeatmapCounts] = useState({});
+  const [submissionHeatmapSecondYearCounts, setSubmissionHeatmapSecondYearCounts] = useState({});
+  const [heatmapSecondYearOnly, setHeatmapSecondYearOnly] = useState(false);
   const [submissionHeatmapBusy, setSubmissionHeatmapBusy] = useState(false);
 
   useEffect(() => {
@@ -990,6 +994,7 @@ function App() {
         setActivity(activityResult.activity || []);
         setActivityPagination(activityResult.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
         setSubmissionHeatmapCounts(heatmapResult?.counts || {});
+        setSubmissionHeatmapSecondYearCounts(heatmapResult?.secondYearCounts || {});
       } catch (error) { setMembers([]); setScoredSubmissions([]); setActivity([]); setNotice(error.message); }
     } else { setMembers([]); setScoredSubmissions([]); setActivity([]); }
   }
@@ -1122,6 +1127,7 @@ function App() {
     try {
       const result = await api('/admin/submissions-heatmap');
       setSubmissionHeatmapCounts(result.counts || {});
+      setSubmissionHeatmapSecondYearCounts(result.secondYearCounts || {});
     } catch (error) { setNotice(error.message); } finally { setSubmissionHeatmapBusy(false); }
   }
 
@@ -2347,20 +2353,34 @@ function App() {
       <section className="panel dashboard-members-panel">
         <div className="panel-heading">
           <div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
-          <button
-            className="button button-quiet refresh-members"
-            title={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
-            aria-label={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
-            onClick={() => {
-              if (memberFilter === 'heatmap') {
-                loadSubmissionHeatmap();
-              } else {
-                refreshMembers(membersPagination.page);
-              }
-            }}
-          >
-            <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' && submissionHeatmapBusy) ? 'spin-icon' : ''} />
-          </button>
+          <div className="panel-heading-actions">
+            <button
+              className="button button-quiet refresh-members"
+              title={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
+              aria-label={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
+              onClick={() => {
+                if (memberFilter === 'heatmap') {
+                  loadSubmissionHeatmap();
+                } else {
+                  refreshMembers(membersPagination.page);
+                }
+              }}
+            >
+              <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' && submissionHeatmapBusy) ? 'spin-icon' : ''} />
+            </button>
+            {memberFilter === 'heatmap' && (
+              <button
+                type="button"
+                className={`button button-quiet heatmap-year-toggle-btn ${heatmapSecondYearOnly ? 'active' : ''}`}
+                onClick={() => setHeatmapSecondYearOnly((prev) => !prev)}
+                title={heatmapSecondYearOnly ? "Showing second year data only (Click to show all members)" : "Filter heatmap: Show second year data only"}
+                aria-pressed={heatmapSecondYearOnly}
+              >
+                <IconifyIcon icon={heatmapSecondYearOnly ? "charm:circle-tick" : "charm:filter"} width={14} height={14} />
+                <span>{heatmapSecondYearOnly ? '2nd Year Only' : '2nd Year'}</span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="member-dashboard-toolbar">
           <div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">
@@ -2408,7 +2428,10 @@ function App() {
             {submissionHeatmapBusy ? (
               <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div>
             ) : (
-              <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />
+              <AdminSubmissionsHeatmap
+                counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
+                secondYearOnly={heatmapSecondYearOnly}
+              />
             )}
           </div>
         ) : (

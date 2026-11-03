@@ -1649,3 +1649,53 @@ test('admins can award custom aura points to a member, updating directory, audit
   assert.ok(lbMember);
   assert.equal(lbMember.aura, 100);
 });
+
+test('submissions heatmap provides full and second-year counts, and enforces admin role', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const regular = await seedUser(db, { name: 'Regular Guy', email: 'regular@abes.ac.in', username: 'regular-gh' });
+  const secondYearUser = await seedUser(db, { name: 'Sophomore Sam', email: 'sam@abes.ac.in', username: 'sam-gh', studyYear: 'second-year' });
+  const thirdYearUser = await seedUser(db, { name: 'Junior Jay', email: 'jay@abes.ac.in', username: 'jay-gh', studyYear: 'third-year' });
+
+  // 1. Regular user is forbidden
+  const forbidden = await call(db, '/admin/submissions-heatmap', { cookie: regular.cookie });
+  assert.equal(forbidden.response.status, 403);
+
+  // 2. Insert submissions for both users
+  const today = '2026-11-04';
+  const aRes = await db.collection('assignments').insertOne({
+    dateKey: today,
+    questionId: 1,
+    createdByName: 'Admin',
+  });
+  const assignmentId = aRes.insertedId;
+
+  await db.collection('submissions').insertOne({
+    assignmentId,
+    userId: secondYearUser.user._id,
+    questionId: 1,
+    status: 'accepted',
+    points: 1,
+    submittedAt: new Date('2026-11-04T10:00:00.000Z'),
+  });
+
+  await db.collection('submissions').insertOne({
+    assignmentId,
+    userId: thirdYearUser.user._id,
+    questionId: 1,
+    status: 'accepted',
+    points: 1,
+    submittedAt: new Date('2026-11-04T11:00:00.000Z'),
+  });
+
+  // 3. Admin fetches heatmap
+  const heatmapRes = await call(db, '/admin/submissions-heatmap', { cookie: admin.cookie });
+  assert.equal(heatmapRes.response.status, 200);
+  assert.equal(heatmapRes.data.counts['2026-11-04'], 2);
+  assert.equal(heatmapRes.data.secondYearCounts['2026-11-04'], 1);
+
+  // 4. Admin filters by second-year query
+  const filtered = await call(db, '/admin/submissions-heatmap?studyYear=second-year', { cookie: admin.cookie });
+  assert.equal(filtered.response.status, 200);
+  assert.equal(filtered.data.counts['2026-11-04'], 1);
+});

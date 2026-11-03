@@ -1241,21 +1241,36 @@ async function listSubmissions(db, req, user, url) {
   })), pagination: pageMeta(page, pageSize, total) };
 }
 
-async function getSubmissionsHeatmap(db, user) {
+async function getSubmissionsHeatmap(db, user, url = null) {
   requireRole(user, 'lead', 'admin');
-  // Pull only the submittedAt field for accepted submissions (lightweight)
+  const studyYearParam = url?.searchParams?.get('studyYear');
+
+  // Pull second-year member IDs to segment submissions by year of study
+  const secondYearUsers = await db.collection('users')
+    .find({ studyYear: 'second-year' }, { projection: { _id: 1 } })
+    .toArray();
+  const secondYearIdSet = new Set(secondYearUsers.map((u) => String(u._id)));
+
+  // Pull submittedAt and userId for accepted submissions (lightweight)
   const items = await db.collection('submissions')
-    .find({ status: 'accepted' }, { projection: { submittedAt: 1 } })
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1, userId: 1 } })
     .toArray();
   const IST = 'Asia/Kolkata';
   const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
   const counts = {};
+  const secondYearCounts = {};
   for (const item of items) {
     if (!item.submittedAt) continue;
     const dateKey = fmt.format(new Date(item.submittedAt));
     counts[dateKey] = (counts[dateKey] || 0) + 1;
+    if (secondYearIdSet.has(String(item.userId))) {
+      secondYearCounts[dateKey] = (secondYearCounts[dateKey] || 0) + 1;
+    }
   }
-  return { counts };
+  if (studyYearParam === 'second-year') {
+    return { counts: secondYearCounts, allCounts: counts, secondYearCounts };
+  }
+  return { counts, secondYearCounts };
 }
 
 async function getTodaySubmissions(db, req, user, url) {
@@ -2137,7 +2152,7 @@ export async function handleApiNode(req, res, options = {}) {
       return json(res, 200, await listSubmissions(db, req, user, url));
     }
     if (url.pathname === '/api/admin/submissions-heatmap' && method === 'GET') {
-      return json(res, 200, await getSubmissionsHeatmap(db, user));
+      return json(res, 200, await getSubmissionsHeatmap(db, user, url));
     }
     if (url.pathname === '/api/admin/today-submissions' && method === 'GET') {
       const result = await getTodaySubmissions(db, req, user, url);

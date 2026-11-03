@@ -2552,6 +2552,47 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   animation: heatmap-slide-in 220ms ease;
   width: 100%;
 }
+.heatmap-year-toggle-btn {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #54716e;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+.heatmap-year-toggle-btn:hover {
+  background: #f3f4ef;
+  color: #35443a;
+}
+.heatmap-year-toggle-btn.active {
+  border-color: #a7d7b5;
+  color: var(--green-dark);
+  background: var(--green-light);
+  font-weight: 600;
+}
+:root[data-theme="dark"] .heatmap-year-toggle-btn {
+  border-color: #27372d;
+  color: #89aca8;
+  background: #18231d;
+}
+:root[data-theme="dark"] .heatmap-year-toggle-btn:hover {
+  background: #23342b;
+  color: #a7d0cb;
+}
+:root[data-theme="dark"] .heatmap-year-toggle-btn.active {
+  border-color: #2a5a3a;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+}
 /* Admin heatmap panel */
 .admin-heatmap-panel {
   margin-top: 16px;
