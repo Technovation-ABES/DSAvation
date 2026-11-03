@@ -2538,11 +2538,19 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 .member-heatmap-tab:hover { background: #f3f4ef; }
-.member-heatmap-tab.active {
-  border-color: #c8dde0;
-  color: var(--ocean);
-  background: #eaf4f6;
+.member-heatmap-tab.active,
+.member-heatmap-tab.selected {
+  border-color: #dfe8dc;
+  color: var(--green-dark);
+  background: var(--green-light);
   font-weight: 600;
+}
+.admin-embedded-heatmap-wrap {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eff0eb;
+  animation: heatmap-slide-in 220ms ease;
+  width: 100%;
 }
 /* Admin heatmap panel */
 .admin-heatmap-panel {
@@ -2568,7 +2576,9 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 /* Dark mode overrides */
 :root[data-theme="dark"] .member-heatmap-tab { color: #7da9a5; }
 :root[data-theme="dark"] .member-heatmap-tab:hover { background: rgba(255,255,255,0.06); }
-:root[data-theme="dark"] .member-heatmap-tab.active { border-color: #2e5c64; color: #6ecfdb; background: rgba(110, 207, 219, 0.1); }
+:root[data-theme="dark"] .member-heatmap-tab.active,
+:root[data-theme="dark"] .member-heatmap-tab.selected { border-color: #2e5c64; color: #6ecfdb; background: rgba(110, 207, 219, 0.1); }
+:root[data-theme="dark"] .admin-embedded-heatmap-wrap { border-top-color: #213025; }
 :root[data-theme="dark"] .admin-heatmap-panel { border-top-color: var(--line); }
 
 .dashboard-member-list { display: grid; }

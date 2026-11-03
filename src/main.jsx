@@ -797,7 +797,7 @@ function App() {
   const [imageExporting, setImageExporting] = useState(false);
   const [copiedNotice, setCopiedNotice] = useState(false);
   const [memberBusy, setMemberBusy] = useState('');
-  const [memberFilter, setMemberFilter] = useState('pending');
+  const [memberFilter, setMemberFilter] = useState('heatmap');
   const [memberQuery, setMemberQuery] = useState('');
   const [publicPreferenceBusy, setPublicPreferenceBusy] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -973,12 +973,14 @@ function App() {
     }
     if (user.role === 'admin') {
       try {
-        const query = new URLSearchParams({ page: String(membersPagination.page), pageSize: '20', status: memberFilter });
+        const queryStatus = memberFilter === 'heatmap' ? 'pending' : memberFilter;
+        const query = new URLSearchParams({ page: String(membersPagination.page), pageSize: '20', status: queryStatus });
         if (memberQuery.trim()) query.set('q', memberQuery.trim());
-        const [memberResult, scoredResult, activityResult] = await Promise.all([
+        const [memberResult, scoredResult, activityResult, heatmapResult] = await Promise.all([
           api(`/admin/members?${query}`),
           api('/admin/submissions?status=accepted&page=1&pageSize=10'),
           api('/admin/activity?page=1&pageSize=10'),
+          api('/admin/submissions-heatmap'),
         ]);
         setMembers(memberResult.members || []);
         setMembersPagination(memberResult.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
@@ -987,12 +989,14 @@ function App() {
         setScoredPagination(scoredResult.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
         setActivity(activityResult.activity || []);
         setActivityPagination(activityResult.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
+        setSubmissionHeatmapCounts(heatmapResult?.counts || {});
       } catch (error) { setMembers([]); setScoredSubmissions([]); setActivity([]); setNotice(error.message); }
     } else { setMembers([]); setScoredSubmissions([]); setActivity([]); }
   }
 
   async function refreshMembers(page = 1, status = memberFilter, search = memberQuery) {
-    const params = new URLSearchParams({ page: String(page), pageSize: '20', status });
+    const queryStatus = status === 'heatmap' ? 'pending' : status;
+    const params = new URLSearchParams({ page: String(page), pageSize: '20', status: queryStatus });
     if (search.trim()) params.set('q', search.trim());
     try {
       const result = await api(`/admin/members?${params}`);
@@ -1398,7 +1402,10 @@ function App() {
 
   useEffect(() => {
     if (view === 'members' && account) loadDirectory(1);
-  }, [view, account?.id]);
+    if (view === 'dashboard' && account?.role === 'admin') {
+      if (Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap();
+    }
+  }, [view, account?.id, account?.role]);
 
   useEffect(() => {
     if (!authReady) return undefined;
@@ -1437,7 +1444,10 @@ function App() {
     const path = getPathFromView(nextView);
     if (window.location.pathname !== path) window.history.pushState({}, '', path);
     setView(nextView);
-    if (nextView === 'dashboard' && account?.role === 'admin') refreshMembers(1, memberFilter, memberQuery);
+    if (nextView === 'dashboard' && account?.role === 'admin') {
+      refreshMembers(1, memberFilter === 'heatmap' ? 'pending' : memberFilter, memberQuery);
+      if (Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap();
+    }
   }
 
   useEffect(() => { localStorage.setItem('dsavation-bookmarks', JSON.stringify(bookmarks)); }, [bookmarks]);
@@ -2335,43 +2345,100 @@ function App() {
     {view === 'dashboard' && isAdmin && <main className="content-shell page-content dashboard-page">
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Admin Dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
-        <div className="panel-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div><button className="button button-quiet refresh-members" title="Refresh accounts" aria-label="Refresh accounts" onClick={() => refreshMembers(membersPagination.page)}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button></div>
-        <div className="member-dashboard-toolbar"><div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">{[['pending', `Pending · ${memberCounts.pending || 0}`], ['approved', `Approved · ${memberCounts.approved || 0}`]].map(([key, label]) => <button key={key} role="tab" aria-selected={memberFilter === key} className={memberFilter === key ? 'selected' : ''} onClick={() => { setMemberFilter(key); setShowMembersHeatmap(false); refreshMembers(1, key, memberQuery); }}>{label}</button>)}<button type="button" className={`member-heatmap-tab ${showMembersHeatmap ? 'active' : ''}`} title="Submission activity heatmap" aria-pressed={showMembersHeatmap} onClick={() => { const next = !showMembersHeatmap; setShowMembersHeatmap(next); if (next && Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap(); }}><IconifyIcon icon="griddy-icons:calendar-date" width={13} height={13} />{submissionHeatmapBusy ? 'Loading…' : 'Heatmap'}</button></div><label className="member-search"><Icon name="search" size={15}/><input value={memberQuery} onChange={(event) => setMemberQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }} placeholder="Search name, email, Club Department"/></label></div>
-        {displayedMembers.length ? <div className="dashboard-member-list">{displayedMembers.map((member) => <article className="dashboard-member-row" key={member.id}>
-          <MemberAvatar person={member} label=""/>
-          <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber"><Icon name="leetcode" size={12}/> LeetCode Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
-          <div className="dashboard-member-actions">
-            {member.approvalStatus !== 'approved' && (
-              <>
-                <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberApproval(member, 'approved')}>{memberBusy === member.id ? 'Saving…' : 'Approve account'} <Icon name="check" size={14}/></button>
-                <button className="button button-danger" disabled={memberBusy === member.id || member.id === account.id} onClick={() => deleteMember(member)}>Delete</button>
-              </>
-            )}
-            {member.leetcodeApproval === 'pending' && (
-              <>
-                <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'approved')}>
-                  {memberBusy === member.id ? 'Saving…' : 'Approve LC'} <Icon name="check" size={14}/>
-                </button>
-                <button className="button button-quiet" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'none')}>
-                  Reject LC
-                </button>
-              </>
+        <div className="panel-heading">
+          <div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
+          <button
+            className="button button-quiet refresh-members"
+            title={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
+            aria-label={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
+            onClick={() => {
+              if (memberFilter === 'heatmap') {
+                loadSubmissionHeatmap();
+              } else {
+                refreshMembers(membersPagination.page);
+              }
+            }}
+          >
+            <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' && submissionHeatmapBusy) ? 'spin-icon' : ''} />
+          </button>
+        </div>
+        <div className="member-dashboard-toolbar">
+          <div className="member-filter-tabs" role="tablist" aria-label="Filter member accounts">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={memberFilter === 'heatmap'}
+              className={`member-heatmap-tab ${memberFilter === 'heatmap' ? 'active selected' : ''}`}
+              onClick={() => {
+                setMemberFilter('heatmap');
+                if (Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap();
+              }}
+            >
+              <IconifyIcon icon="griddy-icons:calendar-date" width={13} height={13} />
+              <span>Heatmap</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={memberFilter === 'pending'}
+              className={memberFilter === 'pending' ? 'selected' : ''}
+              onClick={() => {
+                setMemberFilter('pending');
+                refreshMembers(1, 'pending', memberQuery);
+              }}
+            >
+              Pending · {memberCounts.pending || 0}
+            </button>
+          </div>
+          {memberFilter === 'pending' && (
+            <label className="member-search">
+              <Icon name="search" size={15}/>
+              <input
+                value={memberQuery}
+                onChange={(event) => setMemberQuery(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') refreshMembers(1, memberFilter, event.currentTarget.value); }}
+                placeholder="Search name, email, Club Department"
+              />
+            </label>
+          )}
+        </div>
+
+        {memberFilter === 'heatmap' ? (
+          <div className="admin-embedded-heatmap-wrap">
+            {submissionHeatmapBusy ? (
+              <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div>
+            ) : (
+              <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />
             )}
           </div>
-        </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts or requests are waiting.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups and LeetCode requests will appear here for review.' : 'Try another name, email, or status filter.'}</p></div>}
-        {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
+        ) : (
+          <>
+            {displayedMembers.length ? <div className="dashboard-member-list">{displayedMembers.map((member) => <article className="dashboard-member-row" key={member.id}>
+              <MemberAvatar person={member} label=""/>
+              <div className="dashboard-member-identity"><div className="member-name-line"><strong>{member.name}</strong><Pill tone={member.approvalStatus === 'approved' ? 'green' : 'amber'}>{member.approvalStatus === 'approved' ? 'Approved' : 'Pending'}</Pill>{member.leetcodeApproval === 'approved' && <Pill tone="green">LC Approved</Pill>}{member.leetcodeApproval === 'pending' && <Pill tone="amber"><Icon name="leetcode" size={12}/> LeetCode Req</Pill>}</div><span>{member.email}</span><small>Club Department: {member.department} · {studyYearLabel(member.studyYear)} · GitHub @{member.githubUsername || '—'} · LeetCode @{member.leetcodeUsername || '—'}</small><small>Joined {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : 'date unavailable'}</small></div>
+              <div className="dashboard-member-actions">
+                {member.approvalStatus !== 'approved' && (
+                  <>
+                    <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberApproval(member, 'approved')}>{memberBusy === member.id ? 'Saving…' : 'Approve account'} <Icon name="check" size={14}/></button>
+                    <button className="button button-danger" disabled={memberBusy === member.id || member.id === account.id} onClick={() => deleteMember(member)}>Delete</button>
+                  </>
+                )}
+                {member.leetcodeApproval === 'pending' && (
+                  <>
+                    <button className="button button-green" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'approved')}>
+                      {memberBusy === member.id ? 'Saving…' : 'Approve LC'} <Icon name="check" size={14}/>
+                    </button>
+                    <button className="button button-quiet" disabled={memberBusy === member.id} onClick={() => setMemberLeetcodeApproval(member, 'none')}>
+                      Reject LC
+                    </button>
+                  </>
+                )}
+              </div>
+            </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts or requests are waiting.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups and LeetCode requests will appear here for review.' : 'Try another name, email, or status filter.'}</p></div>}
+            {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
+          </>
+        )}
       </section>
-      {showMembersHeatmap && (
-        <section className="panel dashboard-activity-panel dashboard-heatmap-card water-glass-card">
-          <div className="panel-heading">
-            <div><div className="eyebrow"><span className="eyebrow-line"/>SUBMISSION ACTIVITY</div><h2>Submission heatmap</h2></div>
-            <div className="admin-heatmap-panel-actions">
-              <button type="button" className="button button-quiet refresh-members" title="Refresh heatmap" aria-label="Refresh heatmap" onClick={loadSubmissionHeatmap} disabled={submissionHeatmapBusy}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
-            </div>
-          </div>
-          {submissionHeatmapBusy ? <div className="admin-heatmap-loading"><span>Loading heatmap…</span></div> : <AdminSubmissionsHeatmap counts={submissionHeatmapCounts} />}
-        </section>
-      )}
       <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
