@@ -1578,6 +1578,16 @@ test('leaderboard prioritizes normal points over aura, and uses aura as tiebreak
   assert.equal(lb[2].githubUsername, 'low-aura');
   assert.equal(lb[2].points, 1);
   assert.equal(lb[2].aura, 245);
+
+  // 4. Verify userRank is returned when caller has session cookie
+  const resHighPts = await call(db, '/club/leaderboard', { cookie: uHighPoints.cookie });
+  assert.equal(resHighPts.data.userRank, 1);
+  const resHighAura = await call(db, '/club/leaderboard', { cookie: uHighAura.cookie });
+  assert.equal(resHighAura.data.userRank, 2);
+  const resLowAura = await call(db, '/club/leaderboard', { cookie: uLowAura.cookie });
+  assert.equal(resLowAura.data.userRank, 3);
+  const resAnonymous = await call(db, '/club/leaderboard');
+  assert.equal(resAnonymous.data.userRank, null);
 });
 
 test('admins can award custom aura points to a member, updating directory, audit logs, and leaderboard', async () => {

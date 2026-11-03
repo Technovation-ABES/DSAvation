@@ -783,6 +783,7 @@ function App() {
   const [scoredSubmissions, setScoredSubmissions] = useState([]);
   const [scoredPagination, setScoredPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
+  const [currentUserRank, setCurrentUserRank] = useState(null);
   const [historyPagination, setHistoryPagination] = useState({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
   const [questionPage, setQuestionPage] = useState(1);
   const QUESTIONS_PER_PAGE = 20;
@@ -952,6 +953,7 @@ function App() {
       setHistoryPagination(assigned.pagination || { page: 1, pageSize: 8, total: 0, totalPages: 1 });
       setLeaderboard(board.leaderboard || []);
       setLeaderboardPagination(board.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
+      if (board.userRank !== undefined) setCurrentUserRank(board.userRank);
       setApiNotice('');
     } catch (error) {
       setApiNotice(error.message.includes('MONGODB_URI') ? 'Community features need the DSAvation database configured.' : error.message);
@@ -1428,6 +1430,7 @@ function App() {
       const result = await api(`/club/leaderboard?page=${page}&pageSize=20`);
       setLeaderboard(result.leaderboard || []);
       setLeaderboardPagination(result.pagination || { page, pageSize: 20, total: 0, totalPages: 1 });
+      if (result.userRank !== undefined) setCurrentUserRank(result.userRank);
     } catch (error) { setNotice(error.message); }
     finally { setLeaderboardBusy(false); }
   }
@@ -2299,7 +2302,7 @@ function App() {
             </div>
           </article>;
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
-        {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>Previous</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
+        {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
         {adminOverlayMember && (
           <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)}>
             <div className="member-admin-overlay-card panel" onClick={(e) => e.stopPropagation()}>
@@ -2487,6 +2490,7 @@ function App() {
           <div className="panel-heading-actions">
             <button
               className="button button-quiet refresh-members"
+              disabled={memberFilter === 'heatmap' ? submissionHeatmapBusy : membersBusy}
               title={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
               aria-label={memberFilter === 'heatmap' ? 'Refresh heatmap' : 'Refresh accounts'}
               onClick={() => {
@@ -2497,7 +2501,7 @@ function App() {
                 }
               }}
             >
-              <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' && submissionHeatmapBusy) ? 'spin-icon' : ''} />
+              <IconifyIcon icon="charm:refresh" width={16} height={16} className={(memberFilter === 'heatmap' ? submissionHeatmapBusy : membersBusy) ? 'spin-icon' : ''} />
             </button>
             {memberFilter === 'heatmap' && (
               <button
@@ -2589,7 +2593,7 @@ function App() {
                 )}
               </div>
             </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts or requests are waiting.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups and LeetCode requests will appear here for review.' : 'Try another name, email, or status filter.'}</p></div>}
-            {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersBusy || membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersBusy || membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>{membersBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
+            {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersBusy || membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>{membersBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersBusy || membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>{membersBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
           </>
         )}
       </section>
@@ -2597,7 +2601,7 @@ function App() {
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" title="Refresh submissions" aria-label="Refresh submissions" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
+            <button className="button button-quiet" disabled={scoredBusy} title="Refresh submissions" aria-label="Refresh submissions" onClick={(e) => { e.stopPropagation(); refreshScoredSubmissions(scoredPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={scoredBusy ? 'spin-icon' : ''} /></button>
           </div>
         </div>
         {acceptedSubmissionsOpen && (
@@ -2661,7 +2665,7 @@ function App() {
             ) : <div className="soft-empty">No verified submissions have been scored yet.</div>}
             {scoredPagination.totalPages > 1 && (
               <div className="pagination-controls">
-                <button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button>
+                <button className="button button-quiet" disabled={scoredBusy || scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>{scoredBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button>
                 <span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span>
                 <button className="button button-quiet" disabled={scoredBusy || scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>{scoredBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
               </div>
@@ -2676,7 +2680,7 @@ function App() {
             <h2>Admin activity <span className="count-badge">{activityPagination.total}</span></h2>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="button button-quiet" title="Refresh activity" aria-label="Refresh activity" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} /></button>
+            <button className="button button-quiet" disabled={activityBusy} title="Refresh activity" aria-label="Refresh activity" onClick={(e) => { e.stopPropagation(); refreshActivity(activityPagination.page); }}><IconifyIcon icon="charm:refresh" width={16} height={16} className={activityBusy ? 'spin-icon' : ''} /></button>
           </div>
         </div>
         {auditCardOpen && (
@@ -2712,7 +2716,7 @@ function App() {
             )}
             {activityPagination.totalPages > 1 && (
               <div className="pagination-controls">
-                <button className="button button-quiet" disabled={activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>Previous</button>
+                <button className="button button-quiet" disabled={activityBusy || activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>{activityBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button>
                 <span>Page {activityPagination.page} of {activityPagination.totalPages}</span>
                 <button className="button button-quiet" disabled={activityBusy || activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>{activityBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
               </div>
@@ -2926,7 +2930,7 @@ function App() {
                   </div>
                   {pendingPagination.totalPages > 1 && (
                     <div className="pagination-controls">
-                      <button className="button button-quiet" disabled={pendingPagination.page <= 1} onClick={() => refreshPendingSubmissions(pendingPagination.page - 1)}>Previous</button>
+                      <button className="button button-quiet" disabled={pendingBusy || pendingPagination.page <= 1} onClick={() => refreshPendingSubmissions(pendingPagination.page - 1)}>{pendingBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button>
                       <span>Page {pendingPagination.page} of {pendingPagination.totalPages}</span>
                       <button className="button button-quiet" disabled={pendingBusy || pendingPagination.page >= pendingPagination.totalPages} onClick={() => refreshPendingSubmissions(pendingPagination.page + 1)}>{pendingBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                     </div>
@@ -2950,7 +2954,7 @@ function App() {
                   })}
                 </div>
                 <div className="pagination-controls" aria-label="Assignment log pages">
-                  <button className="button button-quiet" disabled={historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>Previous</button>
+                  <button className="button button-quiet" disabled={historyBusy || historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>{historyBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button>
                   <span>Page {historyPagination.page} of {historyPagination.totalPages}</span>
                   <button className="button button-quiet" disabled={historyBusy || historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>{historyBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                 </div>
@@ -3054,9 +3058,22 @@ function App() {
                   </div>
                 )}
               </>
-            ) : (
+            ) : (() => {
+              const userOverallRank = currentUserRank || (account ? (() => {
+                const idx = leaderboard.findIndex((p) => (p.userId && p.userId === account.id) || (account.githubUsername && p.githubUsername?.toLowerCase() === account.githubUsername?.toLowerCase()));
+                if (idx !== -1) return (leaderboardPagination.page - 1) * leaderboardPagination.pageSize + idx + 1;
+                return null;
+              })() : null);
+              return (
               <>
-                <p className="leaderboard-note">Verified submissions earn one point by default. Admin point adjustments are recorded in the activity log.</p>
+                <p className="leaderboard-note">
+                  Verified submissions earn one point by default. Admin point adjustments are recorded in the activity log.
+                  {account && (
+                    <span className="user-rank-highlight" title="Your current overall club rank">
+                      Your rank: <strong>#{userOverallRank ?? '—'}</strong>
+                    </span>
+                  )}
+                </p>
                 {leaderboard.length ? (
                   <>
                     <div className="leaderboard-list">
@@ -3083,7 +3100,7 @@ function App() {
                       })}
                     </div>
                     <div className="pagination-controls" aria-label="Leaderboard pages">
-                      <button className="button button-quiet" disabled={leaderboardPagination.page <= 1} onClick={() => loadLeaderboardPage(leaderboardPagination.page - 1)}>Previous</button>
+                      <button className="button button-quiet" disabled={leaderboardBusy || leaderboardPagination.page <= 1} onClick={() => loadLeaderboardPage(leaderboardPagination.page - 1)}>{leaderboardBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button>
                       <span>Page {leaderboardPagination.page} of {leaderboardPagination.totalPages} · {leaderboardPagination.total} members</span>
                       <button className="button button-quiet" disabled={leaderboardBusy || leaderboardPagination.page >= leaderboardPagination.totalPages} onClick={() => loadLeaderboardPage(leaderboardPagination.page + 1)}>{leaderboardBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                     </div>
@@ -3092,7 +3109,8 @@ function App() {
                   <div className="soft-empty">No scored club submissions yet. Be first to get on the board.</div>
                 )}
               </>
-            )}
+              );
+            })()}
           </section>
         </aside>
       </div> : <div className="library-locked panel"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>Sign in to view club questions and activity.</h2><p>Approved club members can view the current assignment, history, and standings.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div>}

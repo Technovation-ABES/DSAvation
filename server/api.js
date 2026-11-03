@@ -1091,7 +1091,7 @@ async function assignmentHistory(db, url) {
   };
 }
 
-async function leaderboard(db, url) {
+async function leaderboard(db, url, viewer = null) {
   const assignments = await db.collection('assignments').find({ dateKey: { $lte: dayKey() } }).sort({ dateKey: 1 }).toArray();
   const assignedIdSet = new Set(assignments.map((assignment) => String(assignment._id)));
   const totalAssigned = assignments.length;
@@ -1156,6 +1156,7 @@ async function leaderboard(db, url) {
     }
 
     return {
+      userId: String(profile._id),
       name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'ABES member',
       department: profile.showPublic ? profile.department : 'ABES member',
       githubUsername: profile.githubUsername,
@@ -1192,8 +1193,16 @@ async function leaderboard(db, url) {
     // 5. Alphabetical tiebreaker
     return a.name.localeCompare(b.name);
   });
+  let userRank = null;
+  if (viewer) {
+    const viewerId = String(viewer._id);
+    const foundIndex = sortedProfiles.findIndex((p) => p.userId === viewerId);
+    if (foundIndex !== -1) {
+      userRank = foundIndex + 1;
+    }
+  }
   const { page, pageSize, skip } = pageOptions(url, 20, 50);
-  return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length) };
+  return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length), userRank };
 }
 
 async function createAssignment(db, user, body) {
@@ -2163,7 +2172,10 @@ export async function handleApiNode(req, res, options = {}) {
       return json(res, 200, await disconnectGithub(db, user));
     }
 
-    if (url.pathname === '/api/club/leaderboard' && method === 'GET') return json(res, 200, await leaderboard(db, url));
+    if (url.pathname === '/api/club/leaderboard' && method === 'GET') {
+      const viewer = await currentUser(req, db);
+      return json(res, 200, await leaderboard(db, url, viewer));
+    }
 
     const user = await requireUser(req, db);
     const memberStatsMatch = url.pathname.match(/^\/api\/members\/([a-f0-9]{24})\/leetcode-stats$/i);

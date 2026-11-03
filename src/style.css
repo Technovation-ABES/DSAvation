@@ -2507,11 +2507,12 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   justify-content: center;
   border-radius: 8px;
   font-size: 0.875rem;
-  transition: transform 180ms ease, background-color 140ms ease, color 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 .refresh-members:hover,
-.dashboard-activity-panel .panel-heading .button-quiet:hover {
-  transform: rotate(60deg);
+.dashboard-activity-panel .panel-heading .button-quiet:hover,
+.leaderboard-refresh-btn:hover {
+  transform: none !important;
 }
 .member-dashboard-toolbar { margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .member-filter-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -3322,6 +3323,33 @@ details[open] > .admin-activity-summary svg {
   margin-left: auto;
 }
 .leaderboard-note { margin: -4px 0 11px; color: #63817e; font-size: 0.5625rem; line-height: 1.5; }
+.user-rank-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 700;
+  color: #1e8e3e;
+  background: rgba(30, 142, 62, 0.12);
+  padding: 1px 7px;
+  border-radius: 6px;
+  margin-left: 6px;
+  border: 1px solid rgba(30, 142, 62, 0.28);
+  font-size: 0.5625rem;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.user-rank-highlight strong {
+  color: #137333;
+  font-weight: 800;
+}
+:root[data-theme="dark"] .user-rank-highlight {
+  color: #81c995;
+  background: rgba(52, 168, 83, 0.18);
+  border-color: rgba(52, 168, 83, 0.35);
+}
+:root[data-theme="dark"] .user-rank-highlight strong {
+  color: #a8dab5;
+}
 .leaderboard-list { display: grid; }
 .leaderboard-row { min-width: 0; min-height: 49px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #d2d9d2; }
 .rank { width: 19px; color: #708f8c; font: 0.5rem var(--mono); }
