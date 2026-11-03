@@ -688,7 +688,7 @@ const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
 
   return (
     <article
-      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''} water-glass-card`}
+      className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
       data-card-theme={member.cardBgUrl ? cardTheme.theme : undefined}
       style={member.cardBgUrl ? cardTheme.cssVariables : undefined}
       onClick={(e) => {
@@ -2677,7 +2677,7 @@ function App() {
           </>
         )}
       </section>
-      <section className={`panel dashboard-activity-panel water-glass-card ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel ${acceptedSubmissionsOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAcceptedSubmissionsOpen((prev) => !prev)}>
           <div><div className="eyebrow"><span className="eyebrow-line"/>SCORING CONTROLS</div><h2>Accepted submissions</h2></div>
           <div className="panel-heading-actions">
@@ -2753,7 +2753,7 @@ function App() {
           </>
         )}
       </section>
-      <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
+      <section className={`panel dashboard-activity-panel ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>
           <div>
             <div className="eyebrow"><span className="eyebrow-line"/>ADMIN AUDIT</div>

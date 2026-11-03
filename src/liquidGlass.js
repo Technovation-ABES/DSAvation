@@ -11,6 +11,19 @@ export function initLiquidGlass() {
   const activeCards = new Set();
   let rafId = null;
 
+  const ALLOWED_CARD_SELECTORS = [
+    '.today-card',
+    '.personal-card',
+    '.community-card',
+    '.qotd-panel',
+    '.leaderboard-panel'
+  ];
+  const ALLOWED_CARD_MATCH_QUERY = ALLOWED_CARD_SELECTORS.join(', ');
+
+  function isAllowedRippleCard(el) {
+    return Boolean(el && typeof el.matches === 'function' && el.matches(ALLOWED_CARD_MATCH_QUERY));
+  }
+
   function spawnBlueRipple(card, x, y) {
     if (prefersReduced) return;
 
@@ -79,7 +92,12 @@ export function initLiquidGlass() {
   }
 
   function bindCard(card) {
-    if (!card) return;
+    if (!card || !isAllowedRippleCard(card)) {
+      if (card && card.classList) {
+        card.classList.remove('water-glass-card', 'water-active');
+      }
+      return;
+    }
     if (!card.classList.contains('water-glass-card')) {
       card.classList.add('water-glass-card');
     }
@@ -93,11 +111,14 @@ export function initLiquidGlass() {
   }
 
   function unbindCard(card) {
-    if (!card || !activeCards.has(card)) return;
+    if (!card) return;
     if (card._waterRaf) {
       cancelAnimationFrame(card._waterRaf);
       card._waterRaf = null;
     }
+    card.classList.remove('water-glass-card', 'water-active');
+    card.querySelectorAll('.blue-water-ripple').forEach((r) => r.remove());
+    if (!activeCards.has(card)) return;
     activeCards.delete(card);
     card.removeEventListener('pointerenter', handlePointerEnter);
     card.removeEventListener('pointermove', handlePointerMove);
@@ -131,24 +152,22 @@ export function initLiquidGlass() {
 
   function scanAndBind() {
     activeCards.forEach((el) => {
-      if (!el.isConnected) {
+      if (!el.isConnected || (!isAllowedRippleCard(el) && !el.classList.contains('water-ripple-host'))) {
         unbindCard(el);
         unbindRippleHost(el);
       }
     });
 
-    const cardSelectors = [
-      '.overview-card',
-      '.panel',
-      '.metric-card',
-      '.club-date-badge',
-      '.progress-summary article',
-      '.member-directory-card',
-      '.login-prompt',
-      '.library-locked',
-      '.question-card'
-    ];
-    document.querySelectorAll(cardSelectors.join(', ')).forEach(bindCard);
+    // Strip water-glass-card from any elements that are not in the allowed cards list
+    document.querySelectorAll('.water-glass-card').forEach((el) => {
+      if (!isAllowedRippleCard(el)) {
+        unbindCard(el);
+      }
+    });
+
+    ALLOWED_CARD_SELECTORS.forEach((selector) => {
+      document.querySelectorAll(selector).forEach(bindCard);
+    });
 
     const rippleSelectors = [
       '.button-dark',

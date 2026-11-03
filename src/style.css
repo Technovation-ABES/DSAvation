@@ -638,6 +638,23 @@ h1, h2, h3, p { margin-top: 0; }
   transition: opacity 0.35s ease;
 }
 
+/* Card ripple hover pool is strictly restricted to the 5 permitted cards:
+   - General: QUESTION OF THE DAY (.today-card), YOUR PRIVATE TRACKER (.personal-card), CLUB PARTICIPATION (.community-card)
+   - Club Challenge: TODAY'S ASSIGNMENT (.qotd-panel), Leaderboard (.leaderboard-panel)
+*/
+.liquid-glass:not(.today-card):not(.personal-card):not(.community-card):not(.qotd-panel):not(.leaderboard-panel)::after,
+.water-glass-card:not(.today-card):not(.personal-card):not(.community-card):not(.qotd-panel):not(.leaderboard-panel)::after,
+.panel:not(.today-card):not(.personal-card):not(.community-card):not(.qotd-panel):not(.leaderboard-panel)::after,
+.overview-card:not(.today-card):not(.personal-card):not(.community-card):not(.qotd-panel):not(.leaderboard-panel)::after {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* Strictly ensure only the 5 permitted cards and button ripple hosts can display blue water ripples */
+*:not(.today-card):not(.personal-card):not(.community-card):not(.qotd-panel):not(.leaderboard-panel):not(.water-ripple-host) > .blue-water-ripple {
+  display: none !important;
+}
+
 .water-ripple-host {
   position: relative;
   overflow: hidden;
