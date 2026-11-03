@@ -4241,8 +4241,8 @@ details[open] > .admin-activity-summary svg {
 :root[data-theme="dark"] .directory-search-field,
 :root[data-theme="dark"] .avatar-style-tabs button { color: #9abdb8; }
 :root[data-theme="dark"] .hero-mascot-img { filter: drop-shadow(0 12px 24px rgba(56, 189, 248, 0.28)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35)); }
-:root[data-theme="dark"] .custom-avatar-box,
-:root[data-theme="dark"] .custom-card-bg-box { background: #141c17; border-color: rgba(255, 255, 255, 0.1); }
+:root[data-theme="dark"] .custom-avatar-box { background: var(--surface); border-color: var(--line); }
+:root[data-theme="dark"] .custom-card-bg-box { background: var(--surface-muted); border-color: var(--line); }
 :root[data-theme="dark"] .custom-avatar-input { background: #0f1512; border-color: rgba(255, 255, 255, 0.14); color: #e8eee8; }
 :root[data-theme="dark"] .avatar-choice { border-color: #354239; background: #18211b; }
 :root[data-theme="dark"] .avatar-choice.selected { border-color: #7ba98a; background: #24352a; }
@@ -5463,47 +5463,4 @@ details[open] > .admin-activity-summary svg {
 :root[data-theme="dark"] .turn-status-badge.current {
   background: rgba(14, 165, 233, 0.2);
   color: #38bdf8;
-}
-
-/* Submission Commit Help Info Card */
-.submission-commit-info-card {
-  margin-top: 10px;
-  padding: 9px 12px;
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  border-radius: 6px;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  background: rgba(56, 189, 248, 0.08);
-  color: #334155;
-  font-size: 0.59375rem;
-  line-height: 1.5;
-}
-.submission-commit-info-card svg {
-  color: #0284c7;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.submission-commit-info-card span {
-  flex: 1;
-}
-.submission-commit-info-card code {
-  color: #0284c7;
-  background: rgba(56, 189, 248, 0.15);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: var(--mono);
-  font-size: 0.5625rem;
-}
-:root[data-theme="dark"] .submission-commit-info-card {
-  border-color: rgba(56, 189, 248, 0.22);
-  background: rgba(14, 30, 44, 0.65);
-  color: #cbd5e1;
-}
-:root[data-theme="dark"] .submission-commit-info-card svg {
-  color: #38bdf8;
-}
-:root[data-theme="dark"] .submission-commit-info-card code {
-  color: #7dd3fc;
-  background: rgba(56, 189, 248, 0.15);
 }

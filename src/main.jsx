@@ -2887,12 +2887,6 @@ function App() {
                                 {submissionBusy ? 'Verifying…' : 'Verify and submit'} <Icon name="arrow" size={13} />
                               </button>
                             </div>
-                            <div className="submission-commit-info-card">
-                              <Icon name="info" size={15} />
-                              <span>
-                                Enter a commit hash (e.g. <code>76c3f95</code>) or full commit URL. Required changed file: <code>{assignedQuestion.id}/solution.*</code> (.txt, .cpp, .py, .java, .js, or .c, at least 1 byte). The linked GitHub account must own the repository.
-                              </span>
-                            </div>
                           </form>
                         )
                       ) : (
