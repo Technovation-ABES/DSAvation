@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
 import { handleApiFetch, isAssignmentSolutionPath, isOnAssignmentDay, parsePersonalCommitUrl, resolveCommitInput } from '../server/api.js';
+
+const hashToken = (value) => createHash('sha256').update(value).digest('hex');
 
 const indiaDay = (date = new Date()) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 const dateAtIndiaNoon = (dateKey) => new Date(`${dateKey}T12:00:00+05:30`);
@@ -176,8 +179,11 @@ async function seedUser(db, { name, email, username, role = 'member', approved =
     createdAt: new Date(), updatedAt: new Date(),
   };
   await db.collection('users').insertOne(user);
-  const login = await call(db, '/auth/login', { method: 'POST', body: { email, password: 'correct-horse-123' } });
-  const cookie = login.response.headers.get('set-cookie').split(';')[0];
+  let cookie = '';
+  if (approved) {
+    const login = await call(db, '/auth/login', { method: 'POST', body: { email, password: 'correct-horse-123' } });
+    cookie = login.response.headers.get('set-cookie')?.split(';')[0] || '';
+  }
   return { user, cookie };
 }
 
@@ -712,6 +718,114 @@ test('admin reset links store only a hash, expire, work once, and revoke session
   db.collection('passwordResets').documents[0].expiresAt = new Date(0);
   const expired = await call(db, '/auth/reset-password', { method: 'POST', body: { token: expiredToken, password: 'expired-strong-pass-999' } });
   assert.equal(expired.response.status, 400);
+});
+
+test('public password reset workflow: email validation, token hashing, expiration, reuse, and login verification', async () => {
+  const db = new FakeDatabase();
+  const member = await seedUser(db, { name: 'Forgot Member', email: 'forgot@abes.ac.in', username: 'forgot-gh' });
+  const pendingMember = await seedUser(db, { name: 'Pending Guy', email: 'pending@abes.ac.in', username: 'pending-gh', approved: false });
+
+  // 1. Email validation on /auth/request-password-reset
+  const emptyEmail = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: '' } });
+  assert.equal(emptyEmail.response.status, 400);
+  assert.equal(emptyEmail.data.error, 'Enter a valid email address.');
+
+  const malformedEmail = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'not-an-email' } });
+  assert.equal(malformedEmail.response.status, 400);
+
+  const spacesEmail = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'user @example.com' } });
+  assert.equal(spacesEmail.response.status, 400);
+
+  const longEmail = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: `${'a'.repeat(250)}@test.com` } });
+  assert.equal(longEmail.response.status, 400);
+
+  // 2. Non-existent email returns 200 ok (no enumeration), but creates no reset token
+  const nonExistent = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'nobody@abes.ac.in' } });
+  assert.equal(nonExistent.response.status, 200);
+  assert.equal(nonExistent.data.ok, true);
+  assert.equal(db.collection('passwordResets').documents.length, 0);
+
+  // 3. Pending (unapproved) account returns 200 ok, but creates no reset token
+  const pendingAttempt = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'pending@abes.ac.in' } });
+  assert.equal(pendingAttempt.response.status, 200);
+  assert.equal(pendingAttempt.data.ok, true);
+  assert.equal(db.collection('passwordResets').documents.length, 0);
+
+  // 4. Approved member requesting reset creates a secure token hash
+  const approvedReq = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'forgot@abes.ac.in' } });
+  assert.equal(approvedReq.response.status, 200);
+  assert.equal(approvedReq.data.ok, true);
+  assert.equal(db.collection('passwordResets').documents.length, 1);
+  const firstReset = db.collection('passwordResets').documents[0];
+  assert.equal(String(firstReset.userId), String(member.user._id));
+  assert.ok(firstReset.tokenHash);
+
+  // 5. Requesting again invalidates/replaces previous reset token
+  const secondReq = await call(db, '/auth/request-password-reset', { method: 'POST', body: { email: 'forgot@abes.ac.in' } });
+  assert.equal(secondReq.response.status, 200);
+  assert.equal(db.collection('passwordResets').documents.length, 1);
+  const secondReset = db.collection('passwordResets').documents[0];
+  assert.notEqual(String(secondReset._id), String(firstReset._id));
+
+  // 6. Token validation on /auth/reset-password
+  const invalidFormatToken = await call(db, '/auth/reset-password', { method: 'POST', body: { token: 'invalid!token@chars', password: 'new-valid-pass-123' } });
+  assert.equal(invalidFormatToken.response.status, 400);
+
+  const shortToken = await call(db, '/auth/reset-password', { method: 'POST', body: { token: 'abc', password: 'new-valid-pass-123' } });
+  assert.equal(shortToken.response.status, 400);
+
+  // 7. Password validation on /auth/reset-password
+  const rawToken = 'sample_valid_base64url_token_1234567890_abcdef';
+  await db.collection('passwordResets').deleteMany({ userId: member.user._id });
+  await db.collection('passwordResets').insertOne({
+    tokenHash: hashToken(rawToken),
+    userId: member.user._id,
+    createdBy: member.user._id,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+  });
+
+  const shortPass = await call(db, '/auth/reset-password', { method: 'POST', body: { token: rawToken, password: 'short' } });
+  assert.equal(shortPass.response.status, 400);
+  assert.equal(shortPass.data.error, 'Use a password between 10 and 128 characters.');
+
+  const longPass = await call(db, '/auth/reset-password', { method: 'POST', body: { token: rawToken, password: 'x'.repeat(129) } });
+  assert.equal(longPass.response.status, 400);
+
+  // 8. Successful password reset
+  const resetSuccess = await call(db, '/auth/reset-password', { method: 'POST', body: { token: rawToken, password: 'fresh-strong-password-100' } });
+  assert.equal(resetSuccess.response.status, 200);
+  assert.equal(resetSuccess.data.ok, true);
+
+  // 9. Old password rejected, new password accepted
+  const oldLogin = await call(db, '/auth/login', { method: 'POST', body: { email: 'forgot@abes.ac.in', password: 'correct-horse-123' } });
+  assert.equal(oldLogin.response.status, 401);
+
+  const newLogin = await call(db, '/auth/login', { method: 'POST', body: { email: 'forgot@abes.ac.in', password: 'fresh-strong-password-100' } });
+  assert.equal(newLogin.response.status, 200);
+
+  // 10. Reusing consumed token rejected
+  const reuseAttempt = await call(db, '/auth/reset-password', { method: 'POST', body: { token: rawToken, password: 'another-new-password-200' } });
+  assert.equal(reuseAttempt.response.status, 400);
+  assert.equal(reuseAttempt.data.error, 'This password reset link has already been used. Ask an administrator for a new one.');
+
+  // 11. Expired token rejected
+  const expiredRawToken = 'sample_expired_base64url_token_9876543210_fedcba';
+  await db.collection('passwordResets').insertOne({
+    tokenHash: hashToken(expiredRawToken),
+    userId: member.user._id,
+    createdBy: member.user._id,
+    createdAt: new Date(Date.now() - 60 * 60 * 1000),
+    expiresAt: new Date(Date.now() - 30 * 60 * 1000),
+  });
+  const expiredAttempt = await call(db, '/auth/reset-password', { method: 'POST', body: { token: expiredRawToken, password: 'another-new-password-300' } });
+  assert.equal(expiredAttempt.response.status, 400);
+  assert.equal(expiredAttempt.data.error, 'This password reset link is invalid or expired. Ask an administrator for a new one.');
+
+  // 12. Email validation on login
+  const invalidLoginEmail = await call(db, '/auth/login', { method: 'POST', body: { email: 'invalid-email-syntax', password: 'some-password-123' } });
+  assert.equal(invalidLoginEmail.response.status, 400);
+  assert.equal(invalidLoginEmail.data.error, 'Enter a valid email address.');
 });
 
 test('admin routes enforce roles and paginate the member roster and audit history', async () => {

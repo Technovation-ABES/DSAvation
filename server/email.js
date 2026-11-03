@@ -63,7 +63,7 @@ This link expires on ${expiresAtIST} IST (30 minutes from generation).
 
 If you did not request this reset, please contact an administrator.
 
-— Technical Team Technovation
+- Technical Team Technovation
   `.trim();
 
   const html = `
@@ -72,7 +72,7 @@ If you did not request this reset, please contact an administrator.
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Reset — Technical Team Technovation</title>
+  <title>Password Reset - Technical Team Technovation</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background-color: #f5f5f5;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 16px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
@@ -90,7 +90,7 @@ If you did not request this reset, please contact an administrator.
         <p style="margin: 0 0 16px; color: #1a1a2e; font-size: 16px; line-height: 1.6;">Hello <strong>${toName}</strong>,</p>
         <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.6;">It is an auto generated password reset link for Dsavation technovation website.</p>
 
-        <!-- CTA Button (bulletproof — background on cell, works everywhere) -->
+        <!-- CTA Button (bulletproof - background on cell, works everywhere) -->
         <table role="presentation" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
           <tr>
             <td style="border-radius: 8px; background: #2563eb;" bgcolor="#2563eb" align="center">
@@ -117,7 +117,7 @@ If you did not request this reset, please contact an administrator.
     <!-- Footer -->
     <tr>
       <td style="background: #fafafa; padding: 20px 24px; text-align: center; border-top: 1px solid #eaeaea;">
-        <p style="margin: 0; color: #999; font-size: 12px;">— Technical Team Technovation</p>
+        <p style="margin: 0; color: #999; font-size: 12px;">&copy; Technical Team Technovation</p>
         <p style="margin: 4px 0 0; color: #bbb; font-size: 11px;">This is an automated message. Please do not reply directly to this email.</p>
       </td>
     </tr>
