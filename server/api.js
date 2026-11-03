@@ -1470,7 +1470,7 @@ async function pickTodayExplainer(db, user, body = {}) {
 
   // For re-picking: if previous explainer exists, exclude them so another member is chosen
   let selectionPool = pool;
-  if (isRepick && previousExplainerId) {
+  if (isRepick && previousExplainerId && !body?.userId) {
     const withoutPrevious = pool.filter((c) => String(c.userId) !== String(previousExplainerId));
     if (withoutPrevious.length === 0) {
       throw new HttpError(400, 'No other members have attempted today’s question to re-pick from.');
@@ -1487,9 +1487,28 @@ async function pickTodayExplainer(db, user, body = {}) {
 
   let chosen;
   if (body?.userId) {
-    chosen = selectionPool.find((c) => String(c.userId) === String(body.userId));
-    if (!chosen) {
-      throw new HttpError(400, 'Selected member has not submitted today’s question.');
+    const fromPool = pool.find((c) => String(c.userId) === String(body.userId));
+    if (fromPool) {
+      chosen = fromPool;
+    } else {
+      const member = await db.collection('users').findOne({ _id: new ObjectId(body.userId) });
+      if (!member) throw new HttpError(404, 'Member not found.');
+      chosen = {
+        userId: String(member._id),
+        submissionId: null,
+        name: member.name,
+        email: member.email || '',
+        department: member.department || '',
+        studyYear: member.studyYear || '',
+        githubUsername: member.githubUsername || '',
+        leetcodeUsername: member.leetcodeUsername || '',
+        ...formatAvatar(member, member._id),
+        submittedAt: new Date(),
+        status: 'accepted',
+        points: 1,
+        commitUrl: '',
+        questionId: assignment.questionId,
+      };
     }
   }
 
@@ -1573,6 +1592,66 @@ async function clearTodayExplainer(db, user) {
   }
 
   return { ok: true, cleared: true };
+}
+
+async function getSecondYearExplainerCandidates(db, user) {
+  requireRole(user, 'lead', 'admin');
+  const assignment = await getTodayAssignment(db);
+
+  // 1. All approved second-year members
+  const secondYears = await db.collection('users').find(
+    approvedUserFilter({ studyYear: 'second-year' }),
+    { projection: { name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 } }
+  ).sort({ name: 1 }).toArray();
+
+  // 2. Past assignments where an explainer was chosen (excluding today)
+  const pastAssignments = await db.collection('assignments').find(
+    { ...(assignment ? { _id: { $ne: assignment._id } } : {}), explainerUserId: { $exists: true, $ne: null } },
+    { projection: { explainerUserId: 1, dateKey: 1 } }
+  ).toArray();
+  const pastExplainerMap = new Map();
+  for (const pa of pastAssignments) {
+    if (pa.explainerUserId) {
+      pastExplainerMap.set(String(pa.explainerUserId), pa.dateKey);
+    }
+  }
+
+  // 3. Today's submissions
+  let todaySubmitterSet = new Set();
+  if (assignment) {
+    const todaySubs = await db.collection('submissions').find(
+      { assignmentId: assignment._id, status: { $ne: 'invalidated' } },
+      { projection: { userId: 1, status: 1 } }
+    ).toArray();
+    todaySubmitterSet = new Set(todaySubs.map((s) => String(s.userId)));
+  }
+
+  const currentExplainerId = assignment?.explainerUserId ? String(assignment.explainerUserId) : null;
+
+  return {
+    candidates: secondYears.map((member) => {
+      const mId = String(member._id);
+      const isPastExplainer = pastExplainerMap.has(mId);
+      const pastDate = pastExplainerMap.get(mId) || null;
+      const submittedToday = todaySubmitterSet.has(mId);
+      const isCurrentExplainer = currentExplainerId === mId;
+      return {
+        id: mId,
+        userId: mId,
+        name: member.name,
+        email: member.email || '',
+        department: member.department || '',
+        studyYear: member.studyYear || '',
+        githubUsername: member.githubUsername || '',
+        leetcodeUsername: member.leetcodeUsername || '',
+        ...formatAvatar(member, member._id),
+        turnCompleted: isPastExplainer,
+        pastDate,
+        submittedToday,
+        isCurrentExplainer,
+      };
+    }),
+  };
 }
 
 async function reviewSubmission(db, user, submissionId, body) {
@@ -2057,6 +2136,9 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (url.pathname === '/api/admin/pick-explainer' && method === 'DELETE') {
       return json(res, 200, await clearTodayExplainer(db, user));
+    }
+    if (url.pathname === '/api/admin/explainer-candidates' && method === 'GET') {
+      return json(res, 200, await getSecondYearExplainerCandidates(db, user));
     }
     const reviewMatch = url.pathname.match(/^\/api\/admin\/submissions\/([a-f0-9]{24})$/i);
     if (reviewMatch && method === 'PATCH') {

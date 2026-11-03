@@ -748,6 +748,11 @@ function App() {
   const [adminOverlayMember, setAdminOverlayMember] = useState(null);
   const [auraAwardAmount, setAuraAwardAmount] = useState('');
   const [auraAwardBusy, setAuraAwardBusy] = useState(false);
+  const [repickModalOpen, setRepickModalOpen] = useState(false);
+  const [repickMode, setRepickMode] = useState('custom');
+  const [repickCandidates, setRepickCandidates] = useState([]);
+  const [repickLoading, setRepickLoading] = useState(false);
+  const [repickSearch, setRepickSearch] = useState('');
   const [directoryDepartments, setDirectoryDepartments] = useState([]);
   const [directoryPagination, setDirectoryPagination] = useState({ page: 1, pageSize: 60, total: 0, totalPages: 1 });
   const [directoryQuery, setDirectoryQuery] = useState('');
@@ -1213,11 +1218,30 @@ function App() {
     }
   }
 
-  async function handleRepickExplainer() {
+  async function openRepickModal() {
+    setRepickModalOpen(true);
+    setRepickMode('custom');
+    setRepickSearch('');
+    setRepickLoading(true);
+    try {
+      const res = await api('/admin/explainer-candidates');
+      setRepickCandidates(res.candidates || []);
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setRepickLoading(false);
+    }
+  }
+
+  async function executeRepick(targetUserId = null) {
     if (pickExplainerBusy) return;
     setPickExplainerBusy(true);
     try {
-      const res = await api('/admin/pick-explainer', { method: 'POST', body: { repick: true } });
+      const body = { repick: true };
+      if (targetUserId) {
+        body.userId = targetUserId;
+      }
+      const res = await api('/admin/pick-explainer', { method: 'POST', body });
       if (res.explainer) {
         setSelectedExplainer(res.explainer);
         setClub((prev) => ({
@@ -1225,14 +1249,19 @@ function App() {
           assignment: prev.assignment ? { ...prev.assignment, explainer: res.explainer } : prev.assignment,
         }));
         setTodaySubmissionsData((prev) => ({ ...prev, explainer: res.explainer }));
+        setRepickModalOpen(false);
         setExplainerModalOpen(true);
-        setNotice(`Re-picked ${res.explainer.name} as today's solution explainer! Previous member's turn restored.`);
+        setNotice(`Selected ${res.explainer.name} as today's solution explainer! Previous member's turn restored.`);
       }
     } catch (err) {
       setNotice(err.message);
     } finally {
       setPickExplainerBusy(false);
     }
+  }
+
+  async function handleRepickExplainer() {
+    await openRepickModal();
   }
 
   async function handleRemoveExplainer() {
@@ -2614,7 +2643,7 @@ function App() {
                     <button
                       type="button"
                       className="button button-quiet repick-explainer-head-btn"
-                      onClick={handleRepickExplainer}
+                      onClick={openRepickModal}
                       disabled={pickExplainerBusy}
                       title="Re-pick another explainer and restore current member's turn"
                     >
@@ -2635,37 +2664,6 @@ function App() {
                       <strong>{club.assignment.explainer.name}</strong>
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
-                  </div>
-                  <div className="explainer-banner-actions">
-                    <button
-                      type="button"
-                      className="button button-green explainer-view-card-btn"
-                      onClick={() => {
-                        setSelectedExplainer(club.assignment.explainer);
-                        setExplainerModalOpen(true);
-                      }}
-                      title="View explainer share card"
-                    >
-                      <Icon name="dice" size={12}/> View Card
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-quiet explainer-view-card-btn"
-                      onClick={handleRepickExplainer}
-                      disabled={pickExplainerBusy}
-                      title="Re-pick another explainer and restore member's turn"
-                    >
-                      <IconifyIcon icon="charm:refresh" width={12} height={12} /> Re-pick
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-quiet text-button explainer-view-card-btn"
-                      onClick={handleRemoveExplainer}
-                      disabled={pickExplainerBusy}
-                      title="Reset explainer selection and restore member's turn"
-                    >
-                      <Icon name="trash" size={12}/> Reset
-                    </button>
                   </div>
                 </div>
               )}
@@ -2938,28 +2936,140 @@ function App() {
               <Icon name="copy" size={14}/> {copiedNotice ? '✓ Copied to Clipboard!' : 'Copy Card Image'}
             </button>
             {isLeader && (
-              <>
-                <button
-                  type="button"
-                  className="button button-quiet repick-explainer-btn"
-                  onClick={handleRepickExplainer}
-                  disabled={pickExplainerBusy || imageExporting}
-                  title="Re-pick another explainer and restore current member's turn"
-                >
-                  <IconifyIcon icon="charm:refresh" width={14} height={14} /> {pickExplainerBusy ? 'Selecting…' : 'Re-pick Explainer'}
-                </button>
-                <button
-                  type="button"
-                  className="button button-quiet text-button clear-explainer-btn"
-                  onClick={handleRemoveExplainer}
-                  disabled={pickExplainerBusy || imageExporting}
-                  title="Remove explainer and restore member's turn"
-                >
-                  <Icon name="trash" size={14}/> Reset
-                </button>
-              </>
+              <button
+                type="button"
+                className="button button-quiet repick-explainer-btn"
+                onClick={() => {
+                  setExplainerModalOpen(false);
+                  openRepickModal();
+                }}
+                disabled={pickExplainerBusy || imageExporting}
+                title="Re-pick another explainer and restore current member's turn"
+              >
+                <IconifyIcon icon="charm:refresh" width={14} height={14} /> Re-pick Explainer
+              </button>
             )}
           </div>
+        </section>
+      </div>
+    )}
+
+    {repickModalOpen && (
+      <div
+        className="modal-scrim"
+        role="presentation"
+        onMouseDown={(event) => { if (event.target === event.currentTarget) setRepickModalOpen(false); }}
+      >
+        <section className="auth-modal repick-explainer-modal" role="dialog" aria-modal="true" aria-labelledby="repick-modal-title">
+          <button className="modal-close" onClick={() => setRepickModalOpen(false)} aria-label="Close">×</button>
+          <div className="eyebrow"><span className="eyebrow-line"/>EXPLAINER SELECTION</div>
+          <h2 id="repick-modal-title">Re-pick Solution Explainer</h2>
+          <p className="auth-lede">
+            Choose whether to pick randomly from eligible submitters or select a specific 2nd-year member.
+          </p>
+
+          <div className="repick-mode-toggle">
+            <button
+              type="button"
+              className={`repick-tab-btn ${repickMode === 'custom' ? 'active' : ''}`}
+              onClick={() => setRepickMode('custom')}
+            >
+              <Icon name="users" size={14} /> Custom Select
+            </button>
+            <button
+              type="button"
+              className={`repick-tab-btn ${repickMode === 'random' ? 'active' : ''}`}
+              onClick={() => setRepickMode('random')}
+            >
+              <Icon name="dice" size={14} /> Random Pick
+            </button>
+          </div>
+
+          {repickMode === 'random' ? (
+            <div className="repick-random-box">
+              <p>
+                DSAvation will automatically select an explainer at random among members who submitted today's problem, prioritizing 2nd-year students whose turn is pending.
+              </p>
+              <p className="helper-copy">
+                The current explainer will be replaced and their turn will be restored so they can be picked again in upcoming sessions.
+              </p>
+              <button
+                type="button"
+                className="button button-green repick-action-btn"
+                onClick={() => executeRepick(null)}
+                disabled={pickExplainerBusy}
+              >
+                <Icon name="dice" size={15} /> {pickExplainerBusy ? 'Selecting…' : 'Pick Random Explainer'}
+              </button>
+            </div>
+          ) : (
+            <div className="repick-custom-box">
+              <div className="repick-search-bar">
+                <Icon name="search" size={14} />
+                <input
+                  type="text"
+                  placeholder="Filter 2nd-year students by name or department…"
+                  value={repickSearch}
+                  onChange={(e) => setRepickSearch(e.target.value)}
+                />
+              </div>
+
+              {repickLoading ? (
+                <div className="soft-empty">Loading second-year members…</div>
+              ) : (
+                <div className="repick-candidates-list">
+                  {repickCandidates
+                    .filter((c) => {
+                      if (!repickSearch) return true;
+                      const q = repickSearch.toLowerCase();
+                      return (c.name || '').toLowerCase().includes(q) || (c.department || '').toLowerCase().includes(q);
+                    })
+                    .map((student) => {
+                      return (
+                        <div
+                          className={`repick-candidate-row ${student.isCurrentExplainer ? 'is-current' : ''}`}
+                          key={student.id}
+                        >
+                          <MemberAvatar person={student} className="repick-candidate-avatar" label="" />
+                          <div className="repick-candidate-info">
+                            <div className="repick-candidate-name-row">
+                              <strong>{student.name}</strong>
+                              {student.turnCompleted ? (
+                                <span className="turn-status-badge completed" title={`Turn completed${student.pastDate ? ` on ${student.pastDate}` : ''}`}>
+                                  <Icon name="check" size={11} /> Turn completed
+                                </span>
+                              ) : (
+                                <span className="turn-status-badge pending">
+                                  Turn pending
+                                </span>
+                              )}
+                              {student.isCurrentExplainer && (
+                                <span className="turn-status-badge current">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            <p>
+                              {student.department || 'Club Member'} · 2nd Year
+                              {student.submittedToday && <span className="submitted-today-pill">✓ Submitted today</span>}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            className="button button-quiet select-candidate-btn"
+                            disabled={pickExplainerBusy || student.isCurrentExplainer}
+                            onClick={() => executeRepick(student.id)}
+                            title={student.isCurrentExplainer ? "Currently selected explainer" : `Select ${student.name} as today's solution explainer`}
+                          >
+                            {student.isCurrentExplainer ? 'Current' : 'Select'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     )}

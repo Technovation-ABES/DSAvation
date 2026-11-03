@@ -1142,6 +1142,31 @@ test('explainer selection prioritizes second-year students, locks for today, and
 
   const clubAfterClear = await call(db, '/club/today', { cookie: admin.cookie });
   assert.equal(clubAfterClear.data.assignment.explainer, null);
+
+  // Test GET /api/admin/explainer-candidates
+  const candDenied = await call(db, '/admin/explainer-candidates', { cookie: memberNonAdmin.cookie });
+  assert.equal(candDenied.response.status, 403);
+
+  const candRes = await call(db, '/admin/explainer-candidates', { cookie: admin.cookie });
+  assert.equal(candRes.response.status, 200);
+  assert.ok(candRes.data.candidates.length >= 2);
+  const aliceCand = candRes.data.candidates.find((c) => c.name === 'Sophomore Alice');
+  const bobCand = candRes.data.candidates.find((c) => c.name === 'Sophomore Bob');
+  assert.ok(aliceCand);
+  assert.ok(bobCand);
+  // Bob had his turn completed in past assignment ('2026-10-31')
+  assert.equal(bobCand.turnCompleted, true);
+  // Alice was restored, so turn is not marked completed
+  assert.equal(aliceCand.turnCompleted, false);
+
+  // Custom re-pick: admin manually selects Alice
+  const customPick = await call(db, '/admin/pick-explainer', {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { repick: true, userId: aliceCand.id },
+  });
+  assert.equal(customPick.response.status, 200);
+  assert.equal(customPick.data.explainer.name, 'Sophomore Alice');
 });
 
 test('submitting solutions directly via LeetCode verifies titleSlug, statusDisplay, and India date', async () => {
