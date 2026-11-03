@@ -352,38 +352,6 @@ async function login(db, req, res, body) {
   json(res, 200, { ok: true, user: account(user) });
 }
 
-async function generatePasswordReset(db, req, user, memberId) {
-  requireRole(user, 'admin');
-  await allowRequest(db, req, `admin-pw-reset-${user._id}`, 20, 60 * 60 * 1000);
-  if (!ObjectId.isValid(memberId)) throw new HttpError(404, 'Member not found.');
-  const targetId = new ObjectId(memberId);
-  const target = await db.collection('users').findOne({ _id: targetId }, { projection: { name: 1, email: 1 } });
-  if (!target) throw new HttpError(404, 'Member not found.');
-  const token = randomBytes(32).toString('base64url');
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-  await db.collection('passwordResets').deleteMany({ userId: targetId });
-  await db.collection('passwordResets').insertOne({
-    tokenHash: hash(token), userId: targetId, createdBy: user._id,
-    createdAt: new Date(), expiresAt,
-  });
-  await recordAdminActivity(db, user, 'password_reset_link_generated', { id: targetId, label: `${target.name} · ${target.email}` }, { expiresAt });
-
-  const resetUrl = `${baseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
-  let emailSent = false;
-  let emailError = null;
-  try {
-    await sendPasswordResetEmail(target.email, target.name, resetUrl, expiresAt);
-    emailSent = true;
-  } catch (error) {
-    emailError = error.message;
-    if (process.env.NODE_ENV !== 'test' && !error.message.includes('SMTP configuration is incomplete')) {
-      console.warn(`[API] Could not email password reset to ${target.email}:`, error.message);
-    }
-  }
-
-  return { resetUrl, expiresAt, emailSent, emailError };
-}
-
 async function requestPasswordReset(db, req, res, body) {
   const email = String(body.email || '').toLowerCase().trim();
   if (!email || email.length > 254 || !/^[a-z0-9.+_-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email)) {
@@ -730,6 +698,7 @@ async function getClubToday(db) {
       ...formatAvatar(profile, item.userId),
       points: item.points ?? 1,
       aura: itemAura,
+      blaze: itemAura,
       submittedAt: item.submittedAt,
       commitUrl: item.commitUrl,
       submissionType: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
@@ -1188,6 +1157,7 @@ async function leaderboard(db, url, viewer = null) {
       githubUsername: profile.githubUsername,
       ...formatAvatar(profile),
       points: row.points ?? row.accepted,
+      blaze: auraByUser.get(String(profile._id)) || 0,
       aura: auraByUser.get(String(profile._id)) || 0,
       completed: row.accepted,
       scheduled: totalAssigned,
@@ -1659,7 +1629,7 @@ async function pickTodayExplainer(db, user, body = {}) {
       { _id: new ObjectId(previousExplainerId) },
       { $inc: { customAura: -50 }, $set: { updatedAt: new Date() } }
     );
-    await recordAdminActivity(db, user, 'member_aura_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
+    await recordAdminActivity(db, user, 'member_blaze_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
       amount: -50,
       reason: 'Replaced during Today’s Explainer re-pick',
     });
@@ -1897,7 +1867,9 @@ async function listDirectory(db, url, viewer = null) {
         department: member.department,
         studyYear: member.studyYear || '',
         points: pointsByUser.get(String(member._id)) || 0,
+        blaze: auraByUser.get(String(member._id)) || 0,
         aura: auraByUser.get(String(member._id)) || 0,
+        customBlaze: Number(member.customAura || 0),
         customAura: Number(member.customAura || 0),
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
@@ -2072,12 +2044,13 @@ async function deleteMember(db, user, memberId) {
   return { ok: true };
 }
 
-async function awardMemberAura(db, user, memberId, body) {
+async function awardMemberBlaze(db, user, memberId, body) {
   requireRole(user, 'admin');
   if (!ObjectId.isValid(memberId)) throw new HttpError(404, 'Member not found.');
-  const amount = Math.round(Number(body.aura));
+  const rawAmount = body.blaze !== undefined ? body.blaze : body.aura;
+  const amount = Math.round(Number(rawAmount));
   if (!amount || Number.isNaN(amount)) {
-    throw new HttpError(400, 'Enter a valid non-zero aura points amount.');
+    throw new HttpError(400, 'Enter a valid non-zero blaze points amount.');
   }
 
   const member = await db.collection('users').findOne({ _id: new ObjectId(memberId) });
@@ -2092,9 +2065,11 @@ async function awardMemberAura(db, user, memberId, body) {
     { $set: { customAura: newCustomAura, updatedAt: new Date() } }
   );
 
-  await recordAdminActivity(db, user, 'member_aura_awarded', { id: memberId, label: `${member.name} · ${member.email}` }, {
+  await recordAdminActivity(db, user, 'member_blaze_awarded', { id: memberId, label: `${member.name} · ${member.email}` }, {
     amount,
     mode: isSet ? 'set' : 'add',
+    previousCustomBlaze: prevCustomAura,
+    newCustomBlaze: newCustomAura,
     previousCustomAura: prevCustomAura,
     newCustomAura,
     note: String(body.note || '').trim().slice(0, 300),
@@ -2103,8 +2078,16 @@ async function awardMemberAura(db, user, memberId, body) {
   const auraMap = await computeAuraByUser(db, [member._id]);
   const totalAura = auraMap.get(String(memberId)) || 0;
 
-  return { ok: true, memberId: String(memberId), customAura: newCustomAura, totalAura };
+  return {
+    ok: true,
+    memberId: String(memberId),
+    customBlaze: newCustomAura,
+    totalBlaze: totalAura,
+    customAura: newCustomAura,
+    totalAura,
+  };
 }
+const awardMemberAura = awardMemberBlaze;
 
 async function listAdminActivity(db, url) {
   const { page, pageSize, skip } = pageOptions(url, 10, 50);
@@ -2280,14 +2263,9 @@ export async function handleApiNode(req, res, options = {}) {
     if (memberMatch && method === 'DELETE') {
       return json(res, 200, await deleteMember(db, user, memberMatch[1]));
     }
-    const resetMatch = url.pathname.match(/^\/api\/admin\/members\/([a-f0-9]{24})\/password-reset$/i);
-    if (resetMatch && method === 'POST') {
-      const admin = await requireUser(req, db);
-      return json(res, 201, await generatePasswordReset(db, req, admin, resetMatch[1]));
-    }
-    const auraMatch = url.pathname.match(/^\/api\/admin\/members\/([a-f0-9]{24})\/aura$/i);
-    if (auraMatch && method === 'POST') {
-      return json(res, 200, await awardMemberAura(db, user, auraMatch[1], await readBody(req)));
+    const blazeMatch = url.pathname.match(/^\/api\/admin\/members\/([a-f0-9]{24})\/(blaze|aura)$/i);
+    if (blazeMatch && method === 'POST') {
+      return json(res, 200, await awardMemberBlaze(db, user, blazeMatch[1], await readBody(req)));
     }
     if (url.pathname === '/api/admin/activity' && method === 'GET') {
       const admin = await requireUser(req, db);

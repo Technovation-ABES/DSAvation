@@ -690,34 +690,12 @@ test('submitting solutions via short commit code or full URL automatically disco
   assert.equal(resolvedRepoSha.sha, '76c3f95');
 });
 
-test('admin reset links store only a hash, expire, work once, and revoke sessions', async () => {
+test('admin password-reset endpoint is removed in favor of email workflow', async () => {
   const db = new FakeDatabase();
   const admin = await seedAdmin(db);
   const member = await seedUser(db, { name: 'Reset Member', email: 'reset@abes.ac.in', username: 'reset-gh' });
   const generated = await call(db, `/admin/members/${member.user._id}/password-reset`, { method: 'POST', cookie: admin.cookie, body: {} });
-  assert.equal(generated.response.status, 201);
-  const resetUrl = new URL(generated.data.resetUrl);
-  const token = resetUrl.searchParams.get('token');
-  const storedReset = db.collection('passwordResets').documents[0];
-  assert.ok(token);
-  assert.notEqual(storedReset.tokenHash, token);
-  assert.ok(Math.abs((storedReset.expiresAt.getTime() - storedReset.createdAt.getTime()) - 30 * 60 * 1000) < 5);
-  assert.equal(JSON.stringify(db.collection('adminActivity').documents).includes(token), false);
-
-  const changed = await call(db, '/auth/reset-password', { method: 'POST', body: { token, password: 'new-strong-pass-456' } });
-  assert.equal(changed.response.status, 200);
-  assert.equal(db.collection('sessions').documents.some((session) => String(session.userId) === String(member.user._id)), false);
-  const reused = await call(db, '/auth/reset-password', { method: 'POST', body: { token, password: 'another-strong-pass-789' } });
-  assert.equal(reused.response.status, 400);
-  const oldPassword = await call(db, '/auth/login', { method: 'POST', body: { email: 'reset@abes.ac.in', password: 'correct-horse-123' } });
-  assert.equal(oldPassword.response.status, 401);
-  const newPassword = await call(db, '/auth/login', { method: 'POST', body: { email: 'reset@abes.ac.in', password: 'new-strong-pass-456' } });
-  assert.equal(newPassword.response.status, 200);
-  const generatedAgain = await call(db, `/admin/members/${member.user._id}/password-reset`, { method: 'POST', cookie: admin.cookie, body: {} });
-  const expiredToken = new URL(generatedAgain.data.resetUrl).searchParams.get('token');
-  db.collection('passwordResets').documents[0].expiresAt = new Date(0);
-  const expired = await call(db, '/auth/reset-password', { method: 'POST', body: { token: expiredToken, password: 'expired-strong-pass-999' } });
-  assert.equal(expired.response.status, 400);
+  assert.equal(generated.response.status, 404);
 });
 
 test('public password reset workflow: email validation, token hashing, expiration, reuse, and login verification', async () => {
@@ -853,8 +831,8 @@ test('admin routes enforce roles and paginate the member roster and audit histor
   assert.equal(activityPage.data.pagination.pageSize, 1);
   const denied = await call(db, '/admin/activity', { cookie: member.cookie });
   assert.equal(denied.response.status, 403);
-  const resetDenied = await call(db, `/admin/members/${member.user._id}/password-reset`, { method: 'POST', cookie: member.cookie, body: {} });
-  assert.equal(resetDenied.response.status, 403);
+  const blazeDenied = await call(db, `/admin/members/${member.user._id}/blaze`, { method: 'POST', cookie: member.cookie, body: { blaze: 10 } });
+  assert.equal(blazeDenied.response.status, 403);
 });
 
 test('admins can review legacy pending submissions and pagination includes their full count', async () => {
@@ -1745,7 +1723,7 @@ test('admins can award custom aura points to a member, updating directory, audit
 
   // Verify audit activity logged
   const activity = await call(db, '/admin/activity', { cookie: admin.cookie });
-  const auraLog = activity.data.activity.find((a) => a.action === 'member_aura_awarded');
+  const auraLog = activity.data.activity.find((a) => a.action === 'member_blaze_awarded' || a.action === 'member_aura_awarded');
   assert.ok(auraLog);
   assert.equal(auraLog.details.amount, 50);
 

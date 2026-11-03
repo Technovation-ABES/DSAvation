@@ -44,6 +44,7 @@ export const DEFAULT_DARK_CARD_THEME = Object.freeze({
     '--card-border-color': 'rgba(255, 255, 255, 0.16)',
     '--card-points-color': '#34d399',
     '--card-aura-color': '#fb923c',
+    '--card-blaze-color': '#fb923c',
     '--card-leetcode-bg': 'rgba(15, 23, 42, 0.75)',
   }
 });
@@ -189,7 +190,8 @@ export function buildCardThemeVariables({
         '--card-btn-hover': 'rgba(15, 23, 42, 0.15)',
         '--card-border-color': 'rgba(15, 23, 42, 0.14)',
         '--card-points-color': '#047857', // turquoise/emerald preserved & accessible
-        '--card-aura-color': '#c2410c',   // aura orange preserved & accessible
+        '--card-aura-color': '#c2410c',   // blaze / aura orange preserved & accessible
+        '--card-blaze-color': '#c2410c',
         '--card-leetcode-bg': 'rgba(255, 255, 255, 0.88)',
       },
     };
@@ -241,7 +243,8 @@ export function buildCardThemeVariables({
       '--card-btn-hover': 'rgba(255, 255, 255, 0.22)',
       '--card-border-color': 'rgba(255, 255, 255, 0.16)',
       '--card-points-color': '#34d399', // bright emerald
-      '--card-aura-color': '#fb923c',   // vibrant flame orange
+      '--card-aura-color': '#fb923c',   // vibrant flame blaze / aura orange
+      '--card-blaze-color': '#fb923c',
       '--card-leetcode-bg': 'rgba(15, 23, 42, 0.75)',
     },
   };

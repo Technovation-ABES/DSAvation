@@ -724,8 +724,8 @@ const MemberDirectoryCard = React.memo(function MemberDirectoryCard({
               <span className="member-points-chip" title="Total club points">
                 <IconifyIcon icon="iconoven:achievement" width={13} height={13} /> {member.points ?? 0} pts
               </span>{' '}
-              <span className="member-points-chip member-aura-chip" title="Total Aura points">
-                <IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.aura ?? 0}
+              <span className="member-points-chip member-aura-chip" title="Total Blaze points">
+                <IconifyIcon icon="at-icons:fire" width={13} height={13} /> {member.blaze ?? member.aura ?? 0}
               </span>
             </p>
           </div>
@@ -947,7 +947,6 @@ function App() {
   const [historyPagination, setHistoryPagination] = useState({ page: 1, pageSize: 8, total: 0, totalPages: 1 });
   const [questionPage, setQuestionPage] = useState(1);
   const QUESTIONS_PER_PAGE = 20;
-  const [resetLink, setResetLink] = useState(null);
   const [resetToken, setResetToken] = useState(() => new URLSearchParams(window.location.search).get('token') || '');
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState('');
@@ -1909,19 +1908,21 @@ function App() {
     if (!adminOverlayMember || auraAwardBusy) return;
     const amount = Math.round(Number(amountToAward ?? auraAwardAmount));
     if (!amount || Number.isNaN(amount)) {
-      setNotice('Please enter a valid non-zero aura points amount.');
+      setNotice('Please enter a valid non-zero blaze points amount.');
       return;
     }
     setAuraAwardBusy(true);
     try {
-      const res = await api(`/admin/members/${adminOverlayMember.id}/aura`, {
+      const res = await api(`/admin/members/${adminOverlayMember.id}/blaze`, {
         method: 'POST',
-        body: { aura: amount },
+        body: { blaze: amount },
       });
       if (res.ok) {
-        setAdminOverlayMember((prev) => prev ? { ...prev, aura: res.totalAura, customAura: res.customAura } : null);
-        setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, aura: res.totalAura, customAura: res.customAura } : m));
-        setNotice(`Awarded ${amount > 0 ? '+' : ''}${amount} Aura to ${adminOverlayMember.name}! New Total: ${res.totalAura} Aura`);
+        const total = res.totalBlaze ?? res.totalAura;
+        const custom = res.customBlaze ?? res.customAura;
+        setAdminOverlayMember((prev) => prev ? { ...prev, aura: total, blaze: total, customAura: custom, customBlaze: custom } : null);
+        setDirectoryMembers((prev) => prev.map((m) => m.id === adminOverlayMember.id ? { ...m, aura: total, blaze: total, customAura: custom, customBlaze: custom } : m));
+        setNotice(`Awarded ${amount > 0 ? '+' : ''}${amount} Blaze to ${adminOverlayMember.name}! New Total: ${total} Blaze`);
         setAuraAwardAmount('');
         refreshActivity(activityPagination.page).catch(() => {});
       }
@@ -2007,16 +2008,6 @@ function App() {
     finally { setProfileBusy(false); }
   }
 
-  async function generateResetLink(member) {
-    setMemberBusy(member.id);
-    try {
-      const result = await api(`/admin/members/${member.id}/password-reset`, { method: 'POST', body: {} });
-      setResetLink({ name: member.name, url: result.resetUrl, expiresAt: result.expiresAt });
-      await refreshActivity(activityPagination.page);
-    } catch (error) { setNotice(error.message); }
-    finally { setMemberBusy(''); }
-  }
-
   async function adjustPoints(item, points) {
     setMemberBusy(item.id);
     try {
@@ -2037,11 +2028,6 @@ function App() {
       setNotice('Password changed. Sign in with your new password.'); setAuthMode('login'); setAuthOpen(true);
     } catch (error) { setResetError(error.message); }
     finally { setResetBusy(false); }
-  }
-
-  async function copyResetLink() {
-    try { await navigator.clipboard.writeText(resetLink.url); setNotice('One-time reset link copied. Share it with the member before it expires.'); }
-    catch { setNotice('Select the reset link and copy it manually.'); }
   }
 
   const clearFilters = () => { setQuery(''); setTopic('All topics'); setDifficulty('Any level'); setStructure('Any data structure'); setPattern('Any pattern'); };
@@ -2419,7 +2405,7 @@ function App() {
                     <div className="member-admin-overlay-meta">
                       {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
                       {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
-                      <span className="member-aura-chip" title="Current Aura points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.aura ?? 0} Aura</span>
+                      <span className="member-aura-chip" title="Current Blaze points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.blaze ?? adminOverlayMember.aura ?? 0} Blaze</span>
                     </div>
                   </div>
                 </div>
@@ -2455,11 +2441,11 @@ function App() {
                 <div className="admin-overlay-aura-box">
                   <div className="admin-overlay-aura-header">
                     <span className="admin-overlay-aura-label">
-                      <IconifyIcon icon="at-icons:fire" width={14} height={14} /> AWARD CUSTOM AURA
+                      <IconifyIcon icon="at-icons:fire" width={14} height={14} /> AWARD CUSTOM BLAZE
                     </span>
-                    <span className="admin-overlay-aura-current" title="Current total Aura">
-                      {adminOverlayMember.aura ?? 0} total
-                      {adminOverlayMember.customAura ? ` (${adminOverlayMember.customAura > 0 ? '+' : ''}${adminOverlayMember.customAura} custom)` : ''}
+                    <span className="admin-overlay-aura-current" title="Current total Blaze">
+                      {adminOverlayMember.blaze ?? adminOverlayMember.aura ?? 0} total
+                      {(adminOverlayMember.customBlaze ?? adminOverlayMember.customAura) ? ` (${(adminOverlayMember.customBlaze ?? adminOverlayMember.customAura) > 0 ? '+' : ''}${adminOverlayMember.customBlaze ?? adminOverlayMember.customAura} custom)` : ''}
                     </span>
                   </div>
                   <div className="admin-overlay-aura-quick-chips">
@@ -2479,7 +2465,7 @@ function App() {
                       className="admin-overlay-aura-chip-btn chip-deduct"
                       disabled={auraAwardBusy}
                       onClick={() => handleAwardCustomAura(-10)}
-                      title="Deduct 10 aura"
+                      title="Deduct 10 blaze"
                     >
                       -10
                     </button>
@@ -2510,16 +2496,6 @@ function App() {
                     </button>
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  className="button button-quiet"
-                  disabled={memberBusy === adminOverlayMember.id}
-                  onClick={() => generateResetLink(adminOverlayMember)}
-                >
-                  <IconifyIcon icon="lucide:key-round" width={14} height={14} />
-                  Generate reset link
-                </button>
 
                 <button
                   type="button"
@@ -3149,9 +3125,9 @@ function App() {
                             <span>{person.department || 'Club Member'}{submittedTimeStr ? ` · ${submittedTimeStr}` : ''}</span>
                           </div>
                           <div className="daily-leader-actions">
-                            {person.aura !== undefined && (
-                              <span className="daily-aura-badge" title="Daily Aura earned">
-                                <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.aura}
+                            {(person.blaze !== undefined || person.aura !== undefined) && (
+                              <span className="daily-aura-badge" title="Daily Blaze earned">
+                                <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.blaze ?? person.aura}
                               </span>
                             )}
                           </div>
@@ -3195,9 +3171,9 @@ function App() {
                               <span>{person.department} · {person.punctuality}% punctuality</span>
                             </div>
                             <div className="leader-score-cell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
-                              {person.aura !== undefined && (
-                                <span className="daily-aura-badge" title="Total Aura points">
-                                  <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.aura}
+                              {(person.blaze !== undefined || person.aura !== undefined) && (
+                                <span className="daily-aura-badge" title="Total Blaze points">
+                                  <IconifyIcon icon="at-icons:fire" width={12} height={12} /> {person.blaze ?? person.aura}
                                 </span>
                               )}
                               <span className="leader-score" style={{ fontSize: '0.625rem', color: 'var(--muted)' }}>{person.points} pt{person.points === 1 ? '' : 's'}</span>
@@ -3544,8 +3520,6 @@ function App() {
       </div>,
       document.body
     )}
-
-    {resetLink && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetLink(null); }}><section className="auth-modal reset-link-modal" role="dialog" aria-modal="true" aria-labelledby="reset-link-title"><button className="modal-close" onClick={() => setResetLink(null)} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>ONE-TIME PASSWORD RESET</div><h2 id="reset-link-title">Reset link for {resetLink.name}<span>.</span></h2><p className="auth-lede">This link expires at {new Date(resetLink.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} India time and works once. Share it directly with the member. The server stores only a hash.</p><label className="reset-link-field">RESET URL<input value={resetLink.url} readOnly onFocus={(event) => event.target.select()}/></label><button className="button button-dark auth-submit" onClick={copyResetLink}>Copy one-time link <Icon name="arrow" size={14}/></button></section></div>}
 
     {forgotOpen && <div className="modal-scrim" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); } }}><section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="forgot-title"><button className="modal-close" onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setForgotSuccess(false); }} aria-label="Close">×</button><div className="eyebrow"><span className="eyebrow-line"/>RESET YOUR PASSWORD</div><h2 id="forgot-title">Forgot password?<span>.</span></h2><p className="auth-lede">Enter your email address and we'll send you a one-time reset link. The link expires in 30 minutes.</p>{forgotSuccess ? <><p className="auth-success">Reset link successfully sent! Check your email.</p><button className="button button-dark auth-submit" onClick={() => { setForgotOpen(false); setForgotSuccess(false); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></> : <><form onSubmit={requestPasswordReset} className="auth-form"><label>COLLEGE EMAIL<input name="email" type="email" autoComplete="email" required pattern=".+@abes\.ac\.in" placeholder="you@abes.ac.in" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}/></label>{forgotError && <p className="form-error" role="alert">{forgotError}</p>}<button className="button button-dark auth-submit" disabled={forgotBusy}>{forgotBusy ? 'Sending…' : 'Send reset link'} <Icon name="arrow" size={14}/></button></form><p className="auth-switch"><button onClick={() => { setForgotOpen(false); setForgotEmail(''); setForgotError(''); setAuthMode('login'); setAuthOpen(true); }}>Back to sign in <Icon name="arrow" size={14}/></button></p></>}</section></div>}
 
