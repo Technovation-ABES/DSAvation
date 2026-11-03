@@ -4709,7 +4709,32 @@ details[open] > .admin-activity-summary svg {
 }
 .directory-card-header > div { min-width: 0; flex-shrink: 0; }
 .directory-card-header .directory-card-identity { flex-grow: 1; flex-shrink: 1; min-width: 0; }
-.directory-card-header h2 { margin: 0 0 4px; overflow: hidden; color: var(--ink); font: 600 .875rem var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.directory-card-header h2 {
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink);
+  font: 600 .875rem var(--display);
+}
+.directory-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.directory-admin-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.directory-admin-pill-group .admin-verified-badge {
+  margin-left: 0;
+}
+.member-directory-card.has-custom-bg .directory-admin-pill-group .pill.green {
+  border: 1px solid rgba(45, 212, 191, 0.35);
+}
 .directory-card-header p { margin: 0; color: var(--muted); font-size: .5625rem; overflow-wrap: anywhere; }
 .member-points-chip {
   display: inline-flex;
@@ -4722,13 +4747,26 @@ details[open] > .admin-activity-summary svg {
   color: #34d399;
 }
 .directory-socials { margin: 13px 0; padding: 11px 0; display: grid; gap: 8px; border-bottom: 1px solid var(--line); }
-.directory-socials a, .directory-socials > span { min-width: 0; display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: .5625rem; overflow-wrap: anywhere; }
-.directory-socials a {max-width: max-content;}
+.directory-socials a, .directory-socials > span { min-width: 0; display: inline-flex; align-items: center; gap: 6px; font-size: .5625rem; overflow-wrap: anywhere; }
+.directory-socials a {
+  max-width: max-content;
+  color: #0284c7;
+  transition: color 140ms ease;
+}
+.directory-socials a:hover {
+  color: #0369a1;
+}
 .directory-socials > span { color: var(--muted); }
+:root[data-theme="dark"] .directory-socials a {
+  color: #38bdf8;
+}
+:root[data-theme="dark"] .directory-socials a:hover {
+  color: #7dd3fc;
+}
 .directory-leetcode-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .leetcode-inline-load-btn {
   font-size: 0.53125rem !important;
-  color: var(--green) !important;
+  color: #0284c7 !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -4737,23 +4775,24 @@ details[open] > .admin-activity-summary svg {
   padding: 2px 7px;
   border-radius: 4px;
   background: var(--surface-muted);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(2, 132, 199, 0.25);
   transition: all 140ms ease;
   flex-shrink: 0;
 }
 .leetcode-inline-load-btn:hover:not(:disabled) {
-  background: var(--surface);
-  border-color: var(--green);
-  color: var(--green-dark) !important;
+  background: rgba(2, 132, 199, 0.08);
+  border-color: #0284c7;
+  color: #0369a1 !important;
 }
 :root[data-theme="dark"] .leetcode-inline-load-btn {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--green) !important;
+  border-color: rgba(56, 189, 248, 0.2);
+  color: #38bdf8 !important;
 }
 :root[data-theme="dark"] .leetcode-inline-load-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--green);
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38bdf8;
+  color: #7dd3fc !important;
 }
 .directory-leetcode { padding-top: 3px; }
 .directory-leetcode-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -5424,4 +5463,47 @@ details[open] > .admin-activity-summary svg {
 :root[data-theme="dark"] .turn-status-badge.current {
   background: rgba(14, 165, 233, 0.2);
   color: #38bdf8;
+}
+
+/* Submission Commit Help Info Card */
+.submission-commit-info-card {
+  margin-top: 10px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.08);
+  color: #334155;
+  font-size: 0.59375rem;
+  line-height: 1.5;
+}
+.submission-commit-info-card svg {
+  color: #0284c7;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.submission-commit-info-card span {
+  flex: 1;
+}
+.submission-commit-info-card code {
+  color: #0284c7;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+}
+:root[data-theme="dark"] .submission-commit-info-card {
+  border-color: rgba(56, 189, 248, 0.22);
+  background: rgba(14, 30, 44, 0.65);
+  color: #cbd5e1;
+}
+:root[data-theme="dark"] .submission-commit-info-card svg {
+  color: #38bdf8;
+}
+:root[data-theme="dark"] .submission-commit-info-card code {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.15);
 }
