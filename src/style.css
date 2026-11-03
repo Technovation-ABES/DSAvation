@@ -3040,7 +3040,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 }
 .pagination-controls { margin-top: 10px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); }
 .pagination-controls > span { color: #63817e; font: 0.5rem var(--mono); text-align: center; }
-.pagination-controls .button { min-height: 29px; padding-inline: 9px; font-size: 0.5rem; }
+.pagination-controls .button { min-height: 29px; padding-inline: 9px; font-size: 0.5rem; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .admin-activity-list { display: grid; }
 .admin-activity-row { min-width: 0; padding: 12px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-top: 1px solid var(--line); }
 .admin-activity-row > div { min-width: 0; display: grid; gap: 4px; }
@@ -4427,6 +4427,16 @@ details[open] > .admin-activity-summary svg {
 .members-page { max-width: 1180px; }
 .directory-filters { margin-bottom: 14px; padding: 14px; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(165px, .7fr) minmax(130px, .5fr) auto auto; align-items: end; gap: 9px; }
 .directory-filters .member-search { width: 100%; height: 38px; }
+.view-all-stats-active {
+  background: rgba(30, 142, 62, 0.12) !important;
+  color: #1e8e3e !important;
+  border-color: rgba(30, 142, 62, 0.35) !important;
+}
+:root[data-theme="dark"] .view-all-stats-active {
+  background: rgba(52, 168, 83, 0.18) !important;
+  color: #81c995 !important;
+  border-color: rgba(52, 168, 83, 0.4) !important;
+}
 .directory-select { display: grid; gap: 5px; color: var(--muted); font: .5rem var(--mono); letter-spacing: .45px; }
 .directory-select select { width: 100%; min-width: 0; height: 38px; padding: 0 9px; border: 1px solid var(--line-dark); border-radius: 4px; color: var(--ink); background: var(--surface); font: .625rem 'DM Sans', sans-serif; }
 .member-directory-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

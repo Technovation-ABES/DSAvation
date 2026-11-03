@@ -3,7 +3,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Analytics } from '@vercel/analytics/react';
@@ -763,6 +763,16 @@ function App() {
   const [directoryBusy, setDirectoryBusy] = useState(false);
   const [directoryLeetcodeStats, setDirectoryLeetcodeStats] = useState({});
   const [leetcodeStatsBusy, setLeetcodeStatsBusy] = useState('');
+  const [showAllLeetcodeStats, setShowAllLeetcodeStats] = useState(false);
+  const [loadingAllStats, setLoadingAllStats] = useState(false);
+  const [individuallyOpenedStats, setIndividuallyOpenedStats] = useState({});
+  const directoryDebounceRef = useRef(null);
+  const [membersBusy, setMembersBusy] = useState(false);
+  const [scoredBusy, setScoredBusy] = useState(false);
+  const [activityBusy, setActivityBusy] = useState(false);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [leaderboardBusy, setLeaderboardBusy] = useState(false);
   const [avatarDraftStyle, setAvatarDraftStyle] = useState('critters');
   const [avatarDraftSeed, setAvatarDraftSeed] = useState('');
   const [avatarDraftCustomUrl, setAvatarDraftCustomUrl] = useState('');
@@ -1000,6 +1010,7 @@ function App() {
   }
 
   async function refreshMembers(page = 1, status = memberFilter, search = memberQuery) {
+    setMembersBusy(true);
     const queryStatus = status === 'heatmap' ? 'pending' : status;
     const params = new URLSearchParams({ page: String(page), pageSize: '20', status: queryStatus });
     if (search.trim()) params.set('q', search.trim());
@@ -1012,6 +1023,7 @@ function App() {
       setMembersPagination(result.pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
       setMemberCounts(result.counts || { pending: 0, approved: 0, leetcodePending: 0 });
     } catch (error) { setNotice(error.message); }
+    finally { setMembersBusy(false); }
   }
 
   async function loadDirectory(page = 1, search = directoryQuery, department = directoryDepartment, year = directoryYear) {
@@ -1044,6 +1056,57 @@ function App() {
       setDirectoryLeetcodeStats((current) => ({ ...current, [member.id]: { available: false, reason: error.message } }));
     } finally { setLeetcodeStatsBusy(''); }
   }
+
+  async function toggleAllLeetcodeStats() {
+    if (showAllLeetcodeStats) {
+      setShowAllLeetcodeStats(false);
+      setIndividuallyOpenedStats({});
+      return;
+    }
+    setShowAllLeetcodeStats(true);
+    const uncurated = directoryMembers.filter((m) => m.leetcodeUsername && !directoryLeetcodeStats[m.id]?.stats);
+    if (!uncurated.length) return;
+    setLoadingAllStats(true);
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < uncurated.length; i += chunkSize) {
+        const chunk = uncurated.slice(i, i + chunkSize);
+        await Promise.allSettled(chunk.map(async (member) => {
+          try {
+            const res = await api(`/members/${member.id}/leetcode-stats`);
+            setDirectoryLeetcodeStats((cur) => ({ ...cur, [member.id]: res }));
+          } catch (err) {
+            setDirectoryLeetcodeStats((cur) => ({ ...cur, [member.id]: { available: false, reason: err.message } }));
+          }
+        }));
+      }
+    } finally {
+      setLoadingAllStats(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!showAllLeetcodeStats || !isAdmin || !directoryMembers.length) return;
+    const uncurated = directoryMembers.filter((m) => m.leetcodeUsername && !directoryLeetcodeStats[m.id]?.stats && !directoryLeetcodeStats[m.id]?.reason);
+    if (!uncurated.length) return;
+    let cancelled = false;
+    (async () => {
+      const chunkSize = 4;
+      for (let i = 0; i < uncurated.length; i += chunkSize) {
+        if (cancelled) break;
+        const chunk = uncurated.slice(i, i + chunkSize);
+        await Promise.allSettled(chunk.map(async (member) => {
+          try {
+            const res = await api(`/members/${member.id}/leetcode-stats`);
+            if (!cancelled) setDirectoryLeetcodeStats((cur) => ({ ...cur, [member.id]: res }));
+          } catch (err) {
+            if (!cancelled) setDirectoryLeetcodeStats((cur) => ({ ...cur, [member.id]: { available: false, reason: err.message } }));
+          }
+        }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [directoryMembers, showAllLeetcodeStats, isAdmin]);
 
   function isValidHttpUrl(str) {
     try {
@@ -1099,27 +1162,33 @@ function App() {
   }
 
   async function refreshActivity(page = 1) {
+    setActivityBusy(true);
     try {
       const result = await api(`/admin/activity?page=${page}&pageSize=10`);
       setActivity(result.activity || []);
       setActivityPagination(result.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+    finally { setActivityBusy(false); }
   }
 
   async function refreshScoredSubmissions(page = 1) {
+    setScoredBusy(true);
     try {
       const result = await api(`/admin/submissions?status=accepted&page=${page}&pageSize=10`);
       setScoredSubmissions(result.submissions || []);
       setScoredPagination(result.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+    finally { setScoredBusy(false); }
   }
 
   async function refreshPendingSubmissions(page = 1) {
+    setPendingBusy(true);
     try {
       const result = await api(`/admin/submissions?status=pending&page=${page}&pageSize=10`);
       setPending(result.submissions || []);
       setPendingPagination(result.pagination || { page, pageSize: 10, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+    finally { setPendingBusy(false); }
   }
 
   async function loadSubmissionHeatmap() {
@@ -1349,19 +1418,23 @@ function App() {
   }
 
   async function loadLeaderboardPage(page) {
+    setLeaderboardBusy(true);
     try {
       const result = await api(`/club/leaderboard?page=${page}&pageSize=20`);
       setLeaderboard(result.leaderboard || []);
       setLeaderboardPagination(result.pagination || { page, pageSize: 20, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+    finally { setLeaderboardBusy(false); }
   }
 
   async function loadHistoryPage(page) {
+    setHistoryBusy(true);
     try {
       const result = await api(`/club/assignments?page=${page}&pageSize=8`);
       setHistory(result.assignments || []);
       setHistoryPagination(result.pagination || { page, pageSize: 8, total: 0, totalPages: 1 });
     } catch (error) { setNotice(error.message); }
+    finally { setHistoryBusy(false); }
   }
 
   useEffect(() => {
@@ -2074,12 +2147,39 @@ function App() {
     {view === 'members' && <main className="content-shell page-content members-page">
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ABES TECHNOVATION COMMUNITY</div><h1>Member directory<span>.</span></h1></div><div className="metric-card member-count-card"><strong>{directoryPagination.total}</strong></div></div>
       {!account ? <div className="login-prompt"><span className="prompt-icon"><Icon name="lock" size={23}/></span><div><h2>The member directory is for approved accounts.</h2><p>Sign in with your approved ABES account to browse club profiles.</p></div><button className="button button-dark" onClick={() => { setAuthMode('login'); setAuthOpen(true); }}>Sign in <Icon name="arrow" size={14}/></button></div> : <>
-        <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
-          <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => setDirectoryQuery(event.target.value)} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
-          <label className="directory-select"><span>CLUB DEPARTMENT</span><select value={directoryDepartment} onChange={(event) => { setDirectoryDepartment(event.target.value); loadDirectory(1, directoryQuery, event.target.value, directoryYear); }}><option value="">All departments</option>{directoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
-          <label className="directory-select"><span>YEAR</span><select value={directoryYear} onChange={(event) => { setDirectoryYear(event.target.value); loadDirectory(1, directoryQuery, directoryDepartment, event.target.value); }}><option value="">All years</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label>
-          <button className="button button-dark" type="submit" disabled={directoryBusy}>{directoryBusy ? 'Searching…' : 'Search'}</button>
-          {(directoryQuery || directoryDepartment || directoryYear) && <button className="button button-quiet" type="button" onClick={() => { setDirectoryQuery(''); setDirectoryDepartment(''); setDirectoryYear(''); loadDirectory(1, '', '', ''); }}>Clear filters</button>}
+        <form className="panel directory-filters" onSubmit={(event) => { event.preventDefault(); if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); loadDirectory(1, directoryQuery, directoryDepartment, directoryYear); }}>
+          <label className="member-search"><Icon name="search" size={15}/><input value={directoryQuery} onChange={(event) => {
+            const val = event.target.value;
+            setDirectoryQuery(val);
+            if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current);
+            directoryDebounceRef.current = setTimeout(() => {
+              loadDirectory(1, val, directoryDepartment, directoryYear);
+            }, 350);
+          }} placeholder="Search name, Club Department, or username" aria-label="Search members"/></label>
+          <label className="directory-select"><span>CLUB DEPARTMENT</span><select value={directoryDepartment} onChange={(event) => { if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); setDirectoryDepartment(event.target.value); loadDirectory(1, directoryQuery, event.target.value, directoryYear); }}><option value="">All departments</option>{directoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></label>
+          <label className="directory-select"><span>YEAR</span><select value={directoryYear} onChange={(event) => { if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); setDirectoryYear(event.target.value); loadDirectory(1, directoryQuery, directoryDepartment, event.target.value); }}><option value="">All years</option><option value="first-year">First year</option><option value="second-year">Second year</option><option value="third-year">Third year</option><option value="fourth-year">Fourth year</option><option value="passed">Passed out</option></select></label>
+          {isAdmin ? (
+            <button
+              className={`button ${showAllLeetcodeStats ? 'button-quiet view-all-stats-active' : 'button-dark'}`}
+              type="button"
+              disabled={loadingAllStats}
+              onClick={toggleAllLeetcodeStats}
+              title={showAllLeetcodeStats ? 'Hide LeetCode stats for all members' : 'View LeetCode stats for all members'}
+            >
+              {loadingAllStats ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Loading stats…
+                </span>
+              ) : showAllLeetcodeStats ? (
+                'HIDE ALL STATS'
+              ) : (
+                'VIEW ALL STATS'
+              )}
+            </button>
+          ) : (
+            <button className="button button-dark" type="submit" disabled={directoryBusy}>{directoryBusy ? 'Searching…' : 'Search'}</button>
+          )}
+          {(directoryQuery || directoryDepartment || directoryYear) && <button className="button button-quiet" type="button" onClick={() => { if (directoryDebounceRef.current) clearTimeout(directoryDebounceRef.current); setDirectoryQuery(''); setDirectoryDepartment(''); setDirectoryYear(''); loadDirectory(1, '', '', ''); }}>Clear filters</button>}
         </form>
         {directoryBusy && !directoryMembers.length ? <div className="panel directory-loading" role="status">Loading approved member profiles…</div> : directoryMembers.length ? <div className="member-directory-grid">{directoryMembers.map((member) => {
           const isSelf = member.id === account.id;
@@ -2087,6 +2187,11 @@ function App() {
           const lookup = directoryLeetcodeStats[member.id];
           const stats = lookup?.stats;
           const maxActivity = Math.max(1, ...(stats?.byDifficulty || []).map((item) => item.attempted ?? item.solved));
+          const isSectionVisible = canSeeLeetcode && member.leetcodeUsername && (
+            showAllLeetcodeStats
+              ? true
+              : (isSelf ? Boolean(stats || lookup?.reason) : Boolean(individuallyOpenedStats[member.id]))
+          );
           return <article
             className={`panel member-directory-card ${member.cardBgUrl ? 'has-custom-bg' : ''} ${isAdmin ? 'admin-manageable-card' : ''}`}
             key={member.id}
@@ -2125,7 +2230,10 @@ function App() {
                         className="text-button leetcode-inline-load-btn"
                         type="button"
                         disabled={leetcodeStatsBusy === member.id}
-                        onClick={() => loadDirectoryLeetcodeStats(member)}
+                        onClick={() => {
+                          setIndividuallyOpenedStats((prev) => ({ ...prev, [member.id]: true }));
+                          loadDirectoryLeetcodeStats(member);
+                        }}
                       >
                         {leetcodeStatsBusy === member.id ? 'Fetching…' : stats ? 'Refresh stats' : lookup ? 'Try again' : 'Load stats'} <Icon name="arrow" size={12}/>
                       </button>
@@ -2135,7 +2243,7 @@ function App() {
                   )
                 )}
               </div>
-              {canSeeLeetcode && member.leetcodeUsername && (stats || lookup?.reason) && (
+              {isSectionVisible && (
                 <section className="directory-leetcode" aria-label={`LeetCode statistics for ${member.name}`}>
                   <div className="directory-leetcode-heading">
                     <strong>LeetCode progress</strong>
@@ -2158,9 +2266,16 @@ function App() {
                       </div>
                       {lookup.stale && <small className="leetcode-unavailable">{lookup.reason}</small>}
                     </>
+                  ) : lookup?.reason ? (
+                    <div className="leetcode-empty">
+                      <span>{lookup.reason}</span>
+                    </div>
                   ) : (
                     <div className="leetcode-empty">
-                      {lookup?.reason && <span>{lookup.reason}</span>}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <IconifyIcon icon="charm:refresh" width={14} height={14} className="spin-icon" />
+                        Loading LeetCode stats…
+                      </span>
                     </div>
                   )}
                 </section>
@@ -2168,7 +2283,7 @@ function App() {
             </div>
           </article>;
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
-        {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>Previous</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>Next</button></div>}
+        {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>Previous</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
         {adminOverlayMember && (
           <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)}>
             <div className="member-admin-overlay-card panel" onClick={(e) => e.stopPropagation()}>
@@ -2352,7 +2467,7 @@ function App() {
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Admin Dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading">
-          <div><div className="eyebrow"><span className="eyebrow-line"/>ACCOUNT ACCESS</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
+          <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
           <div className="panel-heading-actions">
             <button
               className="button button-quiet refresh-members"
@@ -2458,7 +2573,7 @@ function App() {
                 )}
               </div>
             </article>)}</div> : <div className="dashboard-empty"><span>{memberFilter === 'pending' && !memberQuery ? '✓' : '⌕'}</span><h2>{memberFilter === 'pending' && !memberQuery ? 'No accounts or requests are waiting.' : 'No accounts match this filter.'}</h2><p>{memberFilter === 'pending' && !memberQuery ? 'New signups and LeetCode requests will appear here for review.' : 'Try another name, email, or status filter.'}</p></div>}
-            {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>Next</button></div>}
+            {membersPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={membersBusy || membersPagination.page <= 1} onClick={() => refreshMembers(membersPagination.page - 1)}>Previous</button><span>Page {membersPagination.page} of {membersPagination.totalPages} · {membersPagination.total} accounts</span><button className="button button-quiet" disabled={membersBusy || membersPagination.page >= membersPagination.totalPages} onClick={() => refreshMembers(membersPagination.page + 1)}>{membersBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
           </>
         )}
       </section>
@@ -2532,7 +2647,7 @@ function App() {
               <div className="pagination-controls">
                 <button className="button button-quiet" disabled={scoredPagination.page <= 1} onClick={() => refreshScoredSubmissions(scoredPagination.page - 1)}>Previous</button>
                 <span>Page {scoredPagination.page} of {scoredPagination.totalPages}</span>
-                <button className="button button-quiet" disabled={scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>Next</button>
+                <button className="button button-quiet" disabled={scoredBusy || scoredPagination.page >= scoredPagination.totalPages} onClick={() => refreshScoredSubmissions(scoredPagination.page + 1)}>{scoredBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
               </div>
             )}
           </>
@@ -2583,7 +2698,7 @@ function App() {
               <div className="pagination-controls">
                 <button className="button button-quiet" disabled={activityPagination.page <= 1} onClick={() => refreshActivity(activityPagination.page - 1)}>Previous</button>
                 <span>Page {activityPagination.page} of {activityPagination.totalPages}</span>
-                <button className="button button-quiet" disabled={activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>Next</button>
+                <button className="button button-quiet" disabled={activityBusy || activityPagination.page >= activityPagination.totalPages} onClick={() => refreshActivity(activityPagination.page + 1)}>{activityBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
               </div>
             )}
           </>
@@ -2797,7 +2912,7 @@ function App() {
                     <div className="pagination-controls">
                       <button className="button button-quiet" disabled={pendingPagination.page <= 1} onClick={() => refreshPendingSubmissions(pendingPagination.page - 1)}>Previous</button>
                       <span>Page {pendingPagination.page} of {pendingPagination.totalPages}</span>
-                      <button className="button button-quiet" disabled={pendingPagination.page >= pendingPagination.totalPages} onClick={() => refreshPendingSubmissions(pendingPagination.page + 1)}>Next</button>
+                      <button className="button button-quiet" disabled={pendingBusy || pendingPagination.page >= pendingPagination.totalPages} onClick={() => refreshPendingSubmissions(pendingPagination.page + 1)}>{pendingBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                     </div>
                   )}
                 </div>
@@ -2821,7 +2936,7 @@ function App() {
                 <div className="pagination-controls" aria-label="Assignment log pages">
                   <button className="button button-quiet" disabled={historyPagination.page <= 1} onClick={() => loadHistoryPage(historyPagination.page - 1)}>Previous</button>
                   <span>Page {historyPagination.page} of {historyPagination.totalPages}</span>
-                  <button className="button button-quiet" disabled={historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>Next</button>
+                  <button className="button button-quiet" disabled={historyBusy || historyPagination.page >= historyPagination.totalPages} onClick={() => loadHistoryPage(historyPagination.page + 1)}>{historyBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                 </div>
               </>
             ) : <div className="soft-empty">No questions have been assigned yet.</div>}
@@ -2954,7 +3069,7 @@ function App() {
                     <div className="pagination-controls" aria-label="Leaderboard pages">
                       <button className="button button-quiet" disabled={leaderboardPagination.page <= 1} onClick={() => loadLeaderboardPage(leaderboardPagination.page - 1)}>Previous</button>
                       <span>Page {leaderboardPagination.page} of {leaderboardPagination.totalPages} · {leaderboardPagination.total} members</span>
-                      <button className="button button-quiet" disabled={leaderboardPagination.page >= leaderboardPagination.totalPages} onClick={() => loadLeaderboardPage(leaderboardPagination.page + 1)}>Next</button>
+                      <button className="button button-quiet" disabled={leaderboardBusy || leaderboardPagination.page >= leaderboardPagination.totalPages} onClick={() => loadLeaderboardPage(leaderboardPagination.page + 1)}>{leaderboardBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button>
                     </div>
                   </>
                 ) : (

@@ -1699,3 +1699,35 @@ test('submissions heatmap provides full and second-year counts, and enforces adm
   assert.equal(filtered.response.status, 200);
   assert.equal(filtered.data.counts['2026-11-04'], 1);
 });
+
+test('admin view all stats rate limit allows more than 12 stats fetches without hitting rate limit', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  leetcodePayload = { data: { matchedUser: { username: 'test-lc', submitStats: {
+    acSubmissionNum: [{ difficulty: 'All', count: 10 }, { difficulty: 'Easy', count: 10 }, { difficulty: 'Medium', count: 0 }, { difficulty: 'Hard', count: 0 }],
+    totalSubmissionNum: [{ difficulty: 'All', count: 15 }, { difficulty: 'Easy', count: 15 }, { difficulty: 'Medium', count: 0 }, { difficulty: 'Hard', count: 0 }],
+  } } } };
+
+  // Insert 15 approved members with leetcode usernames directly
+  for (let i = 1; i <= 15; i++) {
+    const memberId = new ObjectId();
+    await db.collection('users').insertOne({
+      _id: memberId,
+      name: `Member ${i}`,
+      email: `member${i}@abes.ac.in`,
+      department: 'Computer Science',
+      studyYear: 'second-year',
+      githubUsername: `gh-user-${i}`,
+      githubUserLower: `gh-user-${i}`.toLowerCase(),
+      leetcodeUsername: `lc-user-${i}`,
+      role: 'member',
+      approvalStatus: 'approved',
+      approvedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const res = await call(db, `/members/${memberId}/leetcode-stats`, { cookie: admin.cookie });
+    assert.equal(res.response.status, 200, `Request ${i} should succeed for admin`);
+    assert.equal(res.data.available, true);
+  }
+});

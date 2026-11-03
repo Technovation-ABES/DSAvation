@@ -1849,7 +1849,11 @@ async function getMemberLeetcodeStats(db, req, viewer, memberId) {
     Date.now() - new Date(cached.fetchedAt).getTime() < 6 * 60 * 60 * 1000;
   if (cacheIsFresh) return { available: true, stats: cached, cached: true };
 
-  await allowRequest(db, req, `leetcode-stats-${viewer._id}`, 12, 60 * 60 * 1000);
+  if (viewer.role !== 'admin') {
+    await allowRequest(db, req, `leetcode-stats-${viewer._id}`, 12, 60 * 60 * 1000);
+  } else {
+    await allowRequest(db, req, `leetcode-stats-${viewer._id}`, 500, 60 * 60 * 1000);
+  }
   const query = `query getUserStats($username: String!) {
     allQuestionsCount { difficulty count }
     matchedUser(username: $username) {
