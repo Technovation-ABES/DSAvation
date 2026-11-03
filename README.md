@@ -47,13 +47,7 @@
 
 ## ⚡ The Onboarding Pipeline
 
-```mermaid
-flowchart LR
-    A(["🖱️ SIGN IN<br/><small>Open App</small>"]) --> B(["✨ CREATE ACCOUNT<br/><small>Registration</small>"])
-    B --> C(["📝 ENTER CLUB DETAILS<br/><small>Institution · Year · GitHub</small>"])
-    C --> D(["🛡️ ADMIN APPROVAL<br/><small>Club Lead Verification</small>"])
-    D --> E(["🚀 BATTLE READY<br/><small>Points · Blaze · Arena</small>"])
-```
+![Signin Flow](docs/charts/SigninFlow.png)
 
 > **Club Verification Protocol:** To maintain platform authenticity and fair
 > leaderboards, newly registered student accounts remain pending until verified
@@ -189,14 +183,7 @@ and `.txt`.
 
 ### 🚀 Submission Flow
 
-```mermaid
-flowchart LR
-    A(["📁 NUMBERED FOLDER<br/><small>e.g. 347/</small>"]) --> B(["🧩 EXACT FILE<br/><small>solution.java</small>"])
-    B --> C(["🚀 COMMIT & PUSH<br/><small>Linked GitHub repository</small>"])
-    C --> D(["🔗 COPY COMMIT SHA<br/><small>or full commit URL</small>"])
-    D --> E(["⚔️ VERIFY & SUBMIT<br/><small>Club Challenge</small>"])
-    E --> F(["🏆 EARN POINTS + Blaze<br/><small>Verified submission</small>"])
-```
+![Github Verification](docs/charts/GithubFlow.png)
 
 1. Create a folder named after the numerical LeetCode question number.
 2. Save your code as exactly `solution.<extension>`.
@@ -211,14 +198,7 @@ flowchart LR
 Prefer solving directly on LeetCode? DSAvation can fetch and verify your
 submission from your linked LeetCode account.
 
-```mermaid
-flowchart LR
-    A(["🔗 LINK LEETCODE USERNAME"]) --> B(["🛡️ ADMIN APPROVAL"])
-    B --> C(["🧩 SOLVE TODAY'S QUESTION<br/><small>On LeetCode</small>"])
-    C --> D(["🔍 DSAVATION FETCHES<br/><small>Accepted submission status</small>"])
-    D --> E(["✅ ACCEPTED + MATCHED<br/><small>1 Point + Blaze</small>"])
-    D --> F(["❌ NOT ACCEPTED / NOT DONE<br/><small>No club Points</small>"])
-```
+![Leetcode Verification](docs/charts/Leetcodeverification.png)
 
 ### How it works
 
