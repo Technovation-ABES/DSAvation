@@ -20,13 +20,13 @@
 
 | 🚀 Start Here | 🧠 Explore the System |
 | :--- | :--- |
-| [🌐 Live Platform Access](#-live-platform-access) | [🎮 Visual Platform Tour](#-visual-platform-tour) |
-| [⚡ Onboarding Pipeline](#-the-onboarding-pipeline) | [🏆 Scoring & Blaze Mechanics](#-scoring-rules--Blaze-mechanics) |
-| [🏠 Home — Mission Control](#1️⃣--home-page--mission-control--private-library) | [📦 GitHub Verification](#-github-commit-verification-protocol) |
-| [⚔️ Club Challenge](#2️⃣--club-challenge--the-daily-battleground) | [📚 220-Question Curriculum](#-the-220-question-curriculum-blueprint) |
-| [👥 Member Directory](#3️⃣--member-directory--community--standings) | [🏛️ Architecture Overview](#-architecture-overview) |
-| [🧠 Direct LeetCode Verification](#-direct-leetcode-verification) | [💖 Technical Team](#made-with--by-the-technical-team-technovation) |
-| [👤 Profile & Avatar Studio](#4️⃣--profile--avatar-studio--identity--habit-tracker) | |
+| <a href="#-live-platform-access">🌐 Live Platform Access</a> | <a href="#-visual-platform-tour">🎮 Visual Platform Tour</a> |
+| <a href="#-the-onboarding-pipeline">⚡ Onboarding Pipeline</a> | <a href="#-scoring-rules--blaze-mechanics">🏆 Scoring &amp; Blaze Mechanics</a> |
+| <a href="#1️⃣--home-page--mission-control--private-library">🏠 Home — Mission Control</a> | <a href="#-github-commit-verification-protocol">📦 GitHub Verification</a> |
+| <a href="#2️⃣--club-challenge--the-daily-battleground">⚔️ Club Challenge</a> | <a href="#-the-220-question-curriculum-blueprint">📚 220-Question Curriculum</a> |
+| <a href="#3️⃣--member-directory--community--standings">👥 Member Directory</a> | <a href="#-architecture-overview">🏛️ Architecture Overview</a> |
+| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#made-with--by-the-technical-team-technovation">💖 Technical Team</a> |
+| <a href="#4️⃣--profile--avatar-studio--identity--habit-tracker">👤 Profile &amp; Avatar Studio</a> | |
 
 ---
 
@@ -34,7 +34,9 @@
 
 > 🚀 **24/7 LIVE ON VERCEL**
 >
-> <a href="https://dsavation.vercel.app/"><kbd>⚡ OPEN DSAVATION ↗</kbd></a>
+<h2 align="left">
+ <a href="https://dsavation.vercel.app/" target="_blank" rel="noopener noreferrer"><kbd>🚀 &nbsp; OPEN DSAVATION ↗</kbd></a>
+</h2>
 
 ```text
 [ 🚀 Production Platform ]  ──▶  LIVE ON VERCEL
@@ -47,13 +49,7 @@
 
 ## ⚡ The Onboarding Pipeline
 
-```mermaid
-flowchart LR
-    A(["🖱️ SIGN IN<br/><small>Open App</small>"]) --> B(["✨ CREATE ACCOUNT<br/><small>Registration</small>"])
-    B --> C(["📝 ENTER CLUB DETAILS<br/><small>Institution · Year · GitHub</small>"])
-    C --> D(["🛡️ ADMIN APPROVAL<br/><small>Club Lead Verification</small>"])
-    D --> E(["🚀 BATTLE READY<br/><small>Points · Blaze · Arena</small>"])
-```
+![Signin Flow](docs/charts/SigninFlow.png)
 
 > **Club Verification Protocol:** To maintain platform authenticity and fair
 > leaderboards, newly registered student accounts remain pending until verified
@@ -189,14 +185,7 @@ and `.txt`.
 
 ### 🚀 Submission Flow
 
-```mermaid
-flowchart LR
-    A(["📁 NUMBERED FOLDER<br/><small>e.g. 347/</small>"]) --> B(["🧩 EXACT FILE<br/><small>solution.java</small>"])
-    B --> C(["🚀 COMMIT & PUSH<br/><small>Linked GitHub repository</small>"])
-    C --> D(["🔗 COPY COMMIT SHA<br/><small>or full commit URL</small>"])
-    D --> E(["⚔️ VERIFY & SUBMIT<br/><small>Club Challenge</small>"])
-    E --> F(["🏆 EARN POINTS + Blaze<br/><small>Verified submission</small>"])
-```
+![Github Verification](docs/charts/GithubFlow.png)
 
 1. Create a folder named after the numerical LeetCode question number.
 2. Save your code as exactly `solution.<extension>`.
@@ -211,14 +200,7 @@ flowchart LR
 Prefer solving directly on LeetCode? DSAvation can fetch and verify your
 submission from your linked LeetCode account.
 
-```mermaid
-flowchart LR
-    A(["🔗 LINK LEETCODE USERNAME"]) --> B(["🛡️ ADMIN APPROVAL"])
-    B --> C(["🧩 SOLVE TODAY'S QUESTION<br/><small>On LeetCode</small>"])
-    C --> D(["🔍 DSAVATION FETCHES<br/><small>Accepted submission status</small>"])
-    D --> E(["✅ ACCEPTED + MATCHED<br/><small>1 Point + Blaze</small>"])
-    D --> F(["❌ NOT ACCEPTED / NOT DONE<br/><small>No club Points</small>"])
-```
+![Leetcode Verification](docs/charts/Leetcodeverification.png)
 
 ### How it works
 
@@ -286,10 +268,10 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
 
 | # | Contributor | GitHub |
 | :-: | :--- | :---: |
-| **01** | **Yash Prajapati** **[Tech Lead]** | 🔗 [Yash-1704](https://github.com/Yash-1704) |
-| **02** | **Harsh Tiwari** |  🔗 [harshtiwari47](https://github.com/harshtiwari47) |
-| **03** | **Dishant Gahlot** | 🔗 [dishantgahlot](https://github.com/dishantgahlot) |
-| **04** | **Vadanta Kumar Chauhaan** | 🔗 [VedisVigourous](https://github.com/vedisvigourous) |
+| **01** | **Yash Prajapati** **[Tech Lead]** | 🔗 <a href="https://github.com/Yash-1704" target="_blank" rel="noopener noreferrer">Yash-1704</a> |
+| **02** | **Harsh Tiwari** | 🔗 <a href="https://github.com/harshtiwari47" target="_blank" rel="noopener noreferrer">harshtiwari47</a> |
+| **03** | **Dishant Gahlot** | 🔗 <a href="https://github.com/dishantgahlot" target="_blank" rel="noopener noreferrer">dishantgahlot</a> |
+| **04** | **Vadanta Kumar Chauhaan** | 🔗 <a href="https://github.com/vedisvigourous" target="_blank" rel="noopener noreferrer">VedisVigourous</a> |
 
 </div>
 
