@@ -1211,6 +1211,49 @@ function App() {
     }
   }
 
+  async function handleRepickExplainer() {
+    if (pickExplainerBusy) return;
+    setPickExplainerBusy(true);
+    try {
+      const res = await api('/admin/pick-explainer', { method: 'POST', body: { repick: true } });
+      if (res.explainer) {
+        setSelectedExplainer(res.explainer);
+        setClub((prev) => ({
+          ...prev,
+          assignment: prev.assignment ? { ...prev.assignment, explainer: res.explainer } : prev.assignment,
+        }));
+        setTodaySubmissionsData((prev) => ({ ...prev, explainer: res.explainer }));
+        setExplainerModalOpen(true);
+        setNotice(`Re-picked ${res.explainer.name} as today's solution explainer! Previous member's turn restored.`);
+      }
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setPickExplainerBusy(false);
+    }
+  }
+
+  async function handleRemoveExplainer() {
+    if (pickExplainerBusy) return;
+    if (!window.confirm("Remove today's explainer? This person's turn will be restored so they can be picked again.")) return;
+    setPickExplainerBusy(true);
+    try {
+      await api('/admin/pick-explainer', { method: 'DELETE' });
+      setSelectedExplainer(null);
+      setExplainerModalOpen(false);
+      setClub((prev) => ({
+        ...prev,
+        assignment: prev.assignment ? { ...prev.assignment, explainer: null } : prev.assignment,
+      }));
+      setTodaySubmissionsData((prev) => ({ ...prev, explainer: null }));
+      setNotice("Explainer removed. Member's turn has been restored.");
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setPickExplainerBusy(false);
+    }
+  }
+
   async function handleDownloadExplainerImage() {
     if (!selectedExplainer || imageExporting) return;
     setImageExporting(true);
@@ -2478,6 +2521,17 @@ function App() {
                   >
                     <Icon name="dice" size={14}/> <span>{club.assignment?.explainer ? 'View Share Card' : 'Pick Explainer'}</span>
                   </button>
+                  {club.assignment?.explainer && (
+                    <button
+                      type="button"
+                      className="button button-quiet repick-explainer-head-btn"
+                      onClick={handleRepickExplainer}
+                      disabled={pickExplainerBusy}
+                      title="Re-pick another explainer and restore current member's turn"
+                    >
+                      <IconifyIcon icon="charm:refresh" width={14} height={14} /> <span>Re-pick</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2492,6 +2546,37 @@ function App() {
                       <strong>{club.assignment.explainer.name}</strong>
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
+                  </div>
+                  <div className="explainer-banner-actions">
+                    <button
+                      type="button"
+                      className="button button-green explainer-view-card-btn"
+                      onClick={() => {
+                        setSelectedExplainer(club.assignment.explainer);
+                        setExplainerModalOpen(true);
+                      }}
+                      title="View explainer share card"
+                    >
+                      <Icon name="dice" size={12}/> View Card
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-quiet explainer-view-card-btn"
+                      onClick={handleRepickExplainer}
+                      disabled={pickExplainerBusy}
+                      title="Re-pick another explainer and restore member's turn"
+                    >
+                      <IconifyIcon icon="charm:refresh" width={12} height={12} /> Re-pick
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-quiet text-button explainer-view-card-btn"
+                      onClick={handleRemoveExplainer}
+                      disabled={pickExplainerBusy}
+                      title="Reset explainer selection and restore member's turn"
+                    >
+                      <Icon name="trash" size={12}/> Reset
+                    </button>
                   </div>
                 </div>
               )}
@@ -2763,6 +2848,28 @@ function App() {
             >
               <Icon name="copy" size={14}/> {copiedNotice ? '✓ Copied to Clipboard!' : 'Copy Card Image'}
             </button>
+            {isLeader && (
+              <>
+                <button
+                  type="button"
+                  className="button button-quiet repick-explainer-btn"
+                  onClick={handleRepickExplainer}
+                  disabled={pickExplainerBusy || imageExporting}
+                  title="Re-pick another explainer and restore current member's turn"
+                >
+                  <IconifyIcon icon="charm:refresh" width={14} height={14} /> {pickExplainerBusy ? 'Selecting…' : 'Re-pick Explainer'}
+                </button>
+                <button
+                  type="button"
+                  className="button button-quiet text-button clear-explainer-btn"
+                  onClick={handleRemoveExplainer}
+                  disabled={pickExplainerBusy || imageExporting}
+                  title="Remove explainer and restore member's turn"
+                >
+                  <Icon name="trash" size={14}/> Reset
+                </button>
+              </>
+            )}
           </div>
         </section>
       </div>

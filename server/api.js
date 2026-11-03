@@ -113,6 +113,8 @@ function parseJsonBody(body) {
 
 async function readBody(req) {
   if (req.body !== undefined) return parseJsonBody(req.body);
+  if (req.rawBody !== undefined) return parseJsonBody(req.rawBody);
+  if (!req || typeof req[Symbol.asyncIterator] !== 'function') return {};
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -1391,17 +1393,23 @@ async function getTodaySubmissions(db, req, user, url) {
   };
 }
 
-async function pickTodayExplainer(db, user) {
+async function pickTodayExplainer(db, user, body = {}) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
   if (!assignment) {
     throw new HttpError(400, 'No Question of the Day is published for today.');
   }
 
-  // 1. If already selected for today, return the locked explainer!
-  if (assignment.explainer) {
+  const isRepick = Boolean(body?.repick || body?.reselect || body?.force || body?.userId);
+
+  // 1. If already selected for today and not re-picking, return the locked explainer!
+  if (assignment.explainer && !isRepick) {
     return { explainer: assignment.explainer, isExisting: true };
   }
+
+  const previousExplainerId = assignment.explainerUserId
+    ? String(assignment.explainerUserId)
+    : (assignment.explainer?.userId || assignment.explainer?.id || null);
 
   // 2. Query today's submissions (non-invalidated)
   const submissions = await db.collection('submissions')
@@ -1446,28 +1454,48 @@ async function pickTodayExplainer(db, user) {
   const acceptedCandidates = candidates.filter((c) => c.status === 'accepted');
   const pool = acceptedCandidates.length > 0 ? acceptedCandidates : candidates;
 
-  // Past assignments where an explainer was selected
+  // For re-picking: if previous explainer exists, exclude them so another member is chosen
+  let selectionPool = pool;
+  if (isRepick && previousExplainerId) {
+    const withoutPrevious = pool.filter((c) => String(c.userId) !== String(previousExplainerId));
+    if (withoutPrevious.length === 0) {
+      throw new HttpError(400, 'No other members have attempted today’s question to re-pick from.');
+    }
+    selectionPool = withoutPrevious;
+  }
+
+  // Past assignments where an explainer was selected, EXCLUDING today's assignment!
+  // This ensures the current/previous explainer's turn is NOT marked as used, so their turn comes again!
   const pastAssignments = await db.collection('assignments')
-    .find({ explainerUserId: { $exists: true, $ne: null } }, { projection: { explainerUserId: 1 } })
+    .find({ _id: { $ne: assignment._id }, explainerUserId: { $exists: true, $ne: null } }, { projection: { explainerUserId: 1 } })
     .toArray();
   const pastExplainerIds = new Set(pastAssignments.map((a) => String(a.explainerUserId)));
 
-  // "dont repeat same person until you cover all second year student"
-  const secondYearUnpicked = pool.filter((c) => c.studyYear === 'second-year' && !pastExplainerIds.has(c.userId));
-
   let chosen;
-  if (secondYearUnpicked.length > 0) {
-    chosen = secondYearUnpicked[Math.floor(Math.random() * secondYearUnpicked.length)];
-  } else {
-    // If all second-years among today's submitters were picked in the past, or none submitted:
-    const othersUnpicked = pool.filter((c) => !pastExplainerIds.has(c.userId));
-    if (othersUnpicked.length > 0) {
-      chosen = othersUnpicked[Math.floor(Math.random() * othersUnpicked.length)];
+  if (body?.userId) {
+    chosen = selectionPool.find((c) => String(c.userId) === String(body.userId));
+    if (!chosen) {
+      throw new HttpError(400, 'Selected member has not submitted today’s question.');
+    }
+  }
+
+  if (!chosen) {
+    // "dont repeat same person until you cover all second year student"
+    const secondYearUnpicked = selectionPool.filter((c) => c.studyYear === 'second-year' && !pastExplainerIds.has(c.userId));
+
+    if (secondYearUnpicked.length > 0) {
+      chosen = secondYearUnpicked[Math.floor(Math.random() * secondYearUnpicked.length)];
     } else {
-      // Everyone has been picked in the past: prioritize second-years if present, otherwise any
-      const allSecondYears = pool.filter((c) => c.studyYear === 'second-year');
-      const fallbackPool = allSecondYears.length > 0 ? allSecondYears : pool;
-      chosen = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
+      // If all second-years among available submitters were picked in the past, or none submitted:
+      const othersUnpicked = selectionPool.filter((c) => !pastExplainerIds.has(c.userId));
+      if (othersUnpicked.length > 0) {
+        chosen = othersUnpicked[Math.floor(Math.random() * othersUnpicked.length)];
+      } else {
+        // Everyone has been picked in the past: prioritize second-years if present, otherwise any
+        const allSecondYears = selectionPool.filter((c) => c.studyYear === 'second-year');
+        const fallbackPool = allSecondYears.length > 0 ? allSecondYears : selectionPool;
+        chosen = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
+      }
     }
   }
 
@@ -1496,13 +1524,41 @@ async function pickTodayExplainer(db, user) {
     { $set: { explainerUserId: new ObjectId(chosen.userId), explainer } }
   );
 
-  await recordAdminActivity(db, user, 'explainer_selected', { id: assignment._id, label: assignment.dateKey }, {
+  await recordAdminActivity(db, user, isRepick ? 'explainer_repicked' : 'explainer_selected', { id: assignment._id, label: assignment.dateKey }, {
     explainerUserId: chosen.userId,
     explainerName: chosen.name,
     studyYear: chosen.studyYear,
+    ...(previousExplainerId ? { previousExplainerUserId: previousExplainerId } : {}),
   });
 
-  return { explainer, isNew: true };
+  return { explainer, isNew: true, isRepick };
+}
+
+async function clearTodayExplainer(db, user) {
+  requireRole(user, 'lead', 'admin');
+  const assignment = await getTodayAssignment(db);
+  if (!assignment) {
+    throw new HttpError(400, 'No Question of the Day is published for today.');
+  }
+
+  const previousExplainer = assignment.explainer || null;
+  const previousExplainerId = assignment.explainerUserId
+    ? String(assignment.explainerUserId)
+    : (previousExplainer?.userId || previousExplainer?.id || null);
+
+  await db.collection('assignments').updateOne(
+    { _id: assignment._id },
+    { $unset: { explainer: '', explainerUserId: '' } }
+  );
+
+  if (previousExplainerId) {
+    await recordAdminActivity(db, user, 'explainer_cleared', { id: assignment._id, label: assignment.dateKey }, {
+      previousExplainerUserId: previousExplainerId,
+      previousExplainerName: previousExplainer?.name || '',
+    });
+  }
+
+  return { ok: true, cleared: true };
 }
 
 async function reviewSubmission(db, user, submissionId, body) {
@@ -1944,7 +2000,11 @@ export async function handleApiNode(req, res, options = {}) {
       return json(res, 200, result);
     }
     if (url.pathname === '/api/admin/pick-explainer' && method === 'POST') {
-      return json(res, 200, await pickTodayExplainer(db, user));
+      const body = await readBody(req);
+      return json(res, 200, await pickTodayExplainer(db, user, body));
+    }
+    if (url.pathname === '/api/admin/pick-explainer' && method === 'DELETE') {
+      return json(res, 200, await clearTodayExplainer(db, user));
     }
     const reviewMatch = url.pathname.match(/^\/api\/admin\/submissions\/([a-f0-9]{24})$/i);
     if (reviewMatch && method === 'PATCH') {

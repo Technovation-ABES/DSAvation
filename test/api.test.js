@@ -1042,7 +1042,7 @@ test('explainer selection prioritizes second-year students, locks for today, and
     status: 'accepted',
     points: 1,
     commitUrl: 'https://github.com/senior-dev/repo/commit/1111111',
-    submittedAt: new Date(),
+    submittedAt: new Date(Date.now() - 3000),
   });
   await db.collection('submissions').insertOne({
     assignmentId: new ObjectId(assignmentId),
@@ -1051,7 +1051,7 @@ test('explainer selection prioritizes second-year students, locks for today, and
     status: 'accepted',
     points: 1,
     commitUrl: 'https://github.com/alice-2nd/repo/commit/2222222',
-    submittedAt: new Date(),
+    submittedAt: new Date(Date.now() - 2000),
   });
 
   // Pick explainer today: must pick secondYearA over thirdYearStudent!
@@ -1072,6 +1072,76 @@ test('explainer selection prioritizes second-year students, locks for today, and
   assert.equal(clubToday.data.assignment.explainer.name, 'Sophomore Alice');
   assert.equal(clubToday.data.dailyLeaderboard.length, 2);
   assert.equal(clubToday.data.dailyLeaderboard[0].rank, 1);
+
+  // Now add secondYearB submission
+  await db.collection('submissions').insertOne({
+    assignmentId: new ObjectId(assignmentId),
+    userId: secondYearB.user._id,
+    questionId: 217,
+    status: 'accepted',
+    points: 1,
+    commitUrl: 'https://github.com/bob-2nd/repo/commit/3333333',
+    submittedAt: new Date(Date.now() - 1000),
+  });
+
+  // Re-pick explainer: should exclude Alice and select Bob!
+  // And Alice's turn is restored so that her turn comes again
+  const repick = await call(db, '/admin/pick-explainer', { method: 'POST', cookie: admin.cookie, body: { repick: true } });
+  assert.equal(repick.response.status, 200);
+  assert.equal(repick.data.isRepick, true);
+  assert.equal(repick.data.explainer.name, 'Sophomore Bob');
+
+  // Check assignment in DB: explainerUserId is now Bob, Alice was replaced
+  const assignmentInDb = await db.collection('assignments').findOne({ _id: new ObjectId(assignmentId) });
+  assert.equal(String(assignmentInDb.explainerUserId), String(secondYearB.user._id));
+
+  // If we move this assignment to yesterday, Bob is in past assignments while Alice is NOT in past assignments!
+  assignmentInDb.dateKey = '2026-10-31';
+
+  // Create new today assignment
+  const newAssign = await db.collection('assignments').insertOne({
+    dateKey: indiaToday,
+    questionId: 242,
+    createdByName: 'Admin',
+    createdBy: admin.user._id,
+    createdAt: new Date(),
+  });
+  const newAssignmentId = newAssign.insertedId;
+
+  // Both Alice and Bob submit for today
+  await db.collection('submissions').insertOne({
+    assignmentId: newAssignmentId,
+    userId: secondYearA.user._id,
+    questionId: 242,
+    status: 'accepted',
+    points: 1,
+    commitUrl: 'https://github.com/alice-2nd/repo/commit/4444444',
+    submittedAt: new Date(),
+  });
+  await db.collection('submissions').insertOne({
+    assignmentId: newAssignmentId,
+    userId: secondYearB.user._id,
+    questionId: 242,
+    status: 'accepted',
+    points: 1,
+    commitUrl: 'https://github.com/bob-2nd/repo/commit/5555555',
+    submittedAt: new Date(),
+  });
+
+  // When picking explainer for the new assignment:
+  // Alice MUST be picked because Bob already had his turn recorded in the previous assignment,
+  // whereas Alice's turn was restored when Bob was re-picked!
+  const pickNewDay = await call(db, '/admin/pick-explainer', { method: 'POST', cookie: admin.cookie });
+  assert.equal(pickNewDay.response.status, 200);
+  assert.equal(pickNewDay.data.explainer.name, 'Sophomore Alice');
+
+  // Test clearing/removing explainer via DELETE
+  const clearRes = await call(db, '/admin/pick-explainer', { method: 'DELETE', cookie: admin.cookie });
+  assert.equal(clearRes.response.status, 200);
+  assert.equal(clearRes.data.cleared, true);
+
+  const clubAfterClear = await call(db, '/club/today', { cookie: admin.cookie });
+  assert.equal(clubAfterClear.data.assignment.explainer, null);
 });
 
 test('submitting solutions directly via LeetCode verifies titleSlug, statusDisplay, and India date', async () => {
