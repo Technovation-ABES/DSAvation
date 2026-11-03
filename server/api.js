@@ -219,7 +219,7 @@ async function currentUser(req, db) {
 
 async function requireUser(req, db) {
   const user = await currentUser(req, db);
-  if (!user) throw new HttpError(401, 'Sign in with an approved ABES account to continue.');
+  if (!user) throw new HttpError(401, 'Sign in with an approved account to continue.');
   return user;
 }
 
@@ -1157,8 +1157,8 @@ async function leaderboard(db, url, viewer = null) {
 
     return {
       userId: String(profile._id),
-      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'ABES member',
-      department: profile.showPublic ? profile.department : 'ABES member',
+      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'Club member',
+      department: profile.showPublic ? profile.department : 'Club member',
       githubUsername: profile.githubUsername,
       ...formatAvatar(profile),
       points: row.points ?? row.accepted,
