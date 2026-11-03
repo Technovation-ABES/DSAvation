@@ -92,15 +92,25 @@ export function initLiquidGlass() {
   }
 
   function bindCard(card) {
-    if (!card || !isAllowedRippleCard(card)) {
-      if (card && card.classList) {
-        card.classList.remove('water-glass-card', 'water-active');
-      }
-      return;
-    }
+    if (!card) return;
     if (!card.classList.contains('water-glass-card')) {
       card.classList.add('water-glass-card');
     }
+    // Only bind hover ripple and pointer tracking listeners to the 5 permitted cards:
+    // General: QUESTION OF THE DAY (.today-card), YOUR PRIVATE TRACKER (.personal-card), CLUB PARTICIPATION (.community-card)
+    // Club Challenge: TODAY'S ASSIGNMENT (.qotd-panel), Leaderboard (.leaderboard-panel)
+    if (!isAllowedRippleCard(card)) {
+      if (activeCards.has(card)) {
+        activeCards.delete(card);
+        card.classList.remove('water-active');
+        card.removeEventListener('pointerenter', handlePointerEnter);
+        card.removeEventListener('pointermove', handlePointerMove);
+        card.removeEventListener('pointerleave', handlePointerLeave);
+        card.removeEventListener('pointerdown', handlePointerDown);
+      }
+      return;
+    }
+
     if (activeCards.has(card)) return;
     activeCards.add(card);
 
@@ -116,7 +126,7 @@ export function initLiquidGlass() {
       cancelAnimationFrame(card._waterRaf);
       card._waterRaf = null;
     }
-    card.classList.remove('water-glass-card', 'water-active');
+    card.classList.remove('water-active');
     card.querySelectorAll('.blue-water-ripple').forEach((r) => r.remove());
     if (!activeCards.has(card)) return;
     activeCards.delete(card);
@@ -158,16 +168,18 @@ export function initLiquidGlass() {
       }
     });
 
-    // Strip water-glass-card from any elements that are not in the allowed cards list
-    document.querySelectorAll('.water-glass-card').forEach((el) => {
-      if (!isAllowedRippleCard(el)) {
-        unbindCard(el);
-      }
-    });
-
-    ALLOWED_CARD_SELECTORS.forEach((selector) => {
-      document.querySelectorAll(selector).forEach(bindCard);
-    });
+    const cardSelectors = [
+      '.overview-card',
+      '.panel',
+      '.metric-card',
+      '.club-date-badge',
+      '.progress-summary article',
+      '.member-directory-card',
+      '.login-prompt',
+      '.library-locked',
+      '.question-card'
+    ];
+    document.querySelectorAll(cardSelectors.join(', ')).forEach(bindCard);
 
     const rippleSelectors = [
       '.button-dark',
