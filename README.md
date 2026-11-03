@@ -1,10 +1,10 @@
 ```text
-  ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
-  ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
-  ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
-  ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
-  ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
-  ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
+                        ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
+                        ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
+                        ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
+                        ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
+                        ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
+                        ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
 ```
 
 <p align="left"><em>by Technovation</em></p>
@@ -21,7 +21,7 @@
 | 🚀 Start Here | 🧠 Explore the System |
 | :--- | :--- |
 | [🌐 Live Platform Access](#-live-platform-access) | [🎮 Visual Platform Tour](#-visual-platform-tour) |
-| [⚡ Onboarding Pipeline](#-the-onboarding-pipeline) | [🏆 Scoring & Aura Mechanics](#-scoring-rules--aura-mechanics) |
+| [⚡ Onboarding Pipeline](#-the-onboarding-pipeline) | [🏆 Scoring & Blaze Mechanics](#-scoring-rules--Blaze-mechanics) |
 | [🏠 Home — Mission Control](#1️⃣--home-page--mission-control--private-library) | [📦 GitHub Verification](#-github-commit-verification-protocol) |
 | [⚔️ Club Challenge](#2️⃣--club-challenge--the-daily-battleground) | [📚 220-Question Curriculum](#-the-220-question-curriculum-blueprint) |
 | [👥 Member Directory](#3️⃣--member-directory--community--standings) | [🏛️ Architecture Overview](#-architecture-overview) |
@@ -52,7 +52,7 @@ flowchart LR
     A(["🖱️ SIGN IN<br/><small>Open App</small>"]) --> B(["✨ CREATE ACCOUNT<br/><small>Registration</small>"])
     B --> C(["📝 ENTER CLUB DETAILS<br/><small>Institution · Year · GitHub</small>"])
     C --> D(["🛡️ ADMIN APPROVAL<br/><small>Club Lead Verification</small>"])
-    D --> E(["🚀 BATTLE READY<br/><small>Points · Aura · Arena</small>"])
+    D --> E(["🚀 BATTLE READY<br/><small>Points · Blaze · Arena</small>"])
 ```
 
 > **Club Verification Protocol:** To maintain platform authenticity and fair
@@ -95,7 +95,7 @@ leaderboard.*
 * ⏱️ **IST-Based Challenge Cycle:** A rolling 24-hour competition window keeps
   the arena fair for the club.
 * ⚡ **Speed Sprint Podium:** Earlier verified solutions earn stronger
-  placements and bonus Aura.
+  placements and bonus Blaze.
 * 📜 **Challenge History Log:** Review past problem solutions and club
   statistics.
 
@@ -104,11 +104,11 @@ leaderboard.*
 ### 3️⃣ 👥 Member Directory — Community & Standings
 
 A transparent club directory showcasing verified coders, their active branch,
-and earned Aura.
+and earned Blaze.
 
 ![Member Directory](docs/screenshots/member-directory.png)
 
-*💡 Member profile cards with department badges, Points, Aura rating, and
+*💡 Member profile cards with department badges, Points, Blaze rating, and
 GitHub links.*
 
 * 🔍 **Multi-Dimensional Search:** Discover peers by **Branch/Department**,
@@ -134,26 +134,26 @@ solutions.*
 
 ---
 
-## 🏆 Scoring Rules & Aura Mechanics
+## 🏆 Scoring Rules & Blaze Mechanics
 
 ```text
-                 ┌──────────────────────────────────────────────┐
-                 │          OVERALL LEADERBOARD RANK            │
-                 │      Points (Primary)  ──▶  Aura (Tie)       │
-                 └──────────────────────────────────────────────┘
+                 ┌───────────────────────────────────────────────┐
+                 │          OVERALL ── LEADERBOARD RANK          │
+                 │           Points  ───▶  Blaze                │
+                 └───────────────────────────────────────────────┘
                                   ▲            ▲
                                   │            │
             ┌─────────────────────┴──┐      ┌──┴─────────────────────────┐
             │   DAILY COMPLETION     │      │   SPEED SPRINT BONUS       │
-            │   +1 Point / Problem   │      │   +50 / +40 / +30 Aura     │
+            │   +1 Point / Problem   │      │   +50 / +40 / +30 Blaze    │
             └────────────────────────┘      └────────────────────────────┘
 ```
 
 | Metric | Rule | Detail |
 | :--- | :--- | :--- |
 | ⏱️ **Daily Cycle** | **IST-based 24-hour window** | Only submissions inside the active cycle count for the daily leaderboard. |
-| 🥇 **Daily Sprint** | **Timestamp Priority** | First verified submissions take the highest placements and earn bonus Aura. |
-| 👑 **Overall Rank** | **Points ➜ Aura tie-breaker** | Ranked primarily by verified Points; Aura decides ties. |
+| 🥇 **Daily Sprint** | **Timestamp Priority** | First verified submissions take the highest placements and earn bonus Blaze. |
+| 👑 **Overall Rank** | **Points ➜ Blaze tie-breaker** | Ranked primarily by verified Points; Blaze decides ties. |
 | 🛡️ **Integrity Safeguard** | **Strict Verification** | Only accepted GitHub or directly verified LeetCode submissions earn club Points. |
 
 ---
@@ -195,7 +195,7 @@ flowchart LR
     B --> C(["🚀 COMMIT & PUSH<br/><small>Linked GitHub repository</small>"])
     C --> D(["🔗 COPY COMMIT SHA<br/><small>or full commit URL</small>"])
     D --> E(["⚔️ VERIFY & SUBMIT<br/><small>Club Challenge</small>"])
-    E --> F(["🏆 EARN POINTS + AURA<br/><small>Verified submission</small>"])
+    E --> F(["🏆 EARN POINTS + Blaze<br/><small>Verified submission</small>"])
 ```
 
 1. Create a folder named after the numerical LeetCode question number.
@@ -216,7 +216,7 @@ flowchart LR
     A(["🔗 LINK LEETCODE USERNAME"]) --> B(["🛡️ ADMIN APPROVAL"])
     B --> C(["🧩 SOLVE TODAY'S QUESTION<br/><small>On LeetCode</small>"])
     C --> D(["🔍 DSAVATION FETCHES<br/><small>Accepted submission status</small>"])
-    D --> E(["✅ ACCEPTED + MATCHED<br/><small>1 Point + Aura</small>"])
+    D --> E(["✅ ACCEPTED + MATCHED<br/><small>1 Point + Blaze</small>"])
     D --> F(["❌ NOT ACCEPTED / NOT DONE<br/><small>No club Points</small>"])
 ```
 
@@ -227,7 +227,7 @@ flowchart LR
 3. Solve and submit the assigned question on LeetCode during today's IST
    challenge cycle.
 4. DSAvation fetches your direct LeetCode submission and checks its status.
-5. A matching **Accepted** submission earns the club Point and eligible Aura.
+5. A matching **Accepted** submission earns the club Point and eligible Blaze.
    If the problem was not submitted or is not accepted, no club Point is
    awarded.
 
@@ -280,7 +280,24 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
 
 <div align="center">
 
-### Made with 💖 by the Technical team, Technovation
+## 🏅 THE BUILD CREW
+
+> **The minds behind the arena. The energy behind the climb.**
+
+| # | Contributor | GitHub |
+| :-: | :--- | :---: |
+| **01** | **Yash Prajapati** **[Tech Lead]** | 🔗 [Yash-1704](https://github.com/Yash-1704) |
+| **02** | **Harsh Tiwari** |  🔗 [harshtiwari47](https://github.com/harshtiwari47) |
+| **03** | **Dishant Gahlot** | 🔗 [dishantgahlot](https://github.com/dishantgahlot) |
+| **04** | **Vadanta Kumar Chauhaan** | 🔗 [VedisVigourous](https://github.com/vedisvigourous) |
+
+</div>
+
+---
+
+<div align="center">
+
+### Made with 🩷 by the Technical team, Technovation
 
 *Consistency • Competition • Code*
 
