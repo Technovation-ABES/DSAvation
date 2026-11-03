@@ -1,90 +1,287 @@
-# DSAvation
-
-DSAvation combines a 220-question interview-prep library, private self-tracking, and a college-club challenge. The curriculum is kept in the server-only `server/data/questions.json` file; approved members load it through an authenticated API. Each question includes its LeetCode ID, difficulty, data structure, pattern, recommended approach, and time and auxiliary-space complexity.
-
-## Run locally
-
-Requirements: Node.js 20.19 or newer and an accessible MongoDB database.
-
-```powershell
-Copy-Item .env.example .env
-# Fill in MONGODB_URI and add your first administrator to ADMIN_EMAILS.
-npm install
-npm run dev
+```text
+  ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
+  ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
+  ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
+  ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
+  ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
+  ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
 ```
 
-Vite serves the React app and mounts the same `/api/...` handler used by Vercel. `npm run build` creates the static frontend in `dist/`. `npm run preview` previews only that static build; use `npm run dev` to use the local API.
+<p align="left"><em>by Technovation</em></p>
 
-## Vercel deployment
+> **🔥 BUILD THE INSTINCT. CRUSH THE SHEET. CLIMB THE RANKS. 🔥**  
+> *Daily LeetCode arena & 220-problem interview curriculum crafted for **Technovation — The Networking Club***
 
-Import the repository as a Vite project in Vercel. The project configuration builds with `npm run build`, serves `dist/`, and routes `/api/...` requests to the serverless handler in `api/handler.js`.
+---
 
-Set the following in Vercel **Project Settings → Environment Variables** for each environment you use. Add secrets in the provider dashboard; do not commit `.env` or put server credentials in a `VITE_` variable.
+## 🧭 README NAVIGATION
 
-| Variable | Purpose |
-| --- | --- |
-| `MONGODB_URI` | MongoDB Atlas connection string. Use a newly rotated credential and restrict its database user to the DSAvation database. |
-| `MONGODB_DB` | Database name; `dsavation` by default. |
-| `ADMIN_EMAILS` | Comma-separated `@abes.ac.in` accounts automatically approved as administrators. Add the initial club administrator here. |
-| `GITHUB_OAUTH_CLIENT_ID` | Client ID of a GitHub OAuth App used to link a member's GitHub account. |
-| `GITHUB_OAUTH_CLIENT_SECRET` | OAuth App secret. |
-| `GITHUB_OAUTH_CALLBACK_URL` | Exact callback URL, `https://YOUR_DOMAIN/api/auth/github/callback`. Add this URL to the OAuth App. |
-| `GITHUB_TOKEN` | Optional token for private repository reads and higher GitHub API limits. Public repositories can be checked without it. |
-| `SESSION_COOKIE_SECURE` | Optional; Vercel automatically marks session cookies secure over HTTPS. |
+> **⚡ Jump straight into the arena**
 
-Keep Vercel's production deployment on HTTPS. After adding or changing variables, redeploy so the functions receive them. The first API request creates the required MongoDB indexes.
+| 🚀 Start Here | 🧠 Explore the System |
+| :--- | :--- |
+| [🌐 Live Platform Access](#-live-platform-access) | [🎮 Visual Platform Tour](#-visual-platform-tour) |
+| [⚡ Onboarding Pipeline](#-the-onboarding-pipeline) | [🏆 Scoring & Aura Mechanics](#-scoring-rules--aura-mechanics) |
+| [🏠 Home — Mission Control](#1️⃣--home-page--mission-control--private-library) | [📦 GitHub Verification](#-github-commit-verification-protocol) |
+| [⚔️ Club Challenge](#2️⃣--club-challenge--the-daily-battleground) | [📚 220-Question Curriculum](#-the-220-question-curriculum-blueprint) |
+| [👥 Member Directory](#3️⃣--member-directory--community--standings) | [🏛️ Architecture Overview](#-architecture-overview) |
+| [🧠 Direct LeetCode Verification](#-direct-leetcode-verification) | [💖 Technical Team](#made-with--by-the-technical-team-technovation) |
+| [👤 Profile & Avatar Studio](#4️⃣--profile--avatar-studio--identity--habit-tracker) | |
 
-## Accounts and roles
+---
 
-- Members register with a name, Club Department, year of study, `@abes.ac.in` email, password, GitHub username, and LeetCode username. New accounts remain pending until an administrator approves them on `/dashboard`; approval can be removed there, and administrators can delete accounts.
-- Email addresses are checked for the `@abes.ac.in` format, but no verification email is sent. Administrators must confirm a member's identity through the club before granting access. The first account listed in `ADMIN_EMAILS` can be created as an approved administrator.
-- Passwords are hashed server-side. Sessions use opaque, `HttpOnly`, `SameSite=Lax` cookies; personal progress is scoped to the signed-in member.
-- Administrators can generate a password reset link from the member dashboard. Its random token is stored only as a hash, expires in 30 minutes, works once, and revokes the member's existing sessions after use. The administrator shares the link with the member.
-- A member links GitHub through the OAuth App before submitting a club solution. The verified GitHub login becomes the member's DSAvation username, replacing the signup value. Members can disconnect GitHub from DSAvation on the Account page; this does not sign them out of github.com.
-- The initial admin email is listed in `ADMIN_EMAILS`. Admins can promote members to lead or admin. Leads can publish and correct Questions of the Day; admins can adjust awarded points.
-- Full name and Club Department are hidden on public standings by default. Members can opt in from their account panel; otherwise standings and accepted-submission lists show only their GitHub username. Leads/admins can see the member details needed for club administration.
+### 🌐 Live Platform Access
 
-## Personal progress and club scoring
+> 🚀 **24/7 LIVE ON VERCEL**
+>
+> <a href="https://dsavation.vercel.app/"><kbd>⚡ OPEN DSAVATION ↗</kbd></a>
 
-These are separate systems. Ticking a question in the library writes only to that member's private `personalProgress` records. It never creates a club submission, public participant entry, leaderboard point, streak, or punctuality percentage.
-
-Approved members can view the current Question of the Day, accepted participants, assignment history, and standings. Leads/admins can publish at most one assignment for each date in Asia/Kolkata time. They can correct today's assignment; existing submissions are invalidated and their points removed so members can submit the corrected question. Leave holidays and breaks unassigned; those dates are excluded from the punctuality denominator and do not break an assignment streak.
-
-Members submit one direct commit link per assigned date. GitHub's commit API checks that the repository belongs to the member's linked GitHub account, the GitHub author matches the linked account (GitHub web-editor commits use its web-flow committer), the commit and author dates are on the assignment day in Asia/Kolkata, and the commit adds, edits, or moves a non-empty solution.txt file to `<LEETCODE_ID>/solution.txt` (the file must contain at least one byte at that commit). A valid submission is accepted and receives one point immediately. Administrators can adjust an accepted submission from 0 to 10 points; each adjustment appears in the admin activity log. Personal question checkmarks remain private and do not affect club points.
-
-### GitHub commit workflow
-
-1. A lead publishes the question for the date.
-2. The member links their GitHub account in DSAvation.
-3. The member creates or uses a public GitHub repository they own.
-4. The member keeps the exact non-empty file solution.txt directly under a folder named with the assigned LeetCode question number. The submitted commit may create, edit, or move solution.txt into that folder:
-
-   ```text
-   LEETCODE_ID/solution.txt
-   ```
-
-5. Commit and push the solution.txt file during the assignment day, then paste the direct commit URL, such as `https://github.com/USERNAME/REPOSITORY/commit/FULL_SHA`.
-6. DSAvation verifies the commit through GitHub and awards the point automatically. The repository must be owned by the linked GitHub account. Private repositories require a server-side `GITHUB_TOKEN` with access to that repository.
-
-Assignment history, leaderboard, member list, submission list, and admin activity use server-side pagination. Admin and lead changes to assignments or submissions, member access and roles, reset-link generation, and elevated account actions are recorded for administrators to review.
-
-## Data and privacy boundaries
-
-- MongoDB stores account profiles, password hashes, hashed password-reset tokens, sessions, private progress, daily assignments, club submissions, and administrator activity records. Account deletion removes the member's sessions, reset tokens, personal progress, and club submissions.
-- Only the signed-in member can read or change their personal progress through the API. Personal progress is not part of the public leaderboard.
-- The curriculum and assignment details are available only to approved signed-in members. Public endpoints expose aggregate club standings; participant names follow the member's public-name preference. Email addresses and personal progress are not returned by public endpoints.
-- Administrators can remove member accounts from `/dashboard`; the account's sessions, personal checkmarks, and club submissions are deleted with it. Take regular database backups before onboarding a large club.
-
-## Tests
-
-Run the API and feature tests with:
-
-```powershell
-npm test
+```text
+[ 🚀 Production Platform ]  ──▶  LIVE ON VERCEL
+[ 🏛️ Tech Club ]            ──▶  Technovation: The Networking Club
+[ 📚 Master Curriculum ]    ──▶  220 High-Yield Problems
+[ ⚔️ Daily Challenge Arena ] ──▶  IST-Based Rolling Challenge Cycle
 ```
 
-Tests use an in-memory fake database and stub GitHub API responses; they do not require MongoDB credentials or a live GitHub token.
+---
 
-## Curriculum
+## ⚡ The Onboarding Pipeline
 
-The 220-question curriculum was curated from the overlap and recurring interview patterns in [Striver's A2Z DSA Sheet](https://takeuforward.org/prep-hub/strivers-a2z-dsa-sheet?page=sheet&open=1995%2C1997%2C2027%2C2013) and [NeetCode 250](https://neetcode.io/practice/practice/neetcode250), ordered from fundamentals to advanced topics. Complexity labels describe standard optimal interview solutions and generally exclude returned output.
+```mermaid
+flowchart LR
+    A(["🖱️ SIGN IN<br/><small>Open App</small>"]) --> B(["✨ CREATE ACCOUNT<br/><small>Registration</small>"])
+    B --> C(["📝 ENTER CLUB DETAILS<br/><small>Institution · Year · GitHub</small>"])
+    C --> D(["🛡️ ADMIN APPROVAL<br/><small>Club Lead Verification</small>"])
+    D --> E(["🚀 BATTLE READY<br/><small>Points · Aura · Arena</small>"])
+```
+
+> **Club Verification Protocol:** To maintain platform authenticity and fair
+> leaderboards, newly registered student accounts remain pending until verified
+> by a Technovation club lead.
+
+---
+
+## 🎮 Visual Platform Tour
+
+### 1️⃣ 🏠 Home Page — Mission Control & Private Library
+
+The central command hub where every member tracks individual growth, checks off
+solved problems, and launches today's assignment.
+
+![Home Page](docs/screenshots/home.png)
+
+*💡 Question of the Day launcher, live club participation, and searchable
+220-problem personal tracker.*
+
+* 🔥 **Featured Daily Challenge Card:** Direct launcher into the active daily
+  problem.
+* 🔒 **Zero-Cheat Private Tracker:** Personal checkboxes stay private and never
+  alter club leaderboard standings.
+* 🔎 **Instant Multi-Filter:** Filter by **Topic**, **Data Structure**,
+  **Interview Pattern**, or **Difficulty**.
+
+---
+
+### 2️⃣ ⚔️ Club Challenge — The Daily Battleground
+
+Where Technovation members lock in, submit authentic commit links, and race
+against the clock.
+
+![Club Challenge](docs/screenshots/club-challenge.png)
+
+*💡 Problem details, commit hash verifier, and real-time daily sprint
+leaderboard.*
+
+* ⏱️ **IST-Based Challenge Cycle:** A rolling 24-hour competition window keeps
+  the arena fair for the club.
+* ⚡ **Speed Sprint Podium:** Earlier verified solutions earn stronger
+  placements and bonus Aura.
+* 📜 **Challenge History Log:** Review past problem solutions and club
+  statistics.
+
+---
+
+### 3️⃣ 👥 Member Directory — Community & Standings
+
+A transparent club directory showcasing verified coders, their active branch,
+and earned Aura.
+
+![Member Directory](docs/screenshots/member-directory.png)
+
+*💡 Member profile cards with department badges, Points, Aura rating, and
+GitHub links.*
+
+* 🔍 **Multi-Dimensional Search:** Discover peers by **Branch/Department**,
+  **Graduation Year**, or **Name**.
+* 🌐 **Verified Credentials:** Jump directly to member GitHub profiles and
+  verified contest identities.
+
+---
+
+### 4️⃣ 👤 Profile & Avatar Studio — Identity & Habit Tracker
+
+Your personal coding identity, avatar customizer, and consistency dashboard.
+
+![User Profile](docs/screenshots/profile.png)
+
+*💡 Avatar presets, habit streaks, GitHub verification status, and recent
+solutions.*
+
+* 🎨 **Avatar Studio:** Switch between custom art themes — *Critters, Emoji,
+  Clay, Micah* — or roll for a random avatar.
+* 📅 **Activity Heatmap:** Track consistency, solved question counts, and
+  submission history.
+
+---
+
+## 🏆 Scoring Rules & Aura Mechanics
+
+```text
+                 ┌──────────────────────────────────────────────┐
+                 │          OVERALL LEADERBOARD RANK            │
+                 │      Points (Primary)  ──▶  Aura (Tie)       │
+                 └──────────────────────────────────────────────┘
+                                  ▲            ▲
+                                  │            │
+            ┌─────────────────────┴──┐      ┌──┴─────────────────────────┐
+            │   DAILY COMPLETION     │      │   SPEED SPRINT BONUS       │
+            │   +1 Point / Problem   │      │   +50 / +40 / +30 Aura     │
+            └────────────────────────┘      └────────────────────────────┘
+```
+
+| Metric | Rule | Detail |
+| :--- | :--- | :--- |
+| ⏱️ **Daily Cycle** | **IST-based 24-hour window** | Only submissions inside the active cycle count for the daily leaderboard. |
+| 🥇 **Daily Sprint** | **Timestamp Priority** | First verified submissions take the highest placements and earn bonus Aura. |
+| 👑 **Overall Rank** | **Points ➜ Aura tie-breaker** | Ranked primarily by verified Points; Aura decides ties. |
+| 🛡️ **Integrity Safeguard** | **Strict Verification** | Only accepted GitHub or directly verified LeetCode submissions earn club Points. |
+
+---
+
+## 📦 GitHub Commit Verification Protocol
+
+DSAvation validates code directly against your GitHub commits to build
+authentic version-control habits. The verifier expects a precise repository
+layout so every submission can be matched to the correct LeetCode problem.
+
+### 📁 Repository Structure
+
+Keep solutions in a personal repository with folders named only by the
+numerical **LeetCode Problem ID**. Inside each folder, the file must be named
+exactly `solution.<extension>` — not `solutions`, `sol`, or any other variant:
+
+```text
+my-dsa-solutions/
+├── 1/
+│   └── solution.cpp          # LeetCode #1: Two Sum
+├── 49/
+│   └── solution.py           # LeetCode #49: Group Anagrams
+└── 347/
+    └── solution.java         # LeetCode #347: Top K Frequent Elements
+```
+
+✅ **Accepted format:** `<leetcode-question-number>/solution.<extension>`  
+❌ `1/solutions.cpp`, `1/sol.cpp`, `1/two-sum.cpp`, and similarly named files
+will not pass the verifier.
+
+Supported extensions: `.c`, `.cpp`, `.go`, `.java`, `.js`, `.py`, `.rs`, `.ts`,
+and `.txt`.
+
+### 🚀 Submission Flow
+
+```mermaid
+flowchart LR
+    A(["📁 NUMBERED FOLDER<br/><small>e.g. 347/</small>"]) --> B(["🧩 EXACT FILE<br/><small>solution.java</small>"])
+    B --> C(["🚀 COMMIT & PUSH<br/><small>Linked GitHub repository</small>"])
+    C --> D(["🔗 COPY COMMIT SHA<br/><small>or full commit URL</small>"])
+    D --> E(["⚔️ VERIFY & SUBMIT<br/><small>Club Challenge</small>"])
+    E --> F(["🏆 EARN POINTS + AURA<br/><small>Verified submission</small>"])
+```
+
+1. Create a folder named after the numerical LeetCode question number.
+2. Save your code as exactly `solution.<extension>`.
+3. Commit and push during the active challenge cycle.
+4. Paste the **Commit SHA** or full **Commit URL** into Club Challenge.
+5. Click **Verify and Submit** to enter the arena.
+
+---
+
+## 🧠 Direct LeetCode Verification
+
+Prefer solving directly on LeetCode? DSAvation can fetch and verify your
+submission from your linked LeetCode account.
+
+```mermaid
+flowchart LR
+    A(["🔗 LINK LEETCODE USERNAME"]) --> B(["🛡️ ADMIN APPROVAL"])
+    B --> C(["🧩 SOLVE TODAY'S QUESTION<br/><small>On LeetCode</small>"])
+    C --> D(["🔍 DSAVATION FETCHES<br/><small>Accepted submission status</small>"])
+    D --> E(["✅ ACCEPTED + MATCHED<br/><small>1 Point + Aura</small>"])
+    D --> F(["❌ NOT ACCEPTED / NOT DONE<br/><small>No club Points</small>"])
+```
+
+### How it works
+
+1. Add your LeetCode username to your DSAvation profile.
+2. Request and receive administrator approval for **LeetCode Direct** mode.
+3. Solve and submit the assigned question on LeetCode during today's IST
+   challenge cycle.
+4. DSAvation fetches your direct LeetCode submission and checks its status.
+5. A matching **Accepted** submission earns the club Point and eligible Aura.
+   If the problem was not submitted or is not accepted, no club Point is
+   awarded.
+
+GitHub Commit verification remains available anytime, even when LeetCode Direct
+approval is pending.
+
+---
+
+## 📚 The 220-Question Curriculum Blueprint
+
+Curated from the intersection of **Striver's A2Z DSA Sheet** and **NeetCode's
+problem roadmap**, structured from fundamental patterns to advanced topics:
+
+| # | Topic | Key Interview Patterns & Techniques |
+| :-: | :--- | :--- |
+| **01** | 🧩 **Arrays & Hashing** | Hash sets, frequency counting, complement lookups, prefix/suffix products |
+| **02** | 🎯 **Two Pointers** | Opposite-end convergence, three-pointer partitions, container boundaries |
+| **03** | 🪟 **Sliding Window** | Dynamic frequency windows, fixed-size subarrays, character replacement |
+| **04** | 🥞 **Stack & Queue** | Monotonic stacks, min-stacks, valid parentheses, window maximums |
+| **05** | 🔍 **Binary Search** | Rotated arrays, condition functions, split-array search |
+| **06** | 🔗 **Linked Lists** | Fast/slow pointers, in-place reversal, cycle detection, reorder list |
+| **07** | 🌳 **Trees & BSTs** | Level-order BFS, LCA, subtree serialization, maximum path sum |
+| **08** | 🌲 **Tries** | Prefix trees, word-search backtracking, autocomplete |
+| **09** | 🏔️ **Heap & Priority Queue** | Top-K elements, k-way merges, scheduling, streaming medians |
+| **10** | ♟️ **Backtracking** | Decision trees, pruning, subset generation, N-Queens |
+| **11** | 🕸️ **Graphs & Advanced Graphs** | BFS/DFS, topological sort, Dijkstra, Prim/Kruskal, DSU |
+| **12** | 📈 **1-D Dynamic Programming** | Fibonacci states, climbing stairs, house robber, coin change, LIS |
+| **13** | 📊 **2-D Dynamic Programming** | Grid traversals, edit distance, LCS, 0/1 knapsack |
+| **14** | 💰 **Greedy Algorithms** | Jump game, gas stations, interval scheduling, maximum subarray |
+| **15** | ⏱️ **Intervals** | Merging overlaps, insert intervals, meeting rooms |
+| **16** | 💻 **Bit Manipulation & Math** | Single-number XOR, bit counts, reverse integer, matrix rotations |
+
+---
+
+## 🏛️ Architecture Overview
+
+```text
+[ User Browser ]  <─── HTTPS ───>  [ Vercel / React Application ]
+                                            │
+                                            ▼
+                               [ Node.js API Micro-Engine ]
+                                            │
+                      ┌─────────────────────┴─────────────────────┐
+                      ▼                                           ▼
+             [ MongoDB Atlas ]                          [ GitHub API ]
+          (Profiles, Streaks, Days)                  (Commit Verification)
+```
+
+---
+
+<div align="center">
+
+### Made with 💖 by the Technical team, Technovation
+
+*Consistency • Competition • Code*
+
+</div>
