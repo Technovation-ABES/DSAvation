@@ -1923,7 +1923,8 @@ function App() {
   }
 
   async function deleteMember(member) {
-    if (!window.confirm(`Delete ${member.name} (${member.email}) and their saved progress and club submissions? This cannot be undone.`)) return;
+    const detail = member?.email ? ` (${member.email})` : member?.githubUsername ? ` (@${member.githubUsername})` : '';
+    if (!window.confirm(`Delete ${member.name}${detail} and their saved progress and club submissions? This cannot be undone.`)) return;
     setMemberBusy(member.id);
     try {
       await api(`/admin/members/${member.id}`, { method: 'DELETE' });
@@ -2433,6 +2434,7 @@ function App() {
                     <h2>{adminOverlayMember.name}</h2>
                     <p>{adminOverlayMember.department} · {studyYearLabel(adminOverlayMember.studyYear)}</p>
                     <div className="member-admin-overlay-meta">
+                      {adminOverlayMember.email && <span>{adminOverlayMember.email}</span>}
                       {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
                       {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
                       <span className="member-aura-chip" title="Current Blaze points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.blaze ?? adminOverlayMember.aura ?? 0} Blaze</span>
@@ -2792,7 +2794,7 @@ function App() {
           <div className="panel-heading-actions">
             <button
               type="button"
-              className="button button-quiet"
+              className="button button-quiet card-header-refresh-btn"
               disabled={rateLimitBusy}
               title="Refresh active rate limits"
               aria-label="Refresh active rate limits"
@@ -2812,9 +2814,6 @@ function App() {
             </button>
           </div>
         </div>
-        <p className="helper-copy" style={{ margin: '6px 0 0' }}>
-          Instantly clear all rate limits for submissions, LeetCode checks, login attempts, and registrations across all members and IP addresses in one click.
-        </p>
       </section>
       <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>

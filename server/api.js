@@ -1936,7 +1936,7 @@ async function listDirectory(db, url, viewer = null) {
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escaped, 'i');
     const orFields = [{ name: regex }, { department: regex }, { githubUsername: regex }];
-    if (isAdmin) orFields.push({ leetcodeUsername: regex });
+    if (isAdmin) orFields.push({ leetcodeUsername: regex }, { email: regex });
     filters.push({ $or: orFields });
   }
   if (department) filters.push({ department: new RegExp(`^${department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
@@ -1946,9 +1946,14 @@ async function listDirectory(db, url, viewer = null) {
   }
   const filter = filters.length === 1 ? filters[0] : { $and: filters };
   const { page, pageSize, skip } = pageOptions(url, 60, 100);
-  const cursor = db.collection('users').find(filter, {
-    projection: { name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1, customAura: 1 },
-  });
+  const projection = {
+    name: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1,
+    role: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1, cardBgUrl: 1, customAura: 1,
+  };
+  if (isAdmin) {
+    projection.email = 1;
+  }
+  const cursor = db.collection('users').find(filter, { projection });
   if (typeof cursor.collation === 'function') {
     cursor.collation({ locale: 'en', strength: 2 });
   }
@@ -1985,6 +1990,7 @@ async function listDirectory(db, url, viewer = null) {
         customAura: Number(member.customAura || 0),
         githubUsername: member.githubUsername || '',
         leetcodeUsername: canSeeLeetcode ? (member.leetcodeUsername || '') : '',
+        ...(isAdmin ? { email: member.email || '' } : {}),
         role: member.role || 'member',
         cardBgUrl: member.cardBgUrl || '',
         ...formatAvatar(member),

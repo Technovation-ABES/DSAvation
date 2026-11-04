@@ -456,6 +456,8 @@ test('member directory requires an approved login, filters profiles, paginates, 
   const adminDirectory = await call(db, '/members?department=Computer%20Science&year=second-year&page=1&pageSize=2', { cookie: adminViewer.cookie });
   assert.equal(adminDirectory.response.status, 200);
   assert.equal(adminDirectory.data.members[0].leetcodeUsername, 'leet-id');
+  assert.equal(typeof adminDirectory.data.members[0].email, 'string');
+  assert.ok(adminDirectory.data.members[0].email.length > 0);
 
   const lastPage = await call(db, '/members?department=Computer%20Science&year=second-year&page=2&pageSize=2', { cookie: viewer.cookie });
   assert.equal(lastPage.data.members.length, 1);
