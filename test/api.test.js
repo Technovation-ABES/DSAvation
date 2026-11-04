@@ -1806,6 +1806,22 @@ test('submissions heatmap provides full and second-year counts, and enforces adm
   const filtered = await call(db, '/admin/submissions-heatmap?studyYear=second-year', { cookie: admin.cookie });
   assert.equal(filtered.response.status, 200);
   assert.equal(filtered.data.counts['2026-11-04'], 1);
+
+  // 5. Admin fetches submissions by date
+  const byDateRes = await call(db, '/admin/submissions-by-date?date=2026-11-04', { cookie: admin.cookie });
+  assert.equal(byDateRes.response.status, 200);
+  assert.equal(byDateRes.data.count, 2);
+  assert.equal(byDateRes.data.submissions.length, 2);
+
+  // 6. Admin filters submissions by date for second-year
+  const byDateSecondYear = await call(db, '/admin/submissions-by-date?date=2026-11-04&studyYear=second-year', { cookie: admin.cookie });
+  assert.equal(byDateSecondYear.response.status, 200);
+  assert.equal(byDateSecondYear.data.count, 1);
+  assert.equal(byDateSecondYear.data.submissions[0].name, 'Sophomore Sam');
+
+  // 7. Regular user is forbidden
+  const forbiddenByDate = await call(db, '/admin/submissions-by-date?date=2026-11-04', { cookie: regular.cookie });
+  assert.equal(forbiddenByDate.response.status, 403);
 });
 
 test('admin view all stats rate limit allows more than 12 stats fetches without hitting rate limit', async () => {

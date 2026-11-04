@@ -1436,6 +1436,101 @@ async function getSubmissionsHeatmap(db, user, url = null) {
   return { counts, secondYearCounts };
 }
 
+async function getSubmissionsByDate(db, user, url) {
+  requireRole(user, 'lead', 'admin');
+  const dateKey = url?.searchParams?.get('date') || '';
+  const studyYearParam = url?.searchParams?.get('studyYear') || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    throw new HttpError(400, 'A valid date query parameter (YYYY-MM-DD) is required.');
+  }
+  const IST = 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  // 1. Fetch approved users (optionally filtered by studyYear)
+  const userFilter = approvedUserFilter(studyYearParam === 'second-year' ? { studyYear: 'second-year' } : {});
+  const allApproved = await db.collection('users').find(userFilter, {
+    projection: { name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+  }).toArray();
+  const profileById = new Map(allApproved.map((p) => [String(p._id), p]));
+
+  // 2. Find accepted submissions submitted on this IST date
+  const items = await db.collection('submissions')
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1, userId: 1, questionId: 1, assignmentId: 1, commitUrl: 1, submissionMethod: 1, solutionPath: 1, verificationSource: 1 } })
+    .toArray();
+
+  const matchingItems = items.filter((item) => item.submittedAt && fmt.format(new Date(item.submittedAt)) === dateKey);
+
+  // Assignment info for questionId
+  const assignmentIds = [...new Set(matchingItems.map((item) => String(item.assignmentId)).filter(Boolean))];
+  let assignmentById = new Map();
+  if (assignmentIds.length) {
+    const { ObjectId } = await import('mongodb');
+    const assignments = await db.collection('assignments').find(
+      { _id: { $in: assignmentIds.map((id) => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean) } },
+      { projection: { dateKey: 1, questionId: 1 } },
+    ).toArray();
+    assignmentById = new Map(assignments.map((a) => [String(a._id), a]));
+  }
+
+  // Filter matching items to those belonging to approved users in the current filter
+  const validMatchingItems = matchingItems.filter((item) => profileById.has(String(item.userId)));
+  const submittedUserIdSet = new Set(validMatchingItems.map((item) => String(item.userId)));
+
+  let submissions = validMatchingItems.map((item) => {
+    const profile = profileById.get(String(item.userId));
+    const assignment = assignmentById.get(String(item.assignmentId));
+    const isLeetCode = item.submissionMethod === 'leetcode' || item.verificationSource === 'leetcode-api' || String(item.solutionPath || '').startsWith('LeetCode:') || String(item.commitUrl || '').includes('leetcode.com');
+    const leetcodeUser = profile?.leetcodeUsername || (item.solutionPath?.match(/@([a-zA-Z0-9_-]+)/)?.[1]) || '';
+    const profileUrl = leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (item.commitUrl || 'https://leetcode.com');
+
+    return {
+      userId: String(item.userId),
+      name: profile?.name || 'Member',
+      email: profile?.email || '',
+      department: profile?.department || '',
+      studyYear: profile?.studyYear || '',
+      avatarStyle: profile?.avatarStyle || 'critters',
+      avatarSeed: profile?.avatarSeed || String(item.userId),
+      avatarUrl: profile?.avatarUrl || null,
+      leetcodeUsername: leetcodeUser || null,
+      submittedAt: item.submittedAt,
+      questionId: item.questionId || assignment?.questionId || null,
+      submissionMethod: item.submissionMethod || (isLeetCode ? 'leetcode' : 'github'),
+      isLeetCode,
+      profileUrl: isLeetCode ? profileUrl : null,
+      commitUrl: item.commitUrl || null,
+    };
+  });
+
+  // Accounts that did NOT submit
+  let notSubmitted = allApproved
+    .filter((u) => !submittedUserIdSet.has(String(u._id)))
+    .map((u) => ({
+      userId: String(u._id),
+      name: u.name || 'Member',
+      email: u.email || '',
+      department: u.department || '',
+      studyYear: u.studyYear || '',
+      avatarStyle: u.avatarStyle || 'critters',
+      avatarSeed: u.avatarSeed || String(u._id),
+      avatarUrl: u.avatarUrl || null,
+      githubUsername: u.githubUsername || null,
+      leetcodeUsername: u.leetcodeUsername || null,
+    }));
+
+  submissions.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+  notSubmitted.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+  return {
+    date: dateKey,
+    count: submissions.length,
+    notSubmittedCount: notSubmitted.length,
+    totalApprovedCount: allApproved.length,
+    submissions,
+    notSubmitted,
+  };
+}
+
 async function getTodaySubmissions(db, req, user, url) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
@@ -2343,6 +2438,9 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (url.pathname === '/api/admin/submissions-heatmap' && method === 'GET') {
       return json(res, 200, await getSubmissionsHeatmap(db, user, url));
+    }
+    if (url.pathname === '/api/admin/submissions-by-date' && method === 'GET') {
+      return json(res, 200, await getSubmissionsByDate(db, user, url));
     }
     if (url.pathname === '/api/admin/today-submissions' && method === 'GET') {
       const result = await getTodaySubmissions(db, req, user, url);
