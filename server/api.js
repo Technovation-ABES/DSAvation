@@ -266,17 +266,36 @@ async function allowRequest(db, req, scope, limit, windowMs) {
 }
 
 async function githubJson(path, token) {
-  const response = await fetch(`https://api.github.com${path}`, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'DSAvation-Club-Tracker',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const cleanToken = typeof token === 'string' ? token.trim() : '';
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'DSAvation-Club-Tracker',
+  };
+  if (cleanToken) {
+    headers.Authorization = cleanToken.startsWith('Bearer ') || cleanToken.startsWith('token ') ? cleanToken : `Bearer ${cleanToken}`;
+  }
+  let response;
+  try {
+    response = await fetch(`https://api.github.com${path}`, { headers });
+  } catch {
+    throw new HttpError(503, 'Could not connect to GitHub API. Please check your network connection and try again.');
+  }
+  if (response.status === 401 && cleanToken) {
+    try {
+      delete headers.Authorization;
+      const retryResponse = await fetch(`https://api.github.com${path}`, { headers });
+      if (retryResponse.ok) return retryResponse.json();
+    } catch {}
+  }
   if (!response.ok) {
-    const status = response.status === 404 ? 404 : response.status === 403 ? 503 : 502;
-    throw new HttpError(status, response.status === 404 ? 'GitHub could not find that account or commit.' : 'GitHub could not verify the request. Check repository access and try again.');
+    const status = response.status === 404 ? 404 : (response.status === 403 || response.status === 429) ? 429 : 502;
+    const msg = response.status === 404
+      ? 'GitHub could not find that account or commit.'
+      : (response.status === 403 || response.status === 429)
+        ? 'GitHub API rate limit reached. Please wait a few moments or provide a direct commit URL.'
+        : 'GitHub could not verify the request. Check repository access and try again.';
+    throw new HttpError(status, msg);
   }
   return response.json();
 }
@@ -737,14 +756,17 @@ async function makeSubmission(db, req, user, body) {
   }
 
   const assignment = await getTodayAssignment(db);
-  if (!assignment || String(assignment._id) !== String(body.assignmentId || '')) {
+  if (!assignment || (body.assignmentId && String(assignment._id) !== String(body.assignmentId))) {
     throw new HttpError(409, 'Submissions are only open for today’s published Question of the Day.');
   }
-  const existing = await db.collection('submissions').findOne({ assignmentId: assignment._id, userId: user._id });
+  const existing = await db.collection('submissions').findOne({
+    $or: [{ assignmentId: assignment._id }, { assignmentId: String(assignment._id) }],
+    userId: user._id,
+  });
   const assignedQuestionForAura = questionById.get(Number(assignment.questionId));
   const baseAura = getAuraBase(assignedQuestionForAura?.difficulty);
   const existingAcceptedCount = await db.collection('submissions').countDocuments({
-    assignmentId: assignment._id,
+    $or: [{ assignmentId: assignment._id }, { assignmentId: String(assignment._id) }],
     status: 'accepted',
     ...(existing ? { _id: { $ne: existing._id } } : {}),
   });
@@ -879,17 +901,28 @@ async function makeSubmission(db, req, user, body) {
     if (author !== username || (committer !== username && committer !== 'web-flow')) {
       throw new HttpError(403, 'GitHub could not confirm that the commit author is your linked account.');
     }
-    const commitDate = commit.commit?.committer?.date;
-    const authorDate = commit.commit?.author?.date;
-    if (!isOnAssignmentDay(commitDate, assignment.dateKey) || !isOnAssignmentDay(authorDate, assignment.dateKey)) {
+    const commitDate = commit.commit?.committer?.date || commit.commit?.author?.date;
+    const authorDate = commit.commit?.author?.date || commitDate;
+    if (!isOnAssignmentDay(commitDate, assignment.dateKey) && !isOnAssignmentDay(authorDate, assignment.dateKey)) {
       throw new HttpError(400, 'The file must be created and committed during the assignment day.');
     }
     const matchingFiles = (commit.files || []).filter((file) => file.status !== 'removed' && isAssignmentSolutionPath(file.filename, assignment.questionId));
     if (!matchingFiles.length) throw new HttpError(400, `This commit must create or change ${assignment.questionId}/solution.txt (or .cpp, .py, .java, .js, .c).`);
-    const tree = await githubJson(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/trees/${encodeURIComponent(commit.commit.tree.sha)}?recursive=1`, process.env.GITHUB_TOKEN);
-    const sizeByPath = new Map((tree.tree || []).filter((item) => item.type === 'blob').map((item) => [item.path, Number(item.size)]));
-    const matchingFile = matchingFiles.find((file) => Number.isFinite(sizeByPath.get(file.filename)) && sizeByPath.get(file.filename) > 0);
-    const solutionSizeBytes = matchingFile ? sizeByPath.get(matchingFile.filename) : 0;
+    let sizeByPath = new Map();
+    try {
+      if (commit.commit?.tree?.sha) {
+        const tree = await githubJson(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/git/trees/${encodeURIComponent(commit.commit.tree.sha)}?recursive=1`, process.env.GITHUB_TOKEN);
+        sizeByPath = new Map((tree.tree || []).filter((item) => item.type === 'blob').map((item) => [item.path, Number(item.size)]));
+      }
+    } catch {
+      // Tree call might fail if repo is too large or rate limit; fall back to commit.files info
+    }
+    const matchingFile = matchingFiles.find((file) => {
+      const size = sizeByPath.get(file.filename);
+      if (Number.isFinite(size) && size > 0) return true;
+      return Number(file.changes) > 0 || Number(file.additions) > 0;
+    });
+    const solutionSizeBytes = matchingFile ? (sizeByPath.get(matchingFile.filename) || matchingFile.changes || 1) : 0;
     const targetFilename = matchingFiles[0]?.filename || `${assignment.questionId}/solution.txt`;
     if (!matchingFile) throw new HttpError(400, `${targetFilename} must contain at least one byte at this commit.`);
     const now = new Date();
@@ -898,7 +931,9 @@ async function makeSubmission(db, req, user, body) {
       repository: `${owner}/${repository}`, commitSha: commit.sha,
       commitUrl: commit.html_url || `https://github.com/${owner}/${repository}/commit/${commit.sha}`,
       solutionPath: matchingFile.filename, solutionSizeBytes, commitDate: new Date(commitDate), submittedAt: now,
-      status: 'accepted', points: 1, aura: submissionAura, authorLogin: commit.author.login, committerLogin: commit.committer.login,
+      status: 'accepted', points: 1, aura: submissionAura,
+      authorLogin: commit.author?.login || commit.commit?.author?.name || username,
+      committerLogin: commit.committer?.login || commit.commit?.committer?.name || committer || username,
       verifiedPusher: true, verificationSource: 'github-commit-api', submissionMethod: 'github', reviewedAt: now,
       reviewedBy: null, reviewNote: '', activeSlot: true,
     };
@@ -939,16 +974,17 @@ export async function resolveCommitInput(db, user, rawInput) {
   }
 
   const username = String(user.githubUsername || '').toLowerCase();
+  const cleanInput = input.replace(/[?#].*$/, '').trim();
 
   // 1. Direct full commit URL or loose URL with owner/repo
-  let parsed = parsePersonalCommitUrl(input);
+  let parsed = parsePersonalCommitUrl(cleanInput);
 
   if (!parsed) {
-    const repoAtSha = input.match(/^([A-Za-z0-9_.-]+)[@:]([a-f0-9]{7,40})$/i);
+    const repoAtSha = cleanInput.match(/^([A-Za-z0-9_.-]+)[@:]([a-f0-9]{7,40})$/i);
     if (repoAtSha) {
       parsed = { owner: username, repository: repoAtSha[1], sha: repoAtSha[2] };
-    } else if (input.includes('/')) {
-      let normalized = input;
+    } else if (cleanInput.includes('/')) {
+      let normalized = cleanInput;
       if (!/^https?:\/\//i.test(normalized)) {
         if (normalized.startsWith('github.com/')) {
           normalized = `https://${normalized}`;
@@ -967,6 +1003,62 @@ export async function resolveCommitInput(db, user, rawInput) {
       throw new HttpError(403, 'Use a repository owned by your linked GitHub account.');
     }
     return { owner: parsed.owner, repository: parsed.repository, sha: parsed.sha };
+  }
+
+  // 1b. Pull request commit URL: https://github.com/owner/repo/pull/1/commits/sha
+  const prCommit = cleanInput.match(/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/\d+\/commits\/([a-f0-9]{7,40})/i);
+  if (prCommit) {
+    if (prCommit[1].toLowerCase() !== username) throw new HttpError(403, 'Use a repository owned by your linked GitHub account.');
+    return { owner: prCommit[1], repository: prCommit[2], sha: prCommit[3] };
+  }
+
+  // 1c. Blob/file URL: https://github.com/owner/repo/blob/main/49/solution.cpp
+  const blobMatch = cleanInput.match(/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/blob\/([^/]+)\/(.+)/i);
+  if (blobMatch) {
+    const owner = blobMatch[1];
+    const repository = blobMatch[2];
+    const ref = blobMatch[3];
+    const filePath = blobMatch[4];
+    if (owner.toLowerCase() !== username) throw new HttpError(403, 'Use a repository owned by your linked GitHub account.');
+    if (/^[a-f0-9]{7,40}$/i.test(ref)) {
+      return { owner, repository, sha: ref };
+    }
+    try {
+      const commitList = await githubJson(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits?path=${encodeURIComponent(filePath)}&per_page=1`,
+        process.env.GITHUB_TOKEN
+      );
+      if (Array.isArray(commitList) && commitList[0]?.sha) {
+        return { owner, repository, sha: commitList[0].sha, commitData: commitList[0] };
+      }
+    } catch {}
+    try {
+      const branchCommit = await githubJson(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits/${encodeURIComponent(ref)}`,
+        process.env.GITHUB_TOKEN
+      );
+      if (branchCommit && branchCommit.sha) {
+        return { owner, repository, sha: branchCommit.sha, commitData: branchCommit };
+      }
+    } catch {}
+  }
+
+  // 1d. Repo or Tree URL: https://github.com/owner/repo or https://github.com/owner/repo/tree/main
+  const repoMatch = cleanInput.match(/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/tree\/([^/]+))?\/?$/i);
+  if (repoMatch) {
+    const owner = repoMatch[1];
+    const repository = repoMatch[2];
+    const branch = repoMatch[3];
+    if (owner.toLowerCase() !== username) throw new HttpError(403, 'Use a repository owned by your linked GitHub account.');
+    try {
+      const commitList = await githubJson(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits${branch ? `?sha=${encodeURIComponent(branch)}&` : '?'}per_page=1`,
+        process.env.GITHUB_TOKEN
+      );
+      if (Array.isArray(commitList) && commitList[0]?.sha) {
+        return { owner, repository, sha: commitList[0].sha, commitData: commitList[0] };
+      }
+    } catch {}
   }
 
   // 2. Standalone commit hash / code (7 to 40 hex characters)
@@ -2282,7 +2374,7 @@ export async function handleApiNode(req, res, options = {}) {
       });
     }
     const status = Number(error?.status) || 500;
-    const isServerError = status >= 500 && status !== 503;
+    const isServerError = !(error instanceof HttpError) && status >= 500;
     const reqId = String(req.headers['x-client-request-id'] || req.headers['x-request-id'] || '').slice(0, 40)
       || randomBytes(6).toString('hex');
 

@@ -1772,7 +1772,8 @@ function App() {
   async function submitClubSolution(event) {
     event.preventDefault(); setSubmissionBusy(true); setNotice('');
     try {
-      const result = await api('/submissions', { method: 'POST', body: { assignmentId: club.assignment?.id, commitUrl } });
+      const cleanCommitUrl = String(commitUrl || '').trim();
+      const result = await api('/submissions', { method: 'POST', body: { assignmentId: club.assignment?.id, commitUrl: cleanCommitUrl } });
       setCommitUrl(''); setSubmissionHelpOpen(false); setNotice(`GitHub verified your solution. ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
       const qId = club.assignment?.questionId || result.submission?.questionId;
       if (qId) {
