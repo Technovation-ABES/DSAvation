@@ -342,7 +342,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
         <div className="practice-stats-col practice-stats-col-left heatmap-stats-strip">
           <div className="heatmap-stat-item">
             <strong>{activeQuestions} <small>/ 220</small></strong>
-            <span>Questions Solved · {Math.round(activeQuestions / 220 * 100)}%</span>
+            <span>Solved · {Math.round(activeQuestions / 220 * 100)}%</span>
           </div>
           <div className="heatmap-stat-item">
             <strong>{activeDays}</strong>
