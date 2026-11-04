@@ -433,7 +433,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   );
 });
 
-const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false, onDayClick }) {
+const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false }) {
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   const {
@@ -557,15 +557,9 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
                     <div key={`admin-pad-${i}`} className="month-detail-cell empty" />
                   ))}
                   {activeMonth.days.map((day) => (
-                    <div
-                      key={day.date}
-                      className={`month-detail-cell level-${day.level} ${day.inRange ? '' : 'outside-range'} ${day.count > 0 ? 'has-activity' : ''} ${day.count > 0 && onDayClick ? 'heatmap-day-clickable' : ''}`}
-                      title={day.count > 0 ? `${day.count} ${day.count === 1 ? 'submission' : 'submissions'} on ${day.date} — click to view` : `${day.count} submissions on ${day.date}`}
-                      role={day.count > 0 && onDayClick ? 'button' : undefined}
-                      tabIndex={day.count > 0 && onDayClick ? 0 : undefined}
-                      onClick={day.count > 0 && onDayClick ? () => onDayClick(day.date, day.count) : undefined}
-                      onKeyDown={day.count > 0 && onDayClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDayClick(day.date, day.count); } } : undefined}
-                    >
+                    <div key={day.date}
+                      className={`month-detail-cell level-${day.level} ${day.inRange ? '' : 'outside-range'} ${day.count > 0 ? 'has-activity' : ''}`}
+                      title={`${day.count} ${day.count === 1 ? 'submission' : 'submissions'} on ${day.date}`}>
                       <span className="day-number">{day.day}</span>
                       {day.count > 0 && <span className="day-count-badge">{day.count}</span>}
                     </div>
@@ -585,7 +579,6 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
             ))}
             <span>30+</span>
           </div>
-          {onDayClick && <p className="heatmap-click-hint">Click any highlighted day to see who submitted.</p>}
         </div>
       </div>
     </div>
@@ -995,9 +988,6 @@ function App() {
   const [submissionHeatmapSecondYearCounts, setSubmissionHeatmapSecondYearCounts] = useState({});
   const [heatmapSecondYearOnly, setHeatmapSecondYearOnly] = useState(false);
   const [submissionHeatmapBusy, setSubmissionHeatmapBusy] = useState(false);
-  const [heatmapDayModal, setHeatmapDayModal] = useState(null); // { date, count }
-  const [heatmapDayData, setHeatmapDayData] = useState(null);  // { date, submissions, count }
-  const [heatmapDayBusy, setHeatmapDayBusy] = useState(false);
 
   useEffect(() => {
     if (!account) return;
@@ -1198,26 +1188,6 @@ function App() {
       setMemberCounts(result.counts || { pending: 0, approved: 0, leetcodePending: 0 });
     } catch (error) { setNotice(error.message); }
     finally { setMembersBusy(false); }
-  }
-
-  async function openHeatmapDay(date, count) {
-    setHeatmapDayModal({ date, count });
-    setHeatmapDayData(null);
-    setHeatmapDayBusy(true);
-    try {
-      const yearQuery = heatmapSecondYearOnly ? '&studyYear=second-year' : '';
-      const result = await api(`/admin/submissions-by-date?date=${encodeURIComponent(date)}${yearQuery}`);
-      setHeatmapDayData(result);
-    } catch (error) {
-      setHeatmapDayData({ date, count: 0, submissions: [], error: error.message });
-    } finally {
-      setHeatmapDayBusy(false);
-    }
-  }
-
-  function closeHeatmapDayModal() {
-    setHeatmapDayModal(null);
-    setHeatmapDayData(null);
   }
 
   async function loadDirectory(page = 1, search = directoryQuery, department = directoryDepartment, year = directoryYear) {
@@ -1953,8 +1923,7 @@ function App() {
   }
 
   async function deleteMember(member) {
-    const detail = member?.email ? ` (${member.email})` : member?.githubUsername ? ` (@${member.githubUsername})` : '';
-    if (!window.confirm(`Delete ${member.name}${detail} and their saved progress and club submissions? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${member.name} (${member.email}) and their saved progress and club submissions? This cannot be undone.`)) return;
     setMemberBusy(member.id);
     try {
       await api(`/admin/members/${member.id}`, { method: 'DELETE' });
@@ -2464,7 +2433,6 @@ function App() {
                     <h2>{adminOverlayMember.name}</h2>
                     <p>{adminOverlayMember.department} · {studyYearLabel(adminOverlayMember.studyYear)}</p>
                     <div className="member-admin-overlay-meta">
-                      {adminOverlayMember.email && <span>{adminOverlayMember.email}</span>}
                       {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
                       {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
                       <span className="member-aura-chip" title="Current Blaze points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.blaze ?? adminOverlayMember.aura ?? 0} Blaze</span>
@@ -2708,7 +2676,6 @@ function App() {
               <AdminSubmissionsHeatmap
                 counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
                 secondYearOnly={heatmapSecondYearOnly}
-                onDayClick={openHeatmapDay}
               />
             )}
           </div>
@@ -2816,36 +2783,6 @@ function App() {
           </>
         )}
       </section>
-      <section className="panel dashboard-rate-limits-panel water-glass-card">
-        <div className="panel-heading">
-          <div>
-            <div className="eyebrow"><span className="eyebrow-line"/>SECURITY & RATE LIMITS</div>
-            <h2>Active rate limits {rateLimitCount !== null && <span className="count-badge">{rateLimitCount}</span>}</h2>
-          </div>
-          <div className="panel-heading-actions">
-            <button
-              type="button"
-              className="button button-quiet card-header-refresh-btn"
-              disabled={rateLimitBusy}
-              title="Refresh active rate limits"
-              aria-label="Refresh active rate limits"
-              onClick={refreshRateLimits}
-            >
-              <IconifyIcon icon="charm:refresh" width={16} height={16} className={rateLimitBusy ? 'spin-icon' : ''} />
-            </button>
-            <button
-              type="button"
-              className="button button-danger clear-rate-limits-btn"
-              disabled={rateLimitBusy}
-              onClick={clearAllRateLimits}
-              title="Clear all active rate limits for all members and IPs in one click"
-            >
-              <IconifyIcon icon="charm:refresh" width={14} height={14} className={rateLimitBusy ? 'spin-icon' : ''} />
-              <span>{rateLimitBusy ? 'Clearing…' : 'Clear all rate limits'}</span>
-            </button>
-          </div>
-        </div>
-      </section>
       <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>
           <div>
@@ -2897,134 +2834,29 @@ function App() {
           </>
         )}
       </section>
-      {heatmapDayModal && createPortal(
-        <div className="member-admin-overlay-backdrop" onClick={closeHeatmapDayModal} role="dialog" aria-modal="true" aria-label={`Submissions on ${heatmapDayModal.date}`}>
-          <div className="member-admin-overlay-card heatmap-day-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="member-admin-overlay-header">
-              <div>
-                <div className="eyebrow"><span className="eyebrow-line" />SUBMISSION DETAIL{heatmapSecondYearOnly ? ' (2ND YEAR)' : ''}</div>
-                <h2 className="heatmap-day-modal-title">
-                  <Icon name="calendar" size={18} />
-                  {new Date(`${heatmapDayModal.date}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
-                </h2>
-                {!heatmapDayBusy && heatmapDayData && (
-                  <p className="heatmap-day-modal-subtitle">
-                    <strong>{heatmapDayData.count ?? 0}</strong> submitted
-                    {heatmapDayData.notSubmittedCount != null && (
-                      <> · <strong>{heatmapDayData.notSubmittedCount}</strong> not submitted</>
-                    )}
-                  </p>
-                )}
-              </div>
-              <button type="button" className="modal-close" onClick={closeHeatmapDayModal} aria-label="Close">×</button>
-            </div>
-            <div className="heatmap-day-modal-body">
-              {heatmapDayBusy ? (
-                <div className="heatmap-day-modal-loading">
-                  <IconifyIcon icon="charm:refresh" width={18} height={18} className="spin-icon" />
-                  <span>Loading submissions…</span>
-                </div>
-              ) : heatmapDayData?.error ? (
-                <p className="heatmap-day-modal-error">{heatmapDayData.error}</p>
-              ) : (
-                <div className="heatmap-day-sections">
-                  {/* Submitted Section */}
-                  <div className="heatmap-day-section">
-                    <div className="heatmap-day-section-header">
-                      <span className="heatmap-day-section-title">
-                        <span className="section-dot dot-submitted" />
-                        SUBMITTED
-                      </span>
-                      <span className="heatmap-day-count-pill pill-submitted">
-                        {heatmapDayData?.submissions?.length || 0}
-                      </span>
-                    </div>
-                    {heatmapDayData?.submissions?.length ? (
-                      <ul className="heatmap-day-submitters-list">
-                        {heatmapDayData.submissions.map((sub, i) => {
-                          const isLc = sub.isLeetCode || sub.submissionMethod === 'leetcode' || (!sub.commitUrl && sub.leetcodeUsername);
-                          const profileUrl = sub.profileUrl || (sub.leetcodeUsername ? `https://leetcode.com/u/${encodeURIComponent(sub.leetcodeUsername)}/` : null);
-                          return (
-                            <li key={`sub-${sub.userId}-${i}`} className="heatmap-day-submitter-row">
-                              <MemberAvatar person={sub} className="heatmap-day-submitter-avatar" label={sub.name} />
-                              <div className="heatmap-day-submitter-info">
-                                <strong>{sub.name}</strong>
-                                <span>{sub.department}{sub.studyYear ? ` · ${studyYearLabel(sub.studyYear)}` : ''}</span>
-                                {sub.questionId && <span className="heatmap-day-submitter-lc">LC #{sub.questionId}</span>}
-                              </div>
-                              <div className="heatmap-day-submitter-actions">
-                                {isLc && profileUrl ? (
-                                  <a
-                                    href={profileUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="heatmap-day-action-badge leetcode-action"
-                                    title={`View ${sub.name} on LeetCode`}
-                                  >
-                                    <Icon name="leetcode" size={13} />
-                                    <span>LeetCode</span>
-                                    <Icon name="external" size={11} />
-                                  </a>
-                                ) : sub.commitUrl ? (
-                                  <a
-                                    href={sub.commitUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="heatmap-day-action-badge commit-action"
-                                    title={`Open verified commit for ${sub.name}`}
-                                  >
-                                    <Icon name="github" size={13} />
-                                    <span>Verified commit</span>
-                                    <Icon name="external" size={11} />
-                                  </a>
-                                ) : (
-                                  <span className="heatmap-day-submitted-chip">Submitted</span>
-                                )}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p className="heatmap-day-empty-sub">No accepted submissions on this date.</p>
-                    )}
-                  </div>
-
-                  {/* Not Submitted Section */}
-                  <div className="heatmap-day-section">
-                    <div className="heatmap-day-section-header">
-                      <span className="heatmap-day-section-title">
-                        <span className="section-dot dot-not-submitted" />
-                        NOT SUBMITTED
-                      </span>
-                      <span className="heatmap-day-count-pill pill-not-submitted">
-                        {heatmapDayData?.notSubmitted?.length || 0}
-                      </span>
-                    </div>
-                    {heatmapDayData?.notSubmitted?.length ? (
-                      <ul className="heatmap-day-submitters-list">
-                        {heatmapDayData.notSubmitted.map((member, i) => (
-                          <li key={`unsub-${member.userId}-${i}`} className="heatmap-day-submitter-row not-submitted-row">
-                            <MemberAvatar person={member} className="heatmap-day-submitter-avatar" label={member.name} />
-                            <div className="heatmap-day-submitter-info">
-                              <strong>{member.name}</strong>
-                              <span>{member.department}{member.studyYear ? ` · ${studyYearLabel(member.studyYear)}` : ''}</span>
-                            </div>
-                            <span className="heatmap-day-not-submitted-chip">Not submitted</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="heatmap-day-empty-sub">All active members submitted on this date!</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+      <section className="panel dashboard-rate-limits-panel water-glass-card">
+        <div className="panel-heading">
+          <div>
+            <div className="eyebrow"><span className="eyebrow-line"/>SECURITY & RATE LIMITS</div>
+            <h2>Active rate limits {rateLimitCount !== null && <span className="count-badge">{rateLimitCount}</span>}</h2>
           </div>
-        </div>,
-        document.body
-      )}
+          <div className="panel-heading-actions">
+            <button
+              type="button"
+              className="button button-danger clear-rate-limits-btn"
+              disabled={rateLimitBusy}
+              onClick={clearAllRateLimits}
+              title="Clear all active rate limits for all members and IPs in one click"
+            >
+              <IconifyIcon icon="charm:refresh" width={14} height={14} className={rateLimitBusy ? 'spin-icon' : ''} />
+              <span>{rateLimitBusy ? 'Clearing…' : 'Clear all rate limits'}</span>
+            </button>
+          </div>
+        </div>
+        <p className="helper-copy" style={{ margin: '6px 0 0' }}>
+          Instantly clear all rate limits for submissions, LeetCode checks, login attempts, and registrations across all members and IP addresses in one click.
+        </p>
+      </section>
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
 
