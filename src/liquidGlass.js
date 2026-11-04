@@ -8,6 +8,10 @@ export function initLiquidGlass() {
   if (typeof window === 'undefined') return () => {};
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mobileQuery = window.matchMedia('(max-width: 768px), (hover: none)');
+  function isMobileView() {
+    return mobileQuery.matches;
+  }
   const activeCards = new Set();
   let rafId = null;
 
@@ -25,7 +29,7 @@ export function initLiquidGlass() {
   }
 
   function spawnBlueRipple(card, x, y) {
-    if (prefersReduced) return;
+    if (prefersReduced || isMobileView()) return;
 
     // Primary ripple ring
     const ripple = document.createElement('span');
@@ -49,7 +53,7 @@ export function initLiquidGlass() {
   }
 
   function handlePointerMove(e) {
-    if (prefersReduced) return;
+    if (prefersReduced || isMobileView()) return;
     const card = e.currentTarget;
     if (card._waterRaf) return;
     const clientX = e.clientX;
@@ -70,6 +74,7 @@ export function initLiquidGlass() {
   }
 
   function handlePointerEnter(e) {
+    if (isMobileView()) return;
     const card = e.currentTarget;
     card.classList.add('water-active');
     const rect = card.getBoundingClientRect();
@@ -84,6 +89,7 @@ export function initLiquidGlass() {
   }
 
   function handlePointerDown(e) {
+    if (isMobileView()) return;
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -137,6 +143,7 @@ export function initLiquidGlass() {
   }
 
   function handleRippleHostDown(e) {
+    if (isMobileView()) return;
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -161,6 +168,13 @@ export function initLiquidGlass() {
   }
 
   function scanAndBind() {
+    if (isMobileView()) {
+      activeCards.forEach((el) => {
+        unbindCard(el);
+        unbindRippleHost(el);
+      });
+      return;
+    }
     activeCards.forEach((el) => {
       if (!el.isConnected || (!isAllowedRippleCard(el) && !el.classList.contains('water-ripple-host'))) {
         unbindCard(el);
@@ -197,7 +211,19 @@ export function initLiquidGlass() {
 
   observer.observe(document.body, { childList: true, subtree: true });
 
+  const handleMediaChange = () => scanAndBind();
+  try {
+    mobileQuery.addEventListener('change', handleMediaChange);
+  } catch (err) {
+    mobileQuery.addListener(handleMediaChange);
+  }
+
   return () => {
+    try {
+      mobileQuery.removeEventListener('change', handleMediaChange);
+    } catch (err) {
+      mobileQuery.removeListener(handleMediaChange);
+    }
     observer.disconnect();
     if (rafId) cancelAnimationFrame(rafId);
     activeCards.forEach((el) => {

@@ -237,6 +237,10 @@ before(() => {
       const tree = commitTrees.get(treeSha);
       return new Response(JSON.stringify({ tree: tree || [], truncated: false }), { status: tree ? 200 : 404 });
     }
+    if (url.hostname === 'api.github.com' && url.pathname.endsWith('/commits')) {
+      const allCommits = [...commits.values()];
+      return new Response(JSON.stringify(allCommits), { status: 200 });
+    }
     const sha = url.pathname.split('/').pop();
     const commit = commits.get(sha) || [...commits.entries()].find(([k]) => k.startsWith(sha))?.[1];
     return new Response(JSON.stringify(commit || { message: 'Not Found' }), { status: commit ? 200 : 404 });
@@ -1832,4 +1836,72 @@ test('admin view all stats rate limit allows more than 12 stats fetches without 
     assert.equal(res.response.status, 200, `Request ${i} should succeed for admin`);
     assert.equal(res.data.available, true);
   }
+});
+
+test('submitting solutions via GitHub blob link, repo link, or PR commit link resolves commit and accepts solution', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const student = await seedUser(db, { name: 'Flexible Solver', email: 'flex@abes.ac.in', username: 'student-gh' });
+  const assigned = await call(db, '/admin/assignments', { method: 'POST', cookie: admin.cookie, body: { dateKey: indiaDay(), questionId: 217 } });
+  const assignmentId = assigned.data.assignment.id;
+
+  const sha = 'e'.repeat(40);
+  commits.set(sha, commitFixture({ sha, questionId: 217, username: 'student-gh' }));
+
+  // 1. Submit via blob / file URL: https://github.com/student-gh/dsa-solutions/blob/main/217/solution.txt
+  const blobSub = await call(db, '/submissions', {
+    method: 'POST',
+    cookie: student.cookie,
+    body: { assignmentId, commitUrl: 'https://github.com/student-gh/dsa-solutions/blob/main/217/solution.txt' }
+  });
+  assert.equal(blobSub.response.status, 201);
+  assert.equal(blobSub.data.submission.status, 'accepted');
+  assert.equal(blobSub.data.submission.solutionPath, '217/solution.txt');
+
+  // 2. Submit via PR commit URL: https://github.com/student-gh/dsa-solutions/pull/1/commits/sha
+  const student2 = await seedUser(db, { name: 'PR Solver', email: 'pr@abes.ac.in', username: 'student-gh' });
+  const prSha = 'f'.repeat(40);
+  commits.set(prSha, commitFixture({ sha: prSha, questionId: 217, username: 'student-gh' }));
+  const prSub = await call(db, '/submissions', {
+    method: 'POST',
+    cookie: student2.cookie,
+    body: { assignmentId, commitUrl: `https://github.com/student-gh/dsa-solutions/pull/1/commits/${prSha}` }
+  });
+  assert.equal(prSub.response.status, 201);
+  assert.equal(prSub.data.submission.status, 'accepted');
+});
+
+test('admins can view active rate limit count and clear rate limits in one click', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const student = await seedUser(db, { name: 'Rate Limited User', email: 'limited@abes.ac.in', username: 'student-gh' });
+
+  // Add some dummy rate limit records
+  await db.collection('rateLimits').insertOne({ _id: 'submission-1:ip:1', count: 10 });
+  await db.collection('rateLimits').insertOne({ _id: 'register:ip:1', count: 6 });
+
+  // 1. Non-admin gets 403
+  const forbiddenView = await call(db, '/admin/rate-limits', { cookie: student.cookie });
+  assert.equal(forbiddenView.response.status, 403);
+  const forbiddenClear = await call(db, '/admin/clear-rate-limits', { method: 'POST', cookie: student.cookie, body: {} });
+  assert.equal(forbiddenClear.response.status, 403);
+
+  // 2. Admin views count
+  const countRes = await call(db, '/admin/rate-limits', { cookie: admin.cookie });
+  assert.equal(countRes.response.status, 200);
+  assert.ok(countRes.data.count >= 2);
+
+  // 3. Admin clears rate limits
+  const clearRes = await call(db, '/admin/clear-rate-limits', { method: 'POST', cookie: admin.cookie, body: {} });
+  assert.equal(clearRes.response.status, 200);
+  assert.equal(clearRes.data.ok, true);
+  assert.ok(clearRes.data.clearedCount >= 2);
+
+  // 4. Verify rateLimits collection is empty
+  const afterCount = await call(db, '/admin/rate-limits', { cookie: admin.cookie });
+  assert.equal(afterCount.data.count, 0);
+
+  // 5. Verify audit log entry
+  const activity = await call(db, '/admin/activity', { cookie: admin.cookie });
+  assert.equal(activity.data.activity[0].action, 'rate_limits_cleared');
 });
