@@ -278,10 +278,12 @@ async function githubJson(path, token) {
   let response;
   try {
     response = await fetch(`https://api.github.com${path}`, { headers });
-  } catch {
+  } catch (err) {
+    console.error(`[GitHub API Network Error] GET ${path}:`, err?.message || err);
     throw new HttpError(503, 'Could not connect to GitHub API. Please check your network connection and try again.');
   }
   if (response.status === 401 && cleanToken) {
+    console.warn(`[GitHub API Auth Warning] GET ${path}: 401 Unauthorized with provided token. Retrying unauthenticated.`);
     try {
       delete headers.Authorization;
       const retryResponse = await fetch(`https://api.github.com${path}`, { headers });
@@ -289,6 +291,12 @@ async function githubJson(path, token) {
     } catch {}
   }
   if (!response.ok) {
+    let errorDetail = '';
+    try {
+      const errPayload = await response.json();
+      errorDetail = errPayload?.message ? ` - ${errPayload.message}` : '';
+    } catch {}
+    console.warn(`[GitHub API Error] GET ${path} -> HTTP ${response.status} (${response.statusText})${errorDetail}`);
     const status = response.status === 404 ? 404 : (response.status === 403 || response.status === 429) ? 429 : 502;
     const msg = response.status === 404
       ? 'GitHub could not find that account or commit.'
@@ -756,6 +764,7 @@ async function makeSubmission(db, req, user, body) {
   }
 
   const assignment = await getTodayAssignment(db);
+  console.log(`[Submission Attempt] Member: "${user.name}" (@${user.githubUsername || 'no-gh'}), Method: ${isLeetCode ? 'leetcode' : 'github'}, Assignment: ${assignment ? `${assignment.dateKey} (LC #${assignment.questionId})` : 'none'}`);
   if (!assignment || (body.assignmentId && String(assignment._id) !== String(body.assignmentId))) {
     throw new HttpError(409, 'Submissions are only open for today’s published Question of the Day.');
   }
@@ -788,6 +797,7 @@ async function makeSubmission(db, req, user, body) {
       }
     }`;
 
+    console.log(`[LeetCode Query] Checking recent submissions for @${leetcodeUser}, question LC #${assignment.questionId}`);
     let response;
     try {
       response = await fetch('https://leetcode.com/graphql/', {
@@ -801,15 +811,18 @@ async function makeSubmission(db, req, user, body) {
         body: JSON.stringify({ query, variables: { username: leetcodeUser, limit: 20 } }),
         signal: AbortSignal.timeout(10000),
       });
-    } catch {
+    } catch (err) {
+      console.error(`[LeetCode Network Error] @${leetcodeUser}:`, err?.message || err);
       throw new HttpError(502, 'Could not connect to LeetCode public API. Please try again in a few moments.');
     }
     if (!response.ok) {
+      console.warn(`[LeetCode API Error] HTTP ${response.status} for @${leetcodeUser}`);
       throw new HttpError(502, 'LeetCode public API returned an error. Please try again.');
     }
     const payload = await response.json().catch(() => ({}));
     const submissionList = payload?.data?.recentSubmissionList;
     if (!Array.isArray(submissionList)) {
+      console.warn(`[LeetCode API Warning] No recentSubmissionList in response for @${leetcodeUser}`);
       throw new HttpError(502, 'Could not retrieve recent submissions from LeetCode. Verify your LeetCode username and try again.');
     }
 
@@ -835,6 +848,8 @@ async function makeSubmission(db, req, user, body) {
       const date = new Date(ts > 1e11 ? ts : ts * 1000);
       return isOnAssignmentDay(date, assignment.dateKey);
     });
+
+    console.log(`[LeetCode Submissions Result] Total fetched: ${submissionList.length}, target slug: "${targetSlug}", accepted today: ${acceptedToday.length}`);
 
     if (!acceptedToday.length) {
       const anyToday = submissionList.find((item) => {
@@ -892,7 +907,9 @@ async function makeSubmission(db, req, user, body) {
     await allowRequest(db, req, `submission-${user._id}`, 5, 60 * 60 * 1000);
 
     const rawInput = body.commitUrl || body.commitCode || body.commitSha || '';
+    console.log(`[GitHub Submission] Input: "${rawInput}" from user @${user.githubUsername}`);
     const { owner, repository, sha, commitData } = await resolveCommitInput(db, user, rawInput);
+    console.log(`[GitHub Commit Resolved] ${owner}/${repository} @ sha ${sha}`);
     const username = String(user.githubUsername || '').toLowerCase();
     if (owner.toLowerCase() !== username) throw new HttpError(403, 'Use a repository owned by your linked GitHub account.');
     const commit = commitData || await githubJson(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits/${encodeURIComponent(sha)}`, process.env.GITHUB_TOKEN);
@@ -925,6 +942,7 @@ async function makeSubmission(db, req, user, body) {
     const solutionSizeBytes = matchingFile ? (sizeByPath.get(matchingFile.filename) || matchingFile.changes || 1) : 0;
     const targetFilename = matchingFiles[0]?.filename || `${assignment.questionId}/solution.txt`;
     if (!matchingFile) throw new HttpError(400, `${targetFilename} must contain at least one byte at this commit.`);
+    console.log(`[GitHub Commit Validated] Author: ${author} (${commitDate}), Committer: ${committer}, Solution: ${matchingFile.filename} (${solutionSizeBytes} bytes)`);
     const now = new Date();
     submission = {
       assignmentId: assignment._id, userId: user._id, questionId: assignment.questionId,
@@ -949,9 +967,11 @@ async function makeSubmission(db, req, user, body) {
       $set: submission,
       $push: { supersededAttempts: previousAttempt },
     });
+    console.log(`[Submission Updated] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) updated submission for LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
     return { ...submission, _id: existing._id, id: String(existing._id) };
   }
   const result = await db.collection('submissions').insertOne(submission);
+  console.log(`[Submission Created] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) successfully submitted LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
   if (submission.status === 'accepted' && submission.questionId) {
     try {
       await db.collection('personalProgress').updateOne(
@@ -2364,6 +2384,22 @@ export async function handleApiNode(req, res, options = {}) {
       requireRole(admin, 'admin');
       return json(res, 200, await listAdminActivity(db, url));
     }
+    if (url.pathname === '/api/admin/rate-limits' && method === 'GET') {
+      const admin = await requireUser(req, db);
+      requireRole(admin, 'admin');
+      const count = await db.collection('rateLimits').countDocuments();
+      return json(res, 200, { count });
+    }
+    if (url.pathname === '/api/admin/clear-rate-limits' && method === 'POST') {
+      const admin = await requireUser(req, db);
+      requireRole(admin, 'admin');
+      const count = await db.collection('rateLimits').countDocuments();
+      const result = await db.collection('rateLimits').deleteMany({});
+      const clearedCount = result.deletedCount ?? count;
+      await recordAdminActivity(db, admin, 'rate_limits_cleared', { label: 'All active rate limits' }, { clearedCount });
+      console.log(`[Admin Action] Administrator ${admin.email} cleared ${clearedCount} rate limit records.`);
+      return json(res, 200, { ok: true, clearedCount });
+    }
     return json(res, 404, { error: 'API route not found.' });
   } catch (error) {
     if (error?.code === 11000) {
@@ -2380,8 +2416,8 @@ export async function handleApiNode(req, res, options = {}) {
 
     if (status >= 500) {
       console.error(`[DSAvation Error] [${reqId}] ${method} ${url.pathname} (${status}):`, error?.stack || error?.message || error);
-    } else if (status === 401 || status === 403 || status === 429) {
-      console.warn(`[DSAvation Security] [${reqId}] ${method} ${url.pathname} (${status}):`, error?.message);
+    } else {
+      console.warn(`[DSAvation Security] [${reqId}] ${method} ${url.pathname} (${status}):`, error?.message || error);
     }
 
     const publicMessage = isServerError

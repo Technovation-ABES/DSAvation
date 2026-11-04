@@ -936,6 +936,8 @@ function App() {
   const [avatarChoices, setAvatarChoices] = useState([]);
   const [activity, setActivity] = useState([]);
   const [activityPagination, setActivityPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [rateLimitCount, setRateLimitCount] = useState(null);
+  const [rateLimitBusy, setRateLimitBusy] = useState(false);
   const [scoredSubmissions, setScoredSubmissions] = useState([]);
   const [scoredPagination, setScoredPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [leaderboardPagination, setLeaderboardPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
@@ -1333,6 +1335,32 @@ function App() {
     finally { setActivityBusy(false); }
   }
 
+  async function refreshRateLimits() {
+    setRateLimitBusy(true);
+    try {
+      const result = await api('/admin/rate-limits');
+      setRateLimitCount(result.count ?? 0);
+    } catch {
+      // ignore
+    } finally {
+      setRateLimitBusy(false);
+    }
+  }
+
+  async function clearAllRateLimits() {
+    setRateLimitBusy(true);
+    try {
+      const result = await api('/admin/clear-rate-limits', { method: 'POST', body: {} });
+      setRateLimitCount(0);
+      setNotice(`Cleared ${result.clearedCount ?? 0} rate limit record(s). All members and IPs can now make requests.`);
+      await refreshActivity(1);
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setRateLimitBusy(false);
+    }
+  }
+
   async function refreshScoredSubmissions(page = 1) {
     setScoredBusy(true);
     try {
@@ -1653,6 +1681,7 @@ function App() {
     if (view === 'members' && account) loadDirectory(1);
     if (view === 'dashboard' && account?.role === 'admin') {
       if (Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap();
+      refreshRateLimits();
     }
   }, [view, account?.id, account?.role]);
 
@@ -1696,6 +1725,7 @@ function App() {
     if (nextView === 'dashboard' && account?.role === 'admin') {
       refreshMembers(1, memberFilter === 'heatmap' ? 'pending' : memberFilter, memberQuery);
       if (Object.keys(submissionHeatmapCounts).length === 0) loadSubmissionHeatmap();
+      refreshRateLimits();
     }
   }
 
@@ -1773,7 +1803,9 @@ function App() {
     event.preventDefault(); setSubmissionBusy(true); setNotice('');
     try {
       const cleanCommitUrl = String(commitUrl || '').trim();
+      console.log('[Submission] Submitting club solution via GitHub:', { assignmentId: club.assignment?.id, commitUrl: cleanCommitUrl });
       const result = await api('/submissions', { method: 'POST', body: { assignmentId: club.assignment?.id, commitUrl: cleanCommitUrl } });
+      console.log('[Submission] GitHub submission verified successfully:', result);
       setCommitUrl(''); setSubmissionHelpOpen(false); setNotice(`GitHub verified your solution. ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
       const qId = club.assignment?.questionId || result.submission?.questionId;
       if (qId) {
@@ -1793,6 +1825,7 @@ function App() {
         method: 'POST',
         body: { assignmentId: club.assignment?.id, type: 'leetcode' },
       });
+      console.log('[Submission] LeetCode submission verified successfully:', result);
       setNotice(`LeetCode verified your solution! ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
       const qId = club.assignment?.questionId || result.submission?.questionId;
       if (qId) {
@@ -2749,6 +2782,39 @@ function App() {
             )}
           </>
         )}
+      </section>
+      <section className="panel dashboard-rate-limits-panel water-glass-card">
+        <div className="panel-heading">
+          <div>
+            <div className="eyebrow"><span className="eyebrow-line"/>SECURITY & RATE LIMITS</div>
+            <h2>Active rate limits {rateLimitCount !== null && <span className="count-badge">{rateLimitCount}</span>}</h2>
+          </div>
+          <div className="panel-heading-actions">
+            <button
+              type="button"
+              className="button button-quiet"
+              disabled={rateLimitBusy}
+              title="Refresh active rate limits"
+              aria-label="Refresh active rate limits"
+              onClick={refreshRateLimits}
+            >
+              <IconifyIcon icon="charm:refresh" width={16} height={16} className={rateLimitBusy ? 'spin-icon' : ''} />
+            </button>
+            <button
+              type="button"
+              className="button button-danger clear-rate-limits-btn"
+              disabled={rateLimitBusy}
+              onClick={clearAllRateLimits}
+              title="Clear all active rate limits for all members and IPs in one click"
+            >
+              <IconifyIcon icon="charm:refresh" width={14} height={14} className={rateLimitBusy ? 'spin-icon' : ''} />
+              <span>{rateLimitBusy ? 'Clearing…' : 'Clear all rate limits'}</span>
+            </button>
+          </div>
+        </div>
+        <p className="helper-copy" style={{ margin: '6px 0 0' }}>
+          Instantly clear all rate limits for submissions, LeetCode checks, login attempts, and registrations across all members and IP addresses in one click.
+        </p>
       </section>
       <section className={`panel dashboard-activity-panel water-glass-card ${auditCardOpen ? 'is-open' : 'is-collapsed'}`}>
         <div className="panel-heading" style={{ cursor: 'pointer' }} onClick={() => setAuditCardOpen((prev) => !prev)}>
