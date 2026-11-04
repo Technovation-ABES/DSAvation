@@ -6073,3 +6073,300 @@ details[open] > .admin-activity-summary svg {
     border-color: rgba(125, 211, 252, 0.18) !important;
   }
 }
+
+
+/* ── Heatmap Day Click / Modal ──────────────────────────────────── */
+.heatmap-day-clickable {
+  cursor: pointer;
+  outline: none;
+}
+.heatmap-day-clickable:hover,
+.heatmap-day-clickable:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent, #3b82f6), 0 2px 8px rgba(59, 130, 246, 0.25);
+  transform: scale(1.12);
+  z-index: 2;
+  transition: transform 100ms ease, box-shadow 100ms ease;
+}
+.heatmap-click-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 4px 0 0;
+  opacity: 0.75;
+}
+
+/* Heatmap Day Modal card — extends the existing overlay card pattern */
+.heatmap-day-modal-card {
+  max-width: 580px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 22px;
+}
+.heatmap-day-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 4px 0 0;
+}
+.heatmap-day-modal-subtitle {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 3px 0 0;
+}
+.heatmap-day-modal-subtitle strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.heatmap-day-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding-right: 4px;
+}
+.heatmap-day-modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.heatmap-day-modal-error {
+  color: var(--danger, #ef4444);
+  font-size: 14px;
+  padding: 24px 0;
+  text-align: center;
+}
+.heatmap-day-empty-sub {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  padding: 12px 10px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Two-section layout */
+.heatmap-day-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.heatmap-day-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.heatmap-day-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 6px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.heatmap-day-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.section-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-submitted {
+  background: var(--green, #10b981);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.45);
+}
+.dot-not-submitted {
+  background: var(--text-muted, #94a3b8);
+  opacity: 0.7;
+}
+.heatmap-day-count-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 12px;
+  line-height: 1.4;
+}
+.pill-submitted {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--green, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.pill-not-submitted {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.05));
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+/* Submitters list & rows */
+.heatmap-day-submitters-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.heatmap-day-submitter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.heatmap-day-submitter-row:hover {
+  background: var(--surface-muted, rgba(0,0,0,0.03));
+  border-color: var(--line);
+}
+.not-submitted-row {
+  opacity: 0.85;
+}
+.not-submitted-row:hover {
+  opacity: 1;
+}
+
+.heatmap-day-submitter-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.heatmap-day-submitter-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.heatmap-day-submitter-info strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.heatmap-day-submitter-info span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.heatmap-day-submitter-lc {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--accent, #3b82f6);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  width: fit-content;
+  margin-top: 1px;
+}
+
+.heatmap-day-submitter-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Action Badges / Buttons (Verified Commit vs LeetCode Profile) */
+.heatmap-day-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 150ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.heatmap-day-action-badge.commit-action {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.heatmap-day-action-badge.commit-action:hover {
+  background: var(--line);
+  border-color: var(--text-muted);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.heatmap-day-action-badge.leetcode-action {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #b45309;
+}
+.heatmap-day-action-badge.leetcode-action:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.15);
+}
+
+.heatmap-day-submitted-chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--green, #10b981);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.heatmap-day-not-submitted-chip {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* Dark mode overrides */
+:root[data-theme="dark"] .heatmap-day-action-badge.leetcode-action {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+:root[data-theme="dark"] .heatmap-day-action-badge.leetcode-action:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+:root[data-theme="dark"] .heatmap-day-action-badge.commit-action {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+:root[data-theme="dark"] .heatmap-day-action-badge.commit-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+:root[data-theme="dark"] .heatmap-day-submitter-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .heatmap-day-submitter-lc {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}
+:root[data-theme="dark"] .heatmap-day-not-submitted-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
