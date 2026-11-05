@@ -433,7 +433,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   );
 });
 
-const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false, onDayClick }) {
+const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false, onDayClick, onDownloadMonthCsv }) {
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   const {
@@ -519,18 +519,45 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
 
   return (
     <div className="admin-heatmap-wrapper">
-      <p className="heatmap-caption admin-heatmap-caption">
-        {secondYearOnly
-          ? 'Each square represents accepted submissions on that day by second-year members.'
-          : 'Each square represents the number of accepted submissions on that day across all club members.'}
-      </p>
       <div className="heatmap-month-selector" role="tablist" aria-label="Select month">
         {monthsData.map((m) => (
-          <button key={m.monthKey} type="button" className={`month-tab ${activeMonth?.monthKey === m.monthKey ? 'active' : ''}`}
-            onClick={() => setSelectedMonthKey(m.monthKey)} role="tab" aria-selected={activeMonth?.monthKey === m.monthKey}>
-            <span>{m.shortMonth}</span>
-            {m.totalSolved > 0 && <span className="month-tab-badge">{m.totalSolved}</span>}
-          </button>
+          <div key={m.monthKey} className="month-tab-container">
+            <button
+              type="button"
+              className={`month-tab ${activeMonth?.monthKey === m.monthKey ? 'active' : ''}`}
+              onClick={() => setSelectedMonthKey(m.monthKey)}
+              role="tab"
+              aria-selected={activeMonth?.monthKey === m.monthKey}
+            >
+              <span>{m.shortMonth}</span>
+              {m.totalSolved > 0 && <span className="month-tab-badge">{m.totalSolved}</span>}
+            </button>
+            <div className="month-tab-flyout">
+              <button
+                type="button"
+                className="month-flyout-csv-btn primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownloadMonthCsv?.(m.monthKey, m.shortMonth, 'xlsx');
+                }}
+                title={`Download ${m.shortMonth} ${m.year} Excel (.xlsx) with colored cells`}
+              >
+                <Icon name="download" size={12} />
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                className="month-flyout-csv-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownloadMonthCsv?.(m.monthKey, m.shortMonth, 'csv');
+                }}
+                title={`Download ${m.shortMonth} ${m.year} CSV (.csv)`}
+              >
+                <span>.csv</span>
+              </button>
+            </div>
+          </div>
         ))}
       </div>
       <div className="admin-heatmap-calendar-wrap">
@@ -585,7 +612,6 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
             ))}
             <span>30+</span>
           </div>
-          {onDayClick && <p className="heatmap-click-hint">Click any highlighted day to see who submitted.</p>}
         </div>
       </div>
     </div>
@@ -998,6 +1024,7 @@ function App() {
   const [heatmapDayModal, setHeatmapDayModal] = useState(null); // { date, count }
   const [heatmapDayData, setHeatmapDayData] = useState(null);  // { date, submissions, count }
   const [heatmapDayBusy, setHeatmapDayBusy] = useState(false);
+  const heatmapDatePickerRef = useRef(null);
 
   useEffect(() => {
     if (!account) return;
@@ -1200,8 +1227,51 @@ function App() {
     finally { setMembersBusy(false); }
   }
 
+  const MIN_HEATMAP_DATE = '2026-11-01';
+  const todayDateKey = localDay();
+  const isHeatmapPrevDisabled = !heatmapDayModal?.date || heatmapDayModal.date <= MIN_HEATMAP_DATE;
+  const isHeatmapNextDisabled = !heatmapDayModal?.date || heatmapDayModal.date >= todayDateKey;
+
+  function navigateHeatmapDay(offset) {
+    if (!heatmapDayModal?.date) return;
+    const [y, m, d] = heatmapDayModal.date.split('-').map(Number);
+    const nextDt = new Date(Date.UTC(y, m - 1, d + offset));
+    let nextDateKey = nextDt.toISOString().slice(0, 10);
+    if (nextDateKey < MIN_HEATMAP_DATE) nextDateKey = MIN_HEATMAP_DATE;
+    if (nextDateKey > todayDateKey) nextDateKey = todayDateKey;
+    if (nextDateKey !== heatmapDayModal.date) {
+      openHeatmapDay(nextDateKey);
+    }
+  }
+
+  async function handleDownloadMonthCsv(monthKey, shortMonth, format = 'xlsx') {
+    try {
+      const yearQuery = heatmapSecondYearOnly ? '&studyYear=second-year' : '';
+      const response = await fetch(`/api/admin/month-submissions-csv?month=${encodeURIComponent(monthKey)}&format=${format}${yearQuery}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to download file');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `submissions-${monthKey}${heatmapSecondYearOnly ? '-2nd-year' : ''}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setNotice(`Download error: ${err.message}`);
+    }
+  }
+
   async function openHeatmapDay(date, count) {
-    setHeatmapDayModal({ date, count });
+    const activeCounts = heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts;
+    const knownCount = count ?? activeCounts[date] ?? 0;
+    setHeatmapDayModal({ date, count: knownCount });
     setHeatmapDayData(null);
     setHeatmapDayBusy(true);
     try {
@@ -2192,7 +2262,7 @@ function App() {
             ) : assignedQuestion ? (
               <>
                 <div className="today-date">
-                  <span>{club.assignment.dateKey}</span>
+                  <span>{club.assignment.dateKey ? club.assignment.dateKey.split('-').reverse().join('-') : ''}</span>
                   <span className="date-sep">·</span>
                   <span className="topic-name">{assignedQuestion.topic}</span>
                 </div>
@@ -2453,8 +2523,8 @@ function App() {
           );
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
         {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
-        {adminOverlayMember && (
-          <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)}>
+        {adminOverlayMember && createPortal(
+          <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)} role="dialog" aria-modal="true">
             <div className="member-admin-overlay-card panel" onClick={(e) => e.stopPropagation()}>
               <div className="member-admin-overlay-header">
                 <div className="member-admin-overlay-identity">
@@ -2616,7 +2686,8 @@ function App() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
@@ -2626,7 +2697,7 @@ function App() {
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Admin Dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading">
-          <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
+          <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts</h2></div>
           <div className="panel-heading-actions">
             {memberFilter === 'heatmap' && (
               <button
@@ -2707,6 +2778,7 @@ function App() {
                 counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
                 secondYearOnly={heatmapSecondYearOnly}
                 onDayClick={openHeatmapDay}
+                onDownloadMonthCsv={handleDownloadMonthCsv}
               />
             )}
           </div>
@@ -2747,7 +2819,6 @@ function App() {
         </div>
         {acceptedSubmissionsOpen && (
           <>
-            <p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>
             {scoredSubmissions.length ? (
               <div className="review-list">
                 {scoredSubmissions.map((item) => {
@@ -2891,13 +2962,71 @@ function App() {
       {heatmapDayModal && createPortal(
         <div className="member-admin-overlay-backdrop" onClick={closeHeatmapDayModal} role="dialog" aria-modal="true" aria-label={`Submissions on ${heatmapDayModal.date}`}>
           <div className="member-admin-overlay-card heatmap-day-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="member-admin-overlay-header">
-              <div>
+                        <div className="member-admin-overlay-header heatmap-day-modal-header">
+              <div className="heatmap-day-header-info">
                 <div className="eyebrow"><span className="eyebrow-line" />SUBMISSION DETAIL{heatmapSecondYearOnly ? ' (2ND YEAR)' : ''}</div>
-                <h2 className="heatmap-day-modal-title">
-                  <Icon name="calendar" size={18} />
-                  {new Date(`${heatmapDayModal.date}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
-                </h2>
+                <div className="heatmap-day-nav-bar">
+                  <button
+                    type="button"
+                    className="heatmap-nav-arrow-btn"
+                    onClick={() => navigateHeatmapDay(-1)}
+                    disabled={isHeatmapPrevDisabled || heatmapDayBusy}
+                    title={isHeatmapPrevDisabled ? "Cannot navigate before 1 November 2026" : "Previous day"}
+                    aria-label="Previous day"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
+
+                  <div className="heatmap-day-date-picker-wrap">
+                    <button
+                      type="button"
+                      className="heatmap-day-date-trigger"
+                      onClick={() => heatmapDatePickerRef.current?.showPicker?.() || heatmapDatePickerRef.current?.focus?.()}
+                      title="Click to choose a date from calendar (from 1 Nov onwards)"
+                      aria-label="Select date"
+                    >
+                      <Icon name="calendar" size={17} />
+                      <span className="heatmap-day-date-text">
+                        {new Date(`${heatmapDayModal.date}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
+                      </span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="heatmap-day-cal-chevron">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                    <input
+                      ref={heatmapDatePickerRef}
+                      type="date"
+                      min={MIN_HEATMAP_DATE}
+                      max={todayDateKey}
+                      value={heatmapDayModal.date}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          let d = e.target.value;
+                          if (d < MIN_HEATMAP_DATE) d = MIN_HEATMAP_DATE;
+                          if (d > todayDateKey) d = todayDateKey;
+                          openHeatmapDay(d);
+                        }
+                      }}
+                      className="heatmap-day-native-date-input"
+                      aria-label="Select date from calendar"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="heatmap-nav-arrow-btn"
+                    onClick={() => navigateHeatmapDay(1)}
+                    disabled={isHeatmapNextDisabled || heatmapDayBusy}
+                    title={isHeatmapNextDisabled ? "Cannot navigate to future dates" : "Next day"}
+                    aria-label="Next day"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </button>
+                </div>
                 {!heatmapDayBusy && heatmapDayData && (
                   <p className="heatmap-day-modal-subtitle">
                     <strong>{heatmapDayData.count ?? 0}</strong> submitted
@@ -3043,9 +3172,8 @@ function App() {
               {assignedQuestion ? (
                 <>
                   <div className="assignment-meta">
-                    <span>{club.assignment.dateKey}</span>
-                    <span>{assignedQuestion.topic}</span>
                     <span>LeetCode #{assignedQuestion.id}</span>
+                    <span>{assignedQuestion.topic}</span>
                     <span>{assignedQuestion.pattern}</span>
                   </div>
                   <p className="assignment-prompt">
@@ -3241,7 +3369,7 @@ function App() {
                 <div className="history-list">
                   {history.map((item) => {
                     const question = byId.get(Number(item.questionId));
-                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey.slice(5)}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
+                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey ? item.dateKey.split('-').slice(1).reverse().join('-') : ''}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
                   })}
                 </div>
                 <div className="pagination-controls" aria-label="Assignment log pages">

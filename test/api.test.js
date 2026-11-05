@@ -1822,6 +1822,28 @@ test('submissions heatmap provides full and second-year counts, and enforces adm
   // 7. Regular user is forbidden
   const forbiddenByDate = await call(db, '/admin/submissions-by-date?date=2026-11-04', { cookie: regular.cookie });
   assert.equal(forbiddenByDate.response.status, 403);
+
+  // 8. Month CSV export
+  const monthCsvRes = await call(db, '/admin/month-submissions-csv?month=2026-11&format=csv', { cookie: admin.cookie });
+  assert.equal(monthCsvRes.response.status, 200);
+  assert.ok(monthCsvRes.response.headers.get('content-type').includes('text/csv'));
+  assert.ok(monthCsvRes.text.includes('Name,Department,nov1,nov2'));
+  assert.ok(monthCsvRes.text.includes('Submissions'));
+  assert.ok(monthCsvRes.text.includes('✔'));
+  assert.ok(monthCsvRes.text.includes('✘'));
+
+  // 8b. Month XLSX export
+  const monthXlsxRes = await call(db, '/admin/month-submissions-csv?month=2026-11&format=xlsx', { cookie: admin.cookie });
+  assert.equal(monthXlsxRes.response.status, 200);
+  assert.ok(monthXlsxRes.response.headers.get('content-type').includes('spreadsheetml'));
+
+  // 9. Regular user cannot download month CSV
+  const forbiddenCsv = await call(db, '/admin/month-submissions-csv?month=2026-11', { cookie: regular.cookie });
+  assert.equal(forbiddenCsv.response.status, 403);
+
+  // 10. Invalid month format rejected
+  const invalidMonth = await call(db, '/admin/month-submissions-csv?month=bad-format', { cookie: admin.cookie });
+  assert.equal(invalidMonth.response.status, 400);
 });
 
 test('admin view all stats rate limit allows more than 12 stats fetches without hitting rate limit', async () => {
