@@ -433,7 +433,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
   );
 });
 
-const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false, onDayClick }) {
+const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ counts = {}, secondYearOnly = false, onDayClick, onDownloadMonthCsv }) {
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   const {
@@ -526,11 +526,43 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
       </p>
       <div className="heatmap-month-selector" role="tablist" aria-label="Select month">
         {monthsData.map((m) => (
-          <button key={m.monthKey} type="button" className={`month-tab ${activeMonth?.monthKey === m.monthKey ? 'active' : ''}`}
-            onClick={() => setSelectedMonthKey(m.monthKey)} role="tab" aria-selected={activeMonth?.monthKey === m.monthKey}>
-            <span>{m.shortMonth}</span>
-            {m.totalSolved > 0 && <span className="month-tab-badge">{m.totalSolved}</span>}
-          </button>
+          <div key={m.monthKey} className="month-tab-container">
+            <button
+              type="button"
+              className={`month-tab ${activeMonth?.monthKey === m.monthKey ? 'active' : ''}`}
+              onClick={() => setSelectedMonthKey(m.monthKey)}
+              role="tab"
+              aria-selected={activeMonth?.monthKey === m.monthKey}
+            >
+              <span>{m.shortMonth}</span>
+              {m.totalSolved > 0 && <span className="month-tab-badge">{m.totalSolved}</span>}
+            </button>
+            <div className="month-tab-flyout">
+              <button
+                type="button"
+                className="month-flyout-csv-btn primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownloadMonthCsv?.(m.monthKey, m.shortMonth, 'xlsx');
+                }}
+                title={`Download ${m.shortMonth} ${m.year} Excel (.xlsx) with colored cells`}
+              >
+                <Icon name="download" size={12} />
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button
+                type="button"
+                className="month-flyout-csv-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownloadMonthCsv?.(m.monthKey, m.shortMonth, 'csv');
+                }}
+                title={`Download ${m.shortMonth} ${m.year} CSV (.csv)`}
+              >
+                <span>.csv</span>
+              </button>
+            </div>
+          </div>
         ))}
       </div>
       <div className="admin-heatmap-calendar-wrap">
@@ -1215,6 +1247,30 @@ function App() {
     if (nextDateKey > todayDateKey) nextDateKey = todayDateKey;
     if (nextDateKey !== heatmapDayModal.date) {
       openHeatmapDay(nextDateKey);
+    }
+  }
+
+  async function handleDownloadMonthCsv(monthKey, shortMonth, format = 'xlsx') {
+    try {
+      const yearQuery = heatmapSecondYearOnly ? '&studyYear=second-year' : '';
+      const response = await fetch(`/api/admin/month-submissions-csv?month=${encodeURIComponent(monthKey)}&format=${format}${yearQuery}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to download file');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `submissions-${monthKey}${heatmapSecondYearOnly ? '-2nd-year' : ''}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setNotice(`Download error: ${err.message}`);
     }
   }
 
@@ -2727,6 +2783,7 @@ function App() {
                 counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
                 secondYearOnly={heatmapSecondYearOnly}
                 onDayClick={openHeatmapDay}
+                onDownloadMonthCsv={handleDownloadMonthCsv}
               />
             )}
           </div>

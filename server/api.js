@@ -40,6 +40,14 @@ function json(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
+function sendBuffer(res, status, buffer, headers = {}) {
+  res.statusCode = status;
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
+  res.end(buffer);
+}
+
 function sendText(res, status, text, headers = {}) {
   res.statusCode = status;
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -1531,6 +1539,177 @@ async function getSubmissionsByDate(db, user, url) {
   };
 }
 
+
+async function getMonthSubmissionsExport(db, user, url) {
+  requireRole(user, 'lead', 'admin');
+  const monthKey = url?.searchParams?.get('month') || '';
+  const studyYearParam = url?.searchParams?.get('studyYear') || '';
+  const format = url?.searchParams?.get('format') || 'xlsx';
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new HttpError(400, 'A valid month query parameter (YYYY-MM) is required.');
+  }
+
+  const [yearStr, monthStr] = monthKey.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const numDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mDate = new Date(Date.UTC(year, month - 1, 1));
+  const shortMonth = mDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toLowerCase();
+
+  // 1. Fetch approved users (optionally filtered by studyYear)
+  const userFilter = approvedUserFilter(studyYearParam === 'second-year' ? { studyYear: 'second-year' } : {});
+  const users = await db.collection('users').find(userFilter, {
+    projection: { name: 1, department: 1, studyYear: 1 }
+  }).toArray();
+
+  // 2. Fetch accepted submissions
+  const items = await db.collection('submissions')
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1, userId: 1 } })
+    .toArray();
+
+  const IST = 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const userSubmissionDays = new Map();
+  for (const item of items) {
+    if (!item.submittedAt) continue;
+    const dateStr = fmt.format(new Date(item.submittedAt));
+    if (dateStr.startsWith(monthKey)) {
+      const dayNum = parseInt(dateStr.slice(8, 10), 10);
+      const uid = String(item.userId);
+      if (!userSubmissionDays.has(uid)) {
+        userSubmissionDays.set(uid, new Set());
+      }
+      userSubmissionDays.get(uid).add(dayNum);
+    }
+  }
+
+  // Calculate total solved per user & sort descending by solutions, then by name
+  for (const u of users) {
+    const subDays = userSubmissionDays.get(String(u._id)) || new Set();
+    u.subDays = subDays;
+    u.totalSolved = subDays.size;
+  }
+  users.sort((a, b) => (b.totalSolved - a.totalSolved) || (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+  const dayCols = [];
+  for (let day = 1; day <= numDays; day++) {
+    dayCols.push(`${shortMonth}${day}`);
+  }
+
+  // If XLSX format requested (or default), generate rich styled Excel spreadsheet
+  if (format === 'xlsx') {
+    const ExcelJS = (await import('exceljs')).default || (await import('exceljs'));
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'DSAvation';
+    const worksheet = workbook.addWorksheet(`${mDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} ${year}`);
+
+    const columns = [
+      { header: 'Name', key: 'name', width: 24 },
+      { header: 'Department', key: 'department', width: 16 },
+      ...dayCols.map((col) => ({ header: col, key: col, width: 7 })),
+      { header: 'Submissions', key: 'submissions', width: 14 },
+    ];
+    worksheet.columns = columns;
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 24;
+    headerRow.eachCell((cell, colNumber) => {
+      const isSubCol = colNumber === columns.length;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isSubCol ? 'FFFEF08A' : 'FFF1F5F9' },
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        bold: true,
+        color: { argb: isSubCol ? 'FF713F12' : 'FF1E293B' },
+        size: 10,
+      };
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: colNumber <= 2 ? 'left' : 'center',
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'medium', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
+    });
+
+    users.forEach((u) => {
+      const rowData = {
+        name: u.name,
+        department: u.department,
+        submissions: u.totalSolved,
+      };
+      for (let day = 1; day <= numDays; day++) {
+        const colKey = `${shortMonth}${day}`;
+        rowData[colKey] = u.subDays.has(day) ? '✔' : '✘';
+      }
+      const row = worksheet.addRow(rowData);
+      row.height = 20;
+
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: colNumber <= 2 ? 'left' : 'center',
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+
+        if (colNumber > 2 && colNumber < columns.length) {
+          const val = cell.value;
+          if (val === '✔') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // Light green
+            cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF065F46' }, size: 10 };
+          } else {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; // Light red
+            cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF991B1B' }, size: 10 };
+          }
+        } else if (colNumber === columns.length) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } }; // Light yellow
+          cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF713F12' }, size: 10.5 };
+        } else {
+          cell.font = { name: 'Segoe UI', size: 10 };
+        }
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return {
+      buffer,
+      filename: `submissions-${monthKey}${studyYearParam === 'second-year' ? '-second-year' : ''}.xlsx`,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  // CSV Fallback
+  const escapeCsv = (str) => `"${String(str ?? '').replace(/"/g, '""')}"`;
+  const header = ['Name', 'Department', ...dayCols, 'Submissions'].join(',');
+
+  const rows = users.map((u) => {
+    const dayCells = [];
+    for (let day = 1; day <= numDays; day++) {
+      dayCells.push(u.subDays.has(day) ? '✔' : '✘');
+    }
+    return [escapeCsv(u.name), escapeCsv(u.department), ...dayCells, u.totalSolved].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [header, ...rows].join('\r\n');
+  return {
+    csv: csvContent,
+    filename: `submissions-${monthKey}${studyYearParam === 'second-year' ? '-second-year' : ''}.csv`,
+    contentType: 'text/csv; charset=utf-8',
+  };
+}
+
 async function getTodaySubmissions(db, req, user, url) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
@@ -2441,6 +2620,19 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (url.pathname === '/api/admin/submissions-by-date' && method === 'GET') {
       return json(res, 200, await getSubmissionsByDate(db, user, url));
+    }
+    if ((url.pathname === '/api/admin/month-submissions-csv' || url.pathname === '/api/admin/month-submissions-export') && method === 'GET') {
+      const result = await getMonthSubmissionsExport(db, user, url);
+      if (result.buffer) {
+        return sendBuffer(res, 200, result.buffer, {
+          'Content-Type': result.contentType,
+          'Content-Disposition': `attachment; filename="${result.filename}"`,
+        });
+      }
+      return sendText(res, 200, result.csv, {
+        'Content-Type': result.contentType || 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+      });
     }
     if (url.pathname === '/api/admin/today-submissions' && method === 'GET') {
       const result = await getTodaySubmissions(db, req, user, url);
