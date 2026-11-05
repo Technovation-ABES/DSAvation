@@ -998,6 +998,7 @@ function App() {
   const [heatmapDayModal, setHeatmapDayModal] = useState(null); // { date, count }
   const [heatmapDayData, setHeatmapDayData] = useState(null);  // { date, submissions, count }
   const [heatmapDayBusy, setHeatmapDayBusy] = useState(false);
+  const heatmapDatePickerRef = useRef(null);
 
   useEffect(() => {
     if (!account) return;
@@ -1200,8 +1201,27 @@ function App() {
     finally { setMembersBusy(false); }
   }
 
+  const MIN_HEATMAP_DATE = '2026-11-01';
+  const todayDateKey = localDay();
+  const isHeatmapPrevDisabled = !heatmapDayModal?.date || heatmapDayModal.date <= MIN_HEATMAP_DATE;
+  const isHeatmapNextDisabled = !heatmapDayModal?.date || heatmapDayModal.date >= todayDateKey;
+
+  function navigateHeatmapDay(offset) {
+    if (!heatmapDayModal?.date) return;
+    const [y, m, d] = heatmapDayModal.date.split('-').map(Number);
+    const nextDt = new Date(Date.UTC(y, m - 1, d + offset));
+    let nextDateKey = nextDt.toISOString().slice(0, 10);
+    if (nextDateKey < MIN_HEATMAP_DATE) nextDateKey = MIN_HEATMAP_DATE;
+    if (nextDateKey > todayDateKey) nextDateKey = todayDateKey;
+    if (nextDateKey !== heatmapDayModal.date) {
+      openHeatmapDay(nextDateKey);
+    }
+  }
+
   async function openHeatmapDay(date, count) {
-    setHeatmapDayModal({ date, count });
+    const activeCounts = heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts;
+    const knownCount = count ?? activeCounts[date] ?? 0;
+    setHeatmapDayModal({ date, count: knownCount });
     setHeatmapDayData(null);
     setHeatmapDayBusy(true);
     try {
@@ -2891,13 +2911,71 @@ function App() {
       {heatmapDayModal && createPortal(
         <div className="member-admin-overlay-backdrop" onClick={closeHeatmapDayModal} role="dialog" aria-modal="true" aria-label={`Submissions on ${heatmapDayModal.date}`}>
           <div className="member-admin-overlay-card heatmap-day-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="member-admin-overlay-header">
-              <div>
+                        <div className="member-admin-overlay-header heatmap-day-modal-header">
+              <div className="heatmap-day-header-info">
                 <div className="eyebrow"><span className="eyebrow-line" />SUBMISSION DETAIL{heatmapSecondYearOnly ? ' (2ND YEAR)' : ''}</div>
-                <h2 className="heatmap-day-modal-title">
-                  <Icon name="calendar" size={18} />
-                  {new Date(`${heatmapDayModal.date}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
-                </h2>
+                <div className="heatmap-day-nav-bar">
+                  <button
+                    type="button"
+                    className="heatmap-nav-arrow-btn"
+                    onClick={() => navigateHeatmapDay(-1)}
+                    disabled={isHeatmapPrevDisabled || heatmapDayBusy}
+                    title={isHeatmapPrevDisabled ? "Cannot navigate before 1 November 2026" : "Previous day"}
+                    aria-label="Previous day"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
+
+                  <div className="heatmap-day-date-picker-wrap">
+                    <button
+                      type="button"
+                      className="heatmap-day-date-trigger"
+                      onClick={() => heatmapDatePickerRef.current?.showPicker?.() || heatmapDatePickerRef.current?.focus?.()}
+                      title="Click to choose a date from calendar (from 1 Nov onwards)"
+                      aria-label="Select date"
+                    >
+                      <Icon name="calendar" size={17} />
+                      <span className="heatmap-day-date-text">
+                        {new Date(`${heatmapDayModal.date}T00:00:00.000Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
+                      </span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="heatmap-day-cal-chevron">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                    <input
+                      ref={heatmapDatePickerRef}
+                      type="date"
+                      min={MIN_HEATMAP_DATE}
+                      max={todayDateKey}
+                      value={heatmapDayModal.date}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          let d = e.target.value;
+                          if (d < MIN_HEATMAP_DATE) d = MIN_HEATMAP_DATE;
+                          if (d > todayDateKey) d = todayDateKey;
+                          openHeatmapDay(d);
+                        }
+                      }}
+                      className="heatmap-day-native-date-input"
+                      aria-label="Select date from calendar"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="heatmap-nav-arrow-btn"
+                    onClick={() => navigateHeatmapDay(1)}
+                    disabled={isHeatmapNextDisabled || heatmapDayBusy}
+                    title={isHeatmapNextDisabled ? "Cannot navigate to future dates" : "Next day"}
+                    aria-label="Next day"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </button>
+                </div>
                 {!heatmapDayBusy && heatmapDayData && (
                   <p className="heatmap-day-modal-subtitle">
                     <strong>{heatmapDayData.count ?? 0}</strong> submitted

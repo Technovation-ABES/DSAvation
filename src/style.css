@@ -6370,3 +6370,110 @@ details[open] > .admin-activity-summary svg {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
+
+/* Heatmap Day Navigation & Date Picker */
+.heatmap-day-modal-header {
+  align-items: flex-start;
+}
+.heatmap-day-header-info {
+  flex: 1;
+  min-width: 0;
+}
+.heatmap-day-nav-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 2px;
+  flex-wrap: wrap;
+}
+.heatmap-nav-arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted, rgba(0, 0, 0, 0.04));
+  color: var(--text);
+  cursor: pointer;
+  transition: all 150ms ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+.heatmap-nav-arrow-btn:hover:not(:disabled) {
+  background: var(--line);
+  border-color: var(--text-muted);
+  transform: translateY(-1px);
+}
+.heatmap-nav-arrow-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.heatmap-nav-arrow-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Date picker button container and trigger */
+.heatmap-day-date-picker-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.heatmap-day-date-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.heatmap-day-date-trigger:hover {
+  background: var(--surface-muted, rgba(0, 0, 0, 0.05));
+  border-color: var(--line);
+}
+.heatmap-day-date-picker-wrap:focus-within .heatmap-day-date-trigger {
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.heatmap-day-cal-chevron {
+  opacity: 0.55;
+  margin-left: 2px;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+.heatmap-day-date-trigger:hover .heatmap-day-cal-chevron {
+  opacity: 1;
+  transform: translateY(1px);
+}
+.heatmap-day-native-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+:root[data-theme="dark"] .heatmap-nav-arrow-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+:root[data-theme="dark"] .heatmap-nav-arrow-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+:root[data-theme="dark"] .heatmap-day-date-trigger:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
