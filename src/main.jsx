@@ -519,11 +519,6 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
 
   return (
     <div className="admin-heatmap-wrapper">
-      <p className="heatmap-caption admin-heatmap-caption">
-        {secondYearOnly
-          ? 'Each square represents accepted submissions on that day by second-year members.'
-          : 'Each square represents the number of accepted submissions on that day across all club members.'}
-      </p>
       <div className="heatmap-month-selector" role="tablist" aria-label="Select month">
         {monthsData.map((m) => (
           <div key={m.monthKey} className="month-tab-container">
@@ -617,7 +612,6 @@ const AdminSubmissionsHeatmap = React.memo(function AdminSubmissionsHeatmap({ co
             ))}
             <span>30+</span>
           </div>
-          {onDayClick && <p className="heatmap-click-hint">Click any highlighted day to see who submitted.</p>}
         </div>
       </div>
     </div>
@@ -2703,7 +2697,7 @@ function App() {
       <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ADMINISTRATION</div><h1>Admin Dashboard<span>.</span></h1></div></div>
       <section className="panel dashboard-members-panel">
         <div className="panel-heading">
-          <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts <span className="count-badge">{membersPagination.total}</span></h2></div>
+          <div><div className="eyebrow"><span className="eyebrow-line"/>CLUB ACTIVITY</div><h2>Club accounts</h2></div>
           <div className="panel-heading-actions">
             {memberFilter === 'heatmap' && (
               <button
@@ -2825,7 +2819,6 @@ function App() {
         </div>
         {acceptedSubmissionsOpen && (
           <>
-            <p className="leaderboard-note">New verified submissions receive one point automatically. Set a lower value to deduct points; every adjustment is added to the activity log.</p>
             {scoredSubmissions.length ? (
               <div className="review-list">
                 {scoredSubmissions.map((item) => {
