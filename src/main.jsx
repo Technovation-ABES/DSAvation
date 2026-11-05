@@ -2268,7 +2268,7 @@ function App() {
             ) : assignedQuestion ? (
               <>
                 <div className="today-date">
-                  <span>{club.assignment.dateKey}</span>
+                  <span>{club.assignment.dateKey ? club.assignment.dateKey.split('-').reverse().join('-') : ''}</span>
                   <span className="date-sep">·</span>
                   <span className="topic-name">{assignedQuestion.topic}</span>
                 </div>
@@ -2529,8 +2529,8 @@ function App() {
           );
         })}</div> : <div className="panel directory-empty"><span>⌕</span><h2>No members match these filters.</h2><p>Try another year, department, or search term.</p></div>}
         {directoryPagination.totalPages > 1 && <div className="pagination-controls"><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page <= 1} onClick={() => loadDirectory(directoryPagination.page - 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Previous</> : 'Previous'}</button><span>Page {directoryPagination.page} of {directoryPagination.totalPages} · {directoryPagination.total} members</span><button className="button button-quiet" disabled={directoryBusy || directoryPagination.page >= directoryPagination.totalPages} onClick={() => loadDirectory(directoryPagination.page + 1)}>{directoryBusy ? <><IconifyIcon icon="charm:refresh" width={13} height={13} className="spin-icon" /> Next</> : 'Next'}</button></div>}
-        {adminOverlayMember && (
-          <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)}>
+        {adminOverlayMember && createPortal(
+          <div className="member-admin-overlay-backdrop" onClick={() => setAdminOverlayMember(null)} role="dialog" aria-modal="true">
             <div className="member-admin-overlay-card panel" onClick={(e) => e.stopPropagation()}>
               <div className="member-admin-overlay-header">
                 <div className="member-admin-overlay-identity">
@@ -2692,7 +2692,8 @@ function App() {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
@@ -3178,9 +3179,8 @@ function App() {
               {assignedQuestion ? (
                 <>
                   <div className="assignment-meta">
-                    <span>{club.assignment.dateKey}</span>
-                    <span>{assignedQuestion.topic}</span>
                     <span>LeetCode #{assignedQuestion.id}</span>
+                    <span>{assignedQuestion.topic}</span>
                     <span>{assignedQuestion.pattern}</span>
                   </div>
                   <p className="assignment-prompt">
@@ -3376,7 +3376,7 @@ function App() {
                 <div className="history-list">
                   {history.map((item) => {
                     const question = byId.get(Number(item.questionId));
-                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey.slice(5)}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
+                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey ? item.dateKey.split('-').slice(1).reverse().join('-') : ''}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
                   })}
                 </div>
                 <div className="pagination-controls" aria-label="Assignment log pages">

@@ -1229,8 +1229,9 @@ h1, h2, h3, p { margin-top: 0; }
 }
 
 .qotd-panel .assignment-counts div {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .qotd-panel .assignment-counts strong {
@@ -2064,7 +2065,7 @@ h1, h2, h3, p { margin-top: 0; }
 .assignment-meta span { padding: 4px 7px; border: 1px solid #eceee6; border-radius: 3px; background: #fafbf7; }
 .assignment-prompt { margin: 14px 0 0; color: #567470; font-size: 0.625rem; line-height: 1.65; }
 .assignment-counts { margin-top: 15px; padding: 11px 0; display: flex; align-items: center; gap: 15px; border-top: 1px solid #eceee7; border-bottom: 1px solid #eceee7; }
-.assignment-counts div { display: grid; gap: 3px; }
+.assignment-counts div { display: flex; align-items: baseline; gap: 6px; }
 .assignment-counts strong { color: #344238; font: 600 1.0625rem var(--display); }
 .assignment-counts span { color: #63817e; font: 0.4375rem var(--mono); letter-spacing: .5px; }
 .assignment-counts a { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 0.5625rem; }
@@ -5569,13 +5570,15 @@ details[open] > .admin-activity-summary svg {
 .member-admin-overlay-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 999;
+  z-index: 9999;
   background: rgba(15, 23, 42, 0.65);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 16px;
+  box-sizing: border-box;
   animation: overlay-fade-in 180ms ease;
 }
 @keyframes overlay-fade-in {
@@ -5586,6 +5589,8 @@ details[open] > .admin-activity-summary svg {
   position: relative;
   width: 100%;
   max-width: 440px;
+  box-sizing: border-box;
+  margin: 0 auto;
   padding: 24px;
   border-radius: 14px;
   background: var(--surface);
@@ -6476,6 +6481,20 @@ details[open] > .admin-activity-summary svg {
 :root[data-theme="dark"] .heatmap-day-date-trigger:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Member admin overlay mobile alignment */
+@media (max-width: 768px) {
+  .member-admin-overlay-backdrop {
+    padding: 12px;
+  }
+  .member-admin-overlay-card {
+    width: 100%;
+    max-width: calc(100vw - 24px);
+    margin: 0 auto;
+    padding: 20px 16px;
+    box-sizing: border-box;
+  }
 }
 
 /* Month tab flyout for Excel / CSV download */

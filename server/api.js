@@ -1592,8 +1592,19 @@ async function getMonthSubmissionsExport(db, user, url) {
   }
   users.sort((a, b) => (b.totalSolved - a.totalSolved) || (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
 
+  const todayStr = fmt.format(new Date());
+  const currentMonthKey = todayStr.slice(0, 7);
+  const currentDayNum = parseInt(todayStr.slice(8, 10), 10);
+
+  let maxDay = numDays;
+  if (monthKey === currentMonthKey) {
+    maxDay = Math.min(numDays, currentDayNum);
+  } else if (monthKey > currentMonthKey) {
+    maxDay = 0;
+  }
+
   const dayCols = [];
-  for (let day = 1; day <= numDays; day++) {
+  for (let day = 1; day <= maxDay; day++) {
     dayCols.push(`${shortMonth}${day}`);
   }
 
@@ -1645,7 +1656,7 @@ async function getMonthSubmissionsExport(db, user, url) {
         department: u.department,
         submissions: u.totalSolved,
       };
-      for (let day = 1; day <= numDays; day++) {
+      for (let day = 1; day <= maxDay; day++) {
         const colKey = `${shortMonth}${day}`;
         rowData[colKey] = u.subDays.has(day) ? '✔' : '✘';
       }
@@ -1696,7 +1707,7 @@ async function getMonthSubmissionsExport(db, user, url) {
 
   const rows = users.map((u) => {
     const dayCells = [];
-    for (let day = 1; day <= numDays; day++) {
+    for (let day = 1; day <= maxDay; day++) {
       dayCells.push(u.subDays.has(day) ? '✔' : '✘');
     }
     return [escapeCsv(u.name), escapeCsv(u.department), ...dayCells, u.totalSolved].join(',');
