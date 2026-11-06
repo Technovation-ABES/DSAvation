@@ -2129,7 +2129,7 @@ p {
   display: flex;
   align-items: center;
   gap: 7px;
-  border-top: 1px solid #dce5d7;
+  border-top: 1px solid #c3ccc6;
   color: #567470;
   font-size: 0.5625rem;
 }
@@ -3268,8 +3268,8 @@ p {
   display: flex;
   align-items: center;
   gap: 15px;
-  border-top: 1px solid #eceee7;
-  border-bottom: 1px solid #eceee7;
+  border-top: 1px solid #c3ccc6;
+  border-bottom: 1px solid #c3ccc6;
 }
 
 .assignment-counts div {
@@ -3506,7 +3506,7 @@ p {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
   color: #567470;
   font-size: 0.5625rem;
 }
@@ -3623,7 +3623,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
 }
 
 .review-item strong {
@@ -4308,7 +4308,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   display: flex;
   align-items: center;
   gap: 9px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
 }
 
 .member-identity {
@@ -4512,7 +4512,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .admin-embedded-heatmap-wrap {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
   animation: heatmap-slide-in 220ms ease;
   width: 100%;
 }
@@ -4648,7 +4648,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
 }
 
 .dashboard-member-row>.avatar {
@@ -5537,7 +5537,7 @@ details[open]>.admin-activity-summary svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #d2d9d2;
+  border-top: 1px solid #b7c2bb;
 }
 
 .daily-leaderboard-row.top-three-row {
@@ -5820,7 +5820,7 @@ details[open]>.admin-activity-summary svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #d2d9d2;
+  border-top: 1px solid #b7c2bb;
 }
 
 .rank {
@@ -5927,12 +5927,24 @@ details[open]>.admin-activity-summary svg {
 .history-row {
   min-height: 34px;
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 48px minmax(0, 1fr) 20px;
   align-items: center;
   gap: 8px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
   color: #4e6c68;
   font-size: 0.5625rem;
+}
+
+.history-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-mark {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .history-date {
@@ -5946,7 +5958,7 @@ details[open]>.admin-activity-summary svg {
   justify-content: center;
   width: 16px;
   height: 16px;
-  margin-left: 6px;
+  margin-left: 0;
   border-radius: 4px;
   color: #f4fffb;
   background: #042f2e;
@@ -5968,7 +5980,7 @@ details[open]>.admin-activity-summary svg {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid #eff0eb;
+  border-top: 1px solid #c3ccc6;
   color: #567470;
   font: 0.5rem var(--mono);
 }
@@ -6438,11 +6450,11 @@ details[open]>.admin-activity-summary svg {
   }
 
   .mobile-bottom-nav.has-account {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .mobile-bottom-nav.admin-nav {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
 
   .mobile-bottom-nav button {
@@ -8477,6 +8489,19 @@ details[open]>.admin-activity-summary svg {
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
+}
+
+.heatmap-panel .month-detail-cell {
+  aspect-ratio: 1;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+.heatmap-panel .month-detail-cell .day-number {
+  font-size: 0.62rem;
 }
 
 .practice-stats-col-left,
