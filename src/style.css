@@ -4391,7 +4391,7 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   margin-bottom: 4px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 14px;
 }
 

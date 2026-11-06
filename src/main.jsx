@@ -3420,7 +3420,7 @@ function App() {
 
             {leaderboardScope === 'daily' ? (
               <>
-                <p className="leaderboard-note">Ranked by submission time for today’s question.</p>
+                <p className="leaderboard-note"></p>
                 {club.dailyLeaderboard?.length ? (
                   <div className="leaderboard-list">
                     {club.dailyLeaderboard.map((person, index) => {
