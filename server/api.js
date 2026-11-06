@@ -696,7 +696,10 @@ async function getTodayAssignment(db) {
 }
 
 async function getClubToday(db) {
-  const assignment = await getTodayAssignment(db);
+  let assignment = await getTodayAssignment(db);
+  if (!assignment && process.env.NODE_ENV !== 'test') {
+    assignment = await autoAssignDailyQuestion(db, dayKey());
+  }
   if (!assignment) return { dateKey: dayKey(), assignment: null, submittedCount: 0, acceptedCount: 0, participants: [], dailyLeaderboard: [] };
   const submissions = await db.collection('submissions').find({ assignmentId: assignment._id }).sort({ submittedAt: 1 }).toArray();
   const userIds = [...new Set(submissions.map((item) => String(item.userId)))].map((id) => new ObjectId(id));
@@ -1334,6 +1337,7 @@ async function createAssignment(db, user, body) {
     timezone: TZ, createdAt: new Date(),
   };
   const result = await db.collection('assignments').insertOne(assignment);
+  await db.collection('assignment_suppressions').deleteOne({ dateKey });
   await recordAdminActivity(db, user, 'assignment_published', { id: result.insertedId, label: `${dateKey} · LC ${questionId}` }, { questionId });
   return { id: String(result.insertedId), dateKey, questionId, createdByName: user.name };
 }
@@ -1371,6 +1375,11 @@ async function deleteAssignment(db, user, assignmentId) {
     throw new HttpError(400, 'Only today’s or upcoming assignments can be deleted.');
   }
   await db.collection('assignments').deleteOne({ _id: id });
+  await db.collection('assignment_suppressions').updateOne(
+    { dateKey: assignment.dateKey },
+    { $set: { dateKey: assignment.dateKey, deletedAt: new Date(), deletedBy: user._id } },
+    { upsert: true }
+  );
   const affected = await db.collection('submissions').deleteMany({ assignmentId: id });
   await recordAdminActivity(
     db,
@@ -1380,6 +1389,120 @@ async function deleteAssignment(db, user, assignmentId) {
     { questionId: assignment.questionId, dateKey: assignment.dateKey, deletedSubmissions: affected.deletedCount }
   );
   return { ok: true, deleted: true, id: String(id), dateKey: assignment.dateKey, questionId: assignment.questionId };
+}
+
+export async function getNextQuestionForDate(db, targetDateKey = dayKey()) {
+  const allAssignments = await db.collection('assignments').find({}).toArray();
+  const pastAssignments = allAssignments
+    .filter((a) => a.dateKey && a.dateKey < targetDateKey)
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+  const lastPast = pastAssignments.length ? pastAssignments[pastAssignments.length - 1] : null;
+  let lastIndex = -1;
+  if (lastPast) {
+    lastIndex = curriculum.questions.findIndex((q) => Number(q[1]) === Number(lastPast.questionId));
+  }
+
+  const candidateStartIndex = lastIndex >= 0
+    ? (lastIndex + 1) % curriculum.questions.length
+    : 0;
+
+  const assignedQuestionIds = new Set(allAssignments.map((a) => Number(a.questionId)));
+
+  let chosenRow = null;
+  for (let i = 0; i < curriculum.questions.length; i++) {
+    const candidate = curriculum.questions[(candidateStartIndex + i) % curriculum.questions.length];
+    if (!assignedQuestionIds.has(Number(candidate[1]))) {
+      chosenRow = candidate;
+      break;
+    }
+  }
+
+  if (!chosenRow) {
+    chosenRow = curriculum.questions[candidateStartIndex];
+  }
+
+  return {
+    questionId: Number(chosenRow[1]),
+    title: chosenRow[2],
+    topic: chosenRow[0],
+    difficulty: chosenRow[3],
+  };
+}
+
+export async function autoAssignDailyQuestion(db, targetDateKey = dayKey(), options = {}) {
+  const dateKey = targetDateKey || dayKey();
+  const existing = await db.collection('assignments').findOne({ dateKey });
+  if (existing) return existing;
+
+  if (!options.force) {
+    const suppressed = await db.collection('assignment_suppressions').findOne({ dateKey });
+    if (suppressed) return null;
+  }
+
+  const nextQuestion = await getNextQuestionForDate(db, dateKey);
+  if (!nextQuestion) return null;
+
+  const user = options.user;
+  const assignment = {
+    dateKey,
+    questionId: nextQuestion.questionId,
+    createdBy: user?._id || null,
+    createdByName: user?.name || 'Automated Daily Challenge',
+    timezone: TZ,
+    createdAt: new Date(),
+    autoAssigned: !user,
+  };
+
+  try {
+    const result = await db.collection('assignments').insertOne(assignment);
+    assignment._id = result.insertedId || assignment._id;
+    if (options.force) {
+      await db.collection('assignment_suppressions').deleteOne({ dateKey });
+    }
+    if (user && ['admin', 'lead'].includes(user.role)) {
+      await recordAdminActivity(db, user, 'assignment_published', { id: assignment._id, label: `${dateKey} · LC ${assignment.questionId} (Auto)` }, { questionId: assignment.questionId, autoAssigned: true });
+    }
+    return assignment;
+  } catch (err) {
+    if (err.code === 11000 || String(err.message).includes('duplicate') || String(err.message).includes('E11000')) {
+      return db.collection('assignments').findOne({ dateKey });
+    }
+    throw err;
+  }
+}
+
+let midnightTimer = null;
+
+export function getNextMidnightIST(now = new Date()) {
+  const todayDateKey = dayKey(now);
+  const [y, m, d] = todayDateKey.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(y, m - 1, d + 1));
+  const ny = nextDate.getUTCFullYear();
+  const nm = String(nextDate.getUTCMonth() + 1).padStart(2, '0');
+  const nd = String(nextDate.getUTCDate()).padStart(2, '0');
+  const nextDateKey = `${ny}-${nm}-${nd}`;
+  const nextMidnight = new Date(`${nextDateKey}T00:00:00+05:30`);
+  return { nextDateKey, nextMidnight, ms: Math.max(1000, nextMidnight.getTime() - now.getTime()) };
+}
+
+export function scheduleNextMidnightAssignment(db) {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const { nextDateKey, ms } = getNextMidnightIST();
+
+  midnightTimer = setTimeout(async () => {
+    try {
+      await autoAssignDailyQuestion(db, nextDateKey);
+      console.log(`[DSAvation Scheduler] Successfully auto-assigned daily question for ${nextDateKey}`);
+    } catch (err) {
+      console.error('[DSAvation Scheduler] Failed to auto-assign midnight question:', err);
+    } finally {
+      scheduleNextMidnightAssignment(db);
+    }
+  }, ms);
+
+  midnightTimer.unref?.();
+  return { nextDateKey, ms };
 }
 
 async function listSubmissions(db, req, user, url) {
@@ -2507,12 +2630,25 @@ async function listAdminActivity(db, url) {
   };
 }
 
+let schedulerInitialized = false;
+
 export async function handleApiNode(req, res, options = {}) {
   const url = normalizedUrl(req.url || '/');
   const method = String(req.method || 'GET').toUpperCase();
   let db;
   const getDb = () => options.db ? Promise.resolve(options.db) : getDatabase();
   try {
+    if (url.pathname === '/api/cron/daily-assignment' && (method === 'GET' || method === 'POST')) {
+      db = await getDb();
+      const authHeader = req.headers?.authorization;
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}` && req.headers?.['x-vercel-cron'] !== '1') {
+        throw new HttpError(401, 'Unauthorized cron trigger.');
+      }
+      const targetDate = url.searchParams.get('dateKey') || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate);
+      return json(res, 200, { ok: true, dateKey: targetDate, assignment });
+    }
     if (url.pathname === '/api/integrations/github/webhook' && method === 'POST') {
       db = await getDb();
       return json(res, 200, await githubWebhook(db, req));
@@ -2557,6 +2693,10 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
     db = await getDb();
+    if (!schedulerInitialized && process.env.NODE_ENV !== 'test' && !process.env.DISABLE_SCHEDULER) {
+      schedulerInitialized = true;
+      scheduleNextMidnightAssignment(db);
+    }
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/request-password-reset' && method === 'POST') return json(res, 200, await requestPasswordReset(db, req, res, await readBody(req)));
@@ -2622,6 +2762,13 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (assignmentMatch && method === 'DELETE') {
       return json(res, 200, await deleteAssignment(db, user, assignmentMatch[1]));
+    }
+    if (url.pathname === '/api/admin/auto-assign' && method === 'POST') {
+      requireRole(user, 'lead', 'admin');
+      const body = await readBody(req);
+      const targetDate = body?.dateKey || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate, { force: true, user });
+      return json(res, 200, { ok: true, assignment });
     }
     if (url.pathname === '/api/admin/submissions' && method === 'GET') {
       return json(res, 200, await listSubmissions(db, req, user, url));

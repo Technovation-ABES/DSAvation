@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
-import { handleApiFetch, isAssignmentSolutionPath, isOnAssignmentDay, parsePersonalCommitUrl, resolveCommitInput } from '../server/api.js';
+import { autoAssignDailyQuestion, getNextMidnightIST, getNextQuestionForDate, handleApiFetch, isAssignmentSolutionPath, isOnAssignmentDay, parsePersonalCommitUrl, resolveCommitInput } from '../server/api.js';
 
 const hashToken = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -1944,4 +1944,77 @@ test('admins can view active rate limit count and clear rate limits in one click
   // 5. Verify audit log entry
   const activity = await call(db, '/admin/activity', { cookie: admin.cookie });
   assert.equal(activity.data.activity[0].action, 'rate_limits_cleared');
+});
+
+test('automatic daily assignment picks sequential curriculum questions, preserves admin edits and deletions', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const student = await seedUser(db, { name: 'Auto Solver', email: 'auto@abes.ac.in', username: 'student-gh' });
+
+  // 1. First automated assignment on a clean DB picks Day 1 (LC 217)
+  const day1Q = await getNextQuestionForDate(db, '2026-11-01');
+  assert.equal(day1Q.questionId, 217);
+
+  const auto1 = await autoAssignDailyQuestion(db, '2026-11-01');
+  assert.ok(auto1);
+  assert.equal(auto1.questionId, 217);
+  assert.equal(auto1.autoAssigned, true);
+  assert.equal(auto1.createdByName, 'Automated Daily Challenge');
+
+  // 2. Next day automated assignment picks Day 2 (LC 242)
+  const day2Q = await getNextQuestionForDate(db, '2026-11-02');
+  assert.equal(day2Q.questionId, 242);
+
+  const auto2 = await autoAssignDailyQuestion(db, '2026-11-02');
+  assert.equal(auto2.questionId, 242);
+
+  // 3. Next day automated assignment picks Day 3 (LC 1)
+  const day3Q = await getNextQuestionForDate(db, '2026-11-03');
+  assert.equal(day3Q.questionId, 1);
+
+  // 4. Admin edits/replaces today's automated assignment (must remain editable)
+  const today = indiaDay();
+  const todayAuto = await autoAssignDailyQuestion(db, today);
+  assert.ok(todayAuto);
+
+  // Admin changes today's question to LC 49
+  const editRes = await call(db, `/admin/assignments/${todayAuto._id}`, {
+    method: 'PATCH',
+    cookie: admin.cookie,
+    body: { questionId: 49 },
+  });
+  assert.equal(editRes.response.status, 200);
+  assert.equal(editRes.data.assignment.questionId, 49);
+
+  // Verify DB reflects admin edit
+  const updatedDoc = await db.collection('assignments').findOne({ _id: todayAuto._id });
+  assert.equal(updatedDoc.questionId, 49);
+
+  // 5. When auto-assign runs again for today, it does NOT overwrite existing assignment
+  const secondRun = await autoAssignDailyQuestion(db, today);
+  assert.equal(secondRun.questionId, 49);
+
+  // 6. Admin deletes today's assignment (must remain deletable)
+  const deleteRes = await call(db, `/admin/assignments/${todayAuto._id}`, {
+    method: 'DELETE',
+    cookie: admin.cookie,
+  });
+  assert.equal(deleteRes.response.status, 200);
+  assert.equal(deleteRes.data.deleted, true);
+
+  // Verify deletion is respected: autoAssign will NOT resurrect a deleted assignment
+  const deletedCheck = await autoAssignDailyQuestion(db, today);
+  assert.equal(deletedCheck, null);
+
+  // 7. Cron endpoint /api/cron/daily-assignment works and returns success
+  const cronRes = await call(db, '/cron/daily-assignment?dateKey=2026-11-10');
+  assert.equal(cronRes.response.status, 200);
+  assert.equal(cronRes.data.ok, true);
+  assert.equal(cronRes.data.dateKey, '2026-11-10');
+  assert.ok(cronRes.data.assignment);
+
+  // 8. getNextMidnightIST calculates valid time offset
+  const midnightInfo = getNextMidnightIST();
+  assert.ok(midnightInfo.ms > 0);
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(midnightInfo.nextDateKey));
 });
