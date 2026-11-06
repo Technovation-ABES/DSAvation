@@ -314,7 +314,7 @@ const ProgressHeatmap = React.memo(function ProgressHeatmap({ progress }) {
       </div>
 
       <p className="heatmap-caption">
-        Each square counts questions marked solved that day. This record is private to your account and separate from club points.
+        Each square counts Club Challenge questions you submitted that day. Personal checkmarks stay out of this record.
       </p>
 
       {/* Quick Month Selector Tabs - Justified Center */}
@@ -614,7 +614,7 @@ function QuestionActionsGuide() {
   </div>;
 }
 
-const QuestionRow = React.memo(function QuestionRow({ question, solved, solvedAt, onSolve }) {
+const QuestionRow = React.memo(function QuestionRow({ question, solved, solvedAt, onSolve, locked = false }) {
   const [expanded, setExpanded] = useState(false);
   const handleCardClick = (e) => {
     if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.question-analysis')) return;
@@ -635,7 +635,7 @@ const QuestionRow = React.memo(function QuestionRow({ question, solved, solvedAt
       <div className="question-topic"><Pill>{question.topic}</Pill></div>
       <div className="question-level"><span className={`difficulty ${question.difficulty.toLowerCase()}`}><i />{question.difficulty}</span></div>
       <div className="question-actions">
-        <button type="button" className={`icon-button solve-button ${solved ? 'complete' : ''}`} onClick={(e) => { e.stopPropagation(); onSolve(question.id); }} aria-label={solved ? 'Remove from personal progress' : 'Mark in personal progress'} title={solved ? 'Remove from personal progress' : 'Mark solved for personal progress'}>{solved ? <Icon name="check" size={15} /> : <span className="check-empty" />}</button>
+        <button type="button" className={`icon-button solve-button ${solved ? 'complete' : ''} ${locked ? 'locked' : ''}`} disabled={locked} onClick={(e) => { e.stopPropagation(); if (locked) return; onSolve(question.id); }} aria-label={locked ? 'Completed in a Club Challenge' : solved ? 'Remove from personal progress' : 'Mark in personal progress'} title={locked ? 'Club Challenge submissions stay completed' : solved ? 'Remove from personal progress' : 'Mark solved for personal progress'}>{solved ? <Icon name="check" size={15} /> : <span className="check-empty" />}</button>
       </div>
     </div>
     {expanded && <div id={`question-analysis-${question.id}`} className="question-analysis">
@@ -911,6 +911,8 @@ function App() {
   const [pattern, setPattern] = useState('Any pattern');
   const [sort, setSort] = useState('day');
   const [progress, setProgress] = useState({});
+  const [clubActivity, setClubActivity] = useState({});
+  const [clubLocked, setClubLocked] = useState({});
   const [bookmarks, setBookmarks] = useState(() => JSON.parse(localStorage.getItem('dsavation-bookmarks') || '[]'));
   const [club, setClub] = useState({ dateKey: localDay(), assignment: null, submittedCount: 0, acceptedCount: 0, participants: [], dailyLeaderboard: [] });
   const [history, setHistory] = useState([]);
@@ -1084,6 +1086,7 @@ function App() {
     return visibleQuestions.slice(start, start + QUESTIONS_PER_PAGE);
   }, [visibleQuestions, safeQuestionPage]);
   const solvedCount = Object.keys(progress).length;
+  const clubTrackedCount = Object.keys(clubActivity).length;
   const personalStreak = useMemo(() => {
     const solvedDays = new Set(Object.values(progress).map((value) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value))));
     const orderedDays = [...solvedDays].sort();
@@ -1153,7 +1156,11 @@ function App() {
     if (!user) return;
     try {
       const [personal, own] = await Promise.all([api('/progress'), api('/submissions?page=1&pageSize=10')]);
-      setProgress(Object.fromEntries((personal.progress || []).map((item) => [item.questionId, item.solvedAt])));
+      const rows = personal.progress || [];
+      const activityRows = personal.activity || rows.filter((item) => item.isClub);
+      setProgress(Object.fromEntries(rows.map((item) => [item.questionId, item.solvedAt])));
+      setClubLocked(Object.fromEntries(rows.filter((item) => item.isClub).map((item) => [item.questionId, true])));
+      setClubActivity(Object.fromEntries(activityRows.map((item) => [item.questionId, item.clubSubmittedAt || item.solvedAt])));
       setSubmissions(own.submissions || []);
     } catch (error) { setNotice(error.message); }
     if (['lead', 'admin'].includes(user.role)) {
@@ -1777,7 +1784,7 @@ function App() {
   useEffect(() => {
     if (!authReady) return undefined;
     if (!account) {
-      setQuestions([]); setTopics([]); setProgress({}); setSubmissions([]); setPending([]); setMembers([]); setDirectoryMembers([]);
+      setQuestions([]); setTopics([]); setProgress({}); setClubActivity({}); setClubLocked({}); setSubmissions([]); setPending([]); setMembers([]); setDirectoryMembers([]);
       setHistory([]); setLeaderboard([]);
       setClub({ dateKey: localDay(), assignment: null, submittedCount: 0, acceptedCount: 0, participants: [] });
       setAppLoading(false);
@@ -1830,9 +1837,10 @@ function App() {
 
   const handleSolve = useCallback((questionId) => {
     solvePersonal(questionId);
-  }, [account, progress]);
+  }, [account, progress, clubLocked]);
 
   async function solvePersonal(questionId) {
+    if (clubLocked[questionId]) return;
     if (!account) { setAuthMode('login'); setAuthOpen(true); setAuthError('Sign in to save private progress. This will not affect the club leaderboard.'); return; }
     const solved = !progress[questionId];
     const previous = progress;
@@ -1900,7 +1908,10 @@ function App() {
       setCommitUrl(''); setSubmissionHelpOpen(false); setNotice(`GitHub verified your solution. ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
       const qId = club.assignment?.questionId || result.submission?.questionId;
       if (qId) {
-        setProgress((prev) => ({ ...prev, [qId]: new Date().toISOString() }));
+        const solvedAt = new Date().toISOString();
+        setProgress((prev) => ({ ...prev, [qId]: prev[qId] || solvedAt }));
+        setClubLocked((prev) => ({ ...prev, [qId]: true }));
+        setClubActivity((prev) => ({ ...prev, [qId]: solvedAt }));
       }
       await loadClub(); await loadHistoryPage(1); await loadMemberData();
     } catch (error) { setNotice(error.message); }
@@ -1920,7 +1931,10 @@ function App() {
       setNotice(`LeetCode verified your solution! ${result.submission?.points ?? 1} point${(result.submission?.points ?? 1) === 1 ? '' : 's'} added to the club leaderboard.`);
       const qId = club.assignment?.questionId || result.submission?.questionId;
       if (qId) {
-        setProgress((prev) => ({ ...prev, [qId]: new Date().toISOString() }));
+        const solvedAt = new Date().toISOString();
+        setProgress((prev) => ({ ...prev, [qId]: prev[qId] || solvedAt }));
+        setClubLocked((prev) => ({ ...prev, [qId]: true }));
+        setClubActivity((prev) => ({ ...prev, [qId]: solvedAt }));
       }
       await loadClub();
       await loadHistoryPage(1);
@@ -2287,7 +2301,7 @@ function App() {
       {account && <section className="library-section" id="library"><div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line" />THE QUESTION LIBRARY</div><h2>Find your next rep<span>.</span></h2></div><span className="question-total">{visibleQuestions.length} <i>/</i> 220 QUESTIONS</span></div>
         <div className="filter-bar"><label className="search-input"><Icon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a title, pattern, algorithm or LC number" /><kbd>/</kbd></label><label className="filter-select"><span>TOPIC</span><select value={topic} onChange={(event) => setTopic(event.target.value)}><option>All topics</option>{topics.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>LEVEL</span><select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}><option>Any level</option>{['Easy', 'Medium', 'Hard'].map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>DATA STRUCTURE</span><select value={structure} onChange={(event) => setStructure(event.target.value)}><option>Any data structure</option>{structures.map((item) => <option key={item}>{item}</option>)}</select></label><label className="filter-select"><span>PATTERN</span><select value={pattern} onChange={(event) => setPattern(event.target.value)}><option>Any pattern</option>{patterns.map((item) => <option key={item}>{item}</option>)}</select></label><button className="sort-button" onClick={() => setSort((current) => current === 'day' ? 'title' : 'day')}>Sort: {sort === 'day' ? 'Day' : 'Title'} ↕</button></div>
         <QuestionActionsGuide />
-        <div className="question-list">{visibleQuestions.length ? paginatedQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id])} solvedAt={progress[question.id]} onSolve={handleSolve} />) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
+        <div className="question-list">{visibleQuestions.length ? paginatedQuestions.map((question) => <QuestionRow key={question.id} question={question} solved={Boolean(progress[question.id] || clubLocked[question.id])} solvedAt={progress[question.id]} locked={Boolean(clubLocked[question.id])} onSolve={handleSolve} />) : <div className="no-results"><span>⌕</span><strong>No questions match those filters.</strong><p>Try a different topic, level, or keyword.</p><button onClick={clearFilters}>Reset filters</button></div>}</div>
         {visibleQuestions.length > 0 && totalQuestionPages > 1 && (
           <div className="pagination-controls" aria-label="Question library pages">
             <button
@@ -2435,7 +2449,7 @@ function App() {
             <span>{isAppInstalled ? "App Installed" : "Install App"}</span>
           </button>
           <button className="button button-danger" type="button" onClick={logout}><Icon name="logout" size={14} />Sign out</button>
-        </div></form></section><ProgressHeatmap progress={progress} /><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line" />YOUR COMPLETIONS</div><h2>{solvedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('general'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Browse questions <Icon name="arrow" size={14} /></button></div>{solvedCount ? <><div className="question-list">{Object.entries(progress).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} onSolve={handleSolve} />)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first question starts the record.</h2><p>Use the personal checkmark in the question library when you finish a problem. Club challenge submissions are tracked separately.</p><button className="button button-dark" onClick={() => navigate('general')}>Browse the library <Icon name="arrow" size={14} /></button></div>}</>}
+        </div></form></section><ProgressHeatmap progress={clubActivity} /><div className="section-heading compact"><div><div className="eyebrow"><span className="eyebrow-line" />YOUR COMPLETIONS</div><h2>{clubTrackedCount ? 'Recently tracked' : 'A clean slate'}</h2></div><button className="button button-quiet" onClick={() => { navigate('club'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Open club challenge <Icon name="arrow" size={14} /></button></div>{clubTrackedCount ? <><div className="question-list">{Object.entries(clubActivity).sort((a, b) => new Date(b[1]) - new Date(a[1])).map(([id, solvedAt]) => byId.get(Number(id)) && ({ question: byId.get(Number(id)), solvedAt })).filter(Boolean).map(({ question, solvedAt }) => <QuestionRow key={question.id} question={question} solved={true} solvedAt={solvedAt} locked onSolve={handleSolve} />)}</div></> : <div className="empty-panel"><span>01</span><h2>Your first Club Challenge starts the record.</h2><p>Submit a verified solution in Club Challenge. Personal checkmarks stay in the question library and do not appear here.</p><button className="button button-dark" onClick={() => navigate('club')}>Open club challenge <Icon name="arrow" size={14} /></button></div>}</>}
       <footer className="site-footer"><span>DSAvation</span><span>Technovation – The Networking Club</span></footer>
     </main>}
 
@@ -3356,7 +3370,8 @@ function App() {
                 <div className="history-list">
                   {history.map((item) => {
                     const question = byId.get(Number(item.questionId));
-                    return <div className="history-row" key={item.id}><span className="history-date">{item.dateKey ? item.dateKey.split('-').slice(1).reverse().join('-') : ''}</span><span>{question?.title || `LeetCode #${item.questionId}`}</span></div>;
+                    const completed = Boolean(clubLocked[item.questionId] || clubActivity[item.questionId]);
+                    return <div className={`history-row ${completed ? 'is-club-complete' : ''}`} key={item.id}><span className="history-date">{item.dateKey ? item.dateKey.split('-').slice(1).reverse().join('-') : ''}</span><span>{question?.title || `LeetCode #${item.questionId}`}{completed && <span className="history-club-check" title="Completed in a Club Challenge"><Icon name="check" size={13} /></span>}</span></div>;
                   })}
                 </div>
                 <div className="pagination-controls" aria-label="Assignment log pages">

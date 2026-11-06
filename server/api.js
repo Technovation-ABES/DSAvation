@@ -617,6 +617,75 @@ async function githubCallback(db, req, res, url) {
   res.end();
 }
 
+// Earliest accepted Club Challenge submission per question. Activity stats use this map
+// so personal-only checkmarks never appear in Question Activity.
+async function clubCompletionsByQuestion(db, userId) {
+  const submissions = await db.collection('submissions')
+    .find({ userId, status: 'accepted' })
+    .sort({ submittedAt: 1 })
+    .toArray();
+  const byQuestion = new Map();
+  for (const sub of submissions) {
+    const questionId = Number(sub.questionId);
+    if (!questionById.has(questionId)) continue;
+    const rawAt = sub.submittedAt || sub.reviewedAt || sub.commitDate;
+    if (!rawAt) continue;
+    const submittedAt = new Date(rawAt);
+    const prev = byQuestion.get(questionId);
+    if (!prev || submittedAt < prev.submittedAt) {
+      byQuestion.set(questionId, { submittedAt, assignmentId: sub.assignmentId || null });
+    }
+  }
+  return byQuestion;
+}
+
+// isClub marks a question completed through a Club Challenge. setProgress will not clear it.
+async function markClubProgress(db, userId, questionId, assignmentId, submittedAt = new Date()) {
+  const id = Number(questionId);
+  if (!questionById.has(id)) return;
+  await db.collection('personalProgress').updateOne(
+    { userId, questionId: id },
+    {
+      $setOnInsert: { userId, questionId: id, solvedAt: submittedAt },
+      $set: {
+        updatedAt: new Date(),
+        isClub: true,
+        assignmentId: assignmentId || null,
+        clubSubmittedAt: submittedAt,
+      },
+    },
+    { upsert: true },
+  );
+}
+
+async function progressPayload(db, user) {
+  const clubByQuestion = await clubCompletionsByQuestion(db, user._id);
+  for (const [questionId, club] of clubByQuestion) {
+    await markClubProgress(db, user._id, questionId, club.assignmentId, club.submittedAt);
+  }
+  const stored = await db.collection('personalProgress').find({ userId: user._id }).sort({ solvedAt: -1 }).toArray();
+  const progress = stored.map((item) => {
+    const questionId = Number(item.questionId);
+    const club = clubByQuestion.get(questionId);
+    const isClub = Boolean(item.isClub || club);
+    return {
+      questionId,
+      solvedAt: item.solvedAt,
+      isClub,
+      clubSubmittedAt: isClub ? (club?.submittedAt || item.clubSubmittedAt || item.solvedAt) : null,
+    };
+  });
+  const activity = [...clubByQuestion.entries()]
+    .map(([questionId, club]) => ({
+      questionId,
+      solvedAt: club.submittedAt,
+      clubSubmittedAt: club.submittedAt,
+      isClub: true,
+    }))
+    .sort((left, right) => new Date(right.clubSubmittedAt) - new Date(left.clubSubmittedAt));
+  return { progress, activity };
+}
+
 async function setProgress(db, req, user, questionId, solved) {
   await allowRequest(db, req, `progress-${user._id}`, 180, 60 * 1000);
   const id = Number(questionId);
@@ -627,9 +696,16 @@ async function setProgress(db, req, user, questionId, solved) {
       $setOnInsert: { userId: user._id, questionId: id, solvedAt: new Date() },
       $set: { updatedAt: new Date() },
     }, { upsert: true });
-  } else {
-    await collection.deleteOne({ userId: user._id, questionId: id });
+    return;
   }
+  const existing = await collection.findOne({ userId: user._id, questionId: id });
+  // Club Challenge completions stay checked. Members cannot clear them from personal progress.
+  if (existing?.isClub || existing?.assignmentId) {
+    throw new HttpError(403, 'Club Challenge submissions cannot be unchecked');
+  }
+  const club = await clubCompletionsByQuestion(db, user._id);
+  if (club.has(id)) throw new HttpError(403, 'Club Challenge submissions cannot be unchecked');
+  await collection.deleteOne({ userId: user._id, questionId: id });
 }
 
 export function getAuraBase(difficulty) {
@@ -979,21 +1055,15 @@ async function makeSubmission(db, req, user, body) {
       $push: { supersededAttempts: previousAttempt },
     });
     console.log(`[Submission Updated] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) updated submission for LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
+    if (submission.status === 'accepted' && submission.questionId) {
+      try { await markClubProgress(db, user._id, submission.questionId, assignment._id, submission.submittedAt || new Date()); } catch { /* progress lock is retried on the next progress read */ }
+    }
     return { ...submission, _id: existing._id, id: String(existing._id) };
   }
   const result = await db.collection('submissions').insertOne(submission);
   console.log(`[Submission Created] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) successfully submitted LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
   if (submission.status === 'accepted' && submission.questionId) {
-    try {
-      await db.collection('personalProgress').updateOne(
-        { userId: user._id, questionId: Number(submission.questionId) },
-        {
-          $setOnInsert: { userId: user._id, questionId: Number(submission.questionId), solvedAt: new Date() },
-          $set: { updatedAt: new Date() },
-        },
-        { upsert: true }
-      );
-    } catch {}
+    try { await markClubProgress(db, user._id, submission.questionId, assignment._id, submission.submittedAt || new Date()); } catch { /* progress lock is retried on the next progress read */ }
   }
   return { ...submission, _id: result.insertedId, id: String(result.insertedId) };
 }
@@ -2282,6 +2352,9 @@ async function reviewSubmission(db, user, submissionId, body) {
     { $set: { status, points: status === 'accepted' ? 1 : 0, reviewNote: note, reviewedAt: new Date(), reviewedBy: user._id } },
   );
   if (!result.matchedCount) throw new HttpError(404, 'Pending submission not found.');
+  if (status === 'accepted' && submission.questionId) {
+    try { await markClubProgress(db, submission.userId, submission.questionId, submission.assignmentId, new Date()); } catch { /* progress lock is retried on the next progress read */ }
+  }
   await recordAdminActivity(db, user, 'submission_reviewed', { id: submission._id, label: submission.commitUrl }, { status, points: status === 'accepted' ? 1 : 0, note });
   return { ok: true };
 }
@@ -2756,14 +2829,15 @@ export async function handleApiNode(req, res, options = {}) {
     if (url.pathname === '/api/club/today' && method === 'GET') return json(res, 200, await getClubToday(db));
     if (url.pathname === '/api/club/assignments' && method === 'GET') return json(res, 200, await assignmentHistory(db, url));
     if (url.pathname === '/api/progress' && method === 'GET') {
-      const progress = await db.collection('personalProgress').find({ userId: user._id }).sort({ solvedAt: -1 }).toArray();
-      return json(res, 200, { progress: progress.map((item) => ({ questionId: item.questionId, solvedAt: item.solvedAt })) });
+      // progress keeps personal checkmarks. activity is accepted Club Challenge submissions only.
+      return json(res, 200, await progressPayload(db, user));
     }
     const progressMatch = url.pathname.match(/^\/api\/progress\/(\d+)$/);
     if (progressMatch && method === 'PUT') {
       const body = await readBody(req);
-      await setProgress(db, req, user, progressMatch[1], Boolean(body.solved));
-      return json(res, 200, { ok: true, questionId: Number(progressMatch[1]), solved: Boolean(body.solved) });
+      const solved = Boolean(body.solved);
+      await setProgress(db, req, user, progressMatch[1], solved);
+      return json(res, 200, { ok: true, questionId: Number(progressMatch[1]), solved });
     }
     if (url.pathname === '/api/submissions' && method === 'GET') return json(res, 200, await listSubmissions(db, req, user, url));
     if (url.pathname === '/api/submissions' && method === 'POST') {

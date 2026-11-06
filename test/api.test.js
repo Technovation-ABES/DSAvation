@@ -2018,3 +2018,45 @@ test('automatic daily assignment picks sequential curriculum questions, preserve
   assert.ok(midnightInfo.ms > 0);
   assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(midnightInfo.nextDateKey));
 });
+
+test('question activity uses club submissions and those completions cannot be unchecked', async () => {
+  const db = new FakeDatabase();
+  const member = await seedUser(db, { name: 'Progress Member', email: 'progress@abes.ac.in', username: 'progress-gh' });
+  const personal = await call(db, '/progress/242', { method: 'PUT', cookie: member.cookie, body: { solved: true } });
+  assert.equal(personal.response.status, 200);
+
+  const assignmentId = new ObjectId();
+  const submittedAt = new Date('2026-11-02T08:30:00.000Z');
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId,
+    userId: member.user._id,
+    questionId: 217,
+    status: 'accepted',
+    submittedAt,
+    points: 1,
+  });
+
+  const progress = await call(db, '/progress', { cookie: member.cookie });
+  assert.equal(progress.response.status, 200);
+  const personalRow = progress.data.progress.find((item) => item.questionId === 242);
+  const clubRow = progress.data.progress.find((item) => item.questionId === 217);
+  assert.equal(personalRow.isClub, false);
+  assert.equal(clubRow.isClub, true);
+  assert.deepEqual(progress.data.activity.map((item) => item.questionId), [217]);
+  assert.equal(progress.data.activity.every((item) => item.isClub), true);
+
+  const stored = db.collection('personalProgress').documents.find((item) => item.questionId === 217);
+  assert.equal(stored.isClub, true);
+  assert.equal(String(stored.assignmentId), String(assignmentId));
+
+  const uncheckClub = await call(db, '/progress/217', { method: 'PUT', cookie: member.cookie, body: { solved: false } });
+  assert.equal(uncheckClub.response.status, 403);
+  assert.equal(db.collection('personalProgress').documents.some((item) => item.questionId === 217 && item.isClub), true);
+
+  const uncheckPersonal = await call(db, '/progress/242', { method: 'PUT', cookie: member.cookie, body: { solved: false } });
+  assert.equal(uncheckPersonal.response.status, 200);
+  const after = await call(db, '/progress', { cookie: member.cookie });
+  assert.deepEqual(after.data.progress.map((item) => item.questionId), [217]);
+  assert.deepEqual(after.data.activity.map((item) => item.questionId), [217]);
+});
