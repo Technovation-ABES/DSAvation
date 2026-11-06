@@ -4949,6 +4949,89 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.theme-choice {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.theme-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.theme-choice-card {
+  min-height: 0;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.theme-choice-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.theme-choice-card strong {
+  font: 600 0.8125rem var(--display);
+}
+
+.theme-choice-card span {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+.theme-choice-card.selected {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-dark);
+}
+
+.theme-swatch {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  flex: none;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.theme-swatch.slate {
+  background:
+    linear-gradient(145deg, rgba(165, 180, 252, 0.95), transparent 58%),
+    #12172a;
+}
+
+.theme-swatch.forest {
+  background:
+    linear-gradient(145deg, rgba(45, 212, 191, 0.9), transparent 58%),
+    #102430;
+}
+
+:root[data-theme="dark"] .theme-choice-grid,
+:root[data-theme="forest"] .theme-choice-grid {
+  background: var(--surface-muted);
+}
+
+:root[data-theme="dark"] .theme-choice-card.selected,
+:root[data-theme="forest"] .theme-choice-card.selected {
+  background: var(--surface);
+}
+
 /* Account Submission Preference Radio Cards */
 .account-submission-pref {
   grid-column: 1 / -1;
@@ -5568,11 +5651,11 @@ details[open]>.admin-activity-summary svg {
 .daily-leaderboard-row.top-rank-2 {
   background-color: #ffffff;
   background-image:
-    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.3) 0px, transparent 55%),
-    radial-gradient(at 100% 100%, rgba(186, 230, 253, 0.45) 0px, transparent 55%),
-    radial-gradient(at 50% 50%, rgba(240, 249, 255, 0.85) 0px, transparent 100%);
-  border-color: rgba(14, 165, 233, 0.3);
-  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.12);
+    radial-gradient(at 0% 0%, rgba(148, 163, 184, 0.34) 0px, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(226, 232, 240, 0.72) 0px, transparent 55%),
+    radial-gradient(at 50% 50%, rgba(248, 250, 252, 0.92) 0px, transparent 100%);
+  border-color: rgba(100, 116, 139, 0.4);
+  box-shadow: 0 4px 16px rgba(100, 116, 139, 0.12);
 }
 
 .daily-leaderboard-row.top-rank-3 {
@@ -5607,8 +5690,8 @@ details[open]>.admin-activity-summary svg {
 }
 
 .rank-badge-wrap.rank-badge-2 {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
+  background: linear-gradient(135deg, #e2e8f0 0%, #64748b 100%);
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.4);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
@@ -6332,6 +6415,62 @@ details[open]>.admin-activity-summary svg {
   .heatmap-stat-item:hover {
     transform: none !important;
   }
+
+  /* Dark mode is slower on phones because translucent cards blur a fixed,
+     multi-layer page background on every scroll. Paint solid surfaces instead. */
+  body,
+  :root[data-theme="dark"] body {
+    background-attachment: scroll;
+  }
+
+  :root[data-theme="dark"] body {
+    background: #0b0e18;
+  }
+
+  .topbar,
+  .main-nav,
+  .theme-toggle,
+  .font-controls,
+  .button-quiet,
+  .account-name,
+  .account-profile-btn,
+  .liquid-glass,
+  .water-glass-card,
+  .panel,
+  .metric-card,
+  .overview-card,
+  .question-card,
+  .member-directory-card,
+  .auth-modal,
+  .modal-scrim {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  :root[data-theme="dark"] .topbar {
+    background: #121826;
+  }
+
+  :root[data-theme="dark"] .liquid-glass,
+  :root[data-theme="dark"] .water-glass-card,
+  :root[data-theme="dark"] .panel,
+  :root[data-theme="dark"] .metric-card,
+  :root[data-theme="dark"] .dashboard-activity-panel,
+  :root[data-theme="dark"] .question-card {
+    background: #171e32;
+    box-shadow: none;
+  }
+
+  :root[data-theme="dark"] .hero-mascot-img {
+    filter: none;
+  }
+
+  .fluid-blob,
+  .fluid-shimmer-sweep {
+    display: none !important;
+    animation: none !important;
+    filter: none !important;
+  }
 }
 
 /* ==========================================================================
@@ -6714,10 +6853,27 @@ details[open]>.admin-activity-summary svg {
     display: none !important;
   }
 
+  .question-title-line {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
   .question-title {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: clamp(0.75rem, 3.2vw, 0.8125rem);
     font-weight: 600;
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lc-number {
+    flex: none;
+  }
+
+  .question-pattern {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -7024,6 +7180,20 @@ details[open]>.admin-activity-summary svg {
     margin-top: 14px;
   }
 
+  .account-github-actions,
+  .account-github-actions .button {
+    width: 100%;
+  }
+
+  .account-github-actions .button {
+    min-height: 42px;
+    justify-content: center;
+  }
+
+  .theme-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
   .account-form-actions .button {
     width: 100%;
     min-height: 44px;
@@ -7143,8 +7313,9 @@ details[open]>.admin-activity-summary svg {
     border-radius: 6px;
   }
 
-  /* Modals & Dialogs */
+  /* Modals sit above the bottom navigation so the last fields stay reachable. */
   .modal-scrim {
+    z-index: 1100;
     padding: 12px 8px;
     align-items: center;
   }
@@ -7235,6 +7406,83 @@ details[open]>.admin-activity-summary svg {
     height: 36px;
     min-height: 36px;
     border-radius: 6px;
+  }
+
+  .library-locked,
+  .login-prompt {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .library-locked>div,
+  .login-prompt>div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .library-locked h2,
+  .login-prompt h2 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+  }
+
+  .library-locked .button,
+  .login-prompt .button {
+    width: 100%;
+    min-height: 44px;
+    margin-left: 0;
+    justify-content: center;
+  }
+
+  .inline-callout {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .inline-callout button {
+    margin-left: 0;
+    min-height: 36px;
+  }
+
+  .review-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .review-actions {
+    width: 100%;
+  }
+
+  .review-actions .button {
+    flex: 1;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .pagination-controls>span {
+    white-space: normal;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .site-footer {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .page-heading>.button,
+  .page-heading .button {
+    min-height: 40px;
+  }
+
+  .mobile-bottom-nav button {
+    min-width: 0;
+    padding-inline: 2px;
+    line-height: 1.15;
+    overflow: hidden;
   }
 
   /* Notifications & Toasts */
@@ -7790,8 +8038,9 @@ details[open]>.admin-activity-summary svg {
 
 :root[data-theme="dark"] .search-input input::placeholder,
 :root[data-theme="dark"] .member-search input::placeholder,
-:root[data-theme="dark"] .submission-input-row input::placeholder {
-  color: #7b9c98;
+:root[data-theme="dark"] .submission-input-row input::placeholder,
+:root[data-theme="dark"] .qotd-panel .submission-input-row input::placeholder {
+  color: #8b98b4;
 }
 
 :root[data-theme="dark"] .filter-select select {
@@ -7848,11 +8097,11 @@ details[open]>.admin-activity-summary svg {
 
 :root[data-theme="dark"] .question-card.is-solved,
 :root[data-theme="dark"] .question-card.fish-card.is-solved {
-  border-left-color: #8eaaef;
+  border-left-color: #a5b4fc;
   background: linear-gradient(90deg,
-      rgba(8, 38, 32, 0.85) 0%,
-      rgba(10, 28, 38, 0.78) 45%,
-      rgba(6, 18, 26, 0.7) 100%);
+      rgba(49, 46, 110, 0.72) 0%,
+      rgba(32, 36, 72, 0.82) 42%,
+      rgba(22, 26, 52, 0.9) 100%);
 }
 
 :root[data-theme="dark"] .day-number {
@@ -7871,9 +8120,9 @@ details[open]>.admin-activity-summary svg {
 }
 
 :root[data-theme="dark"] .question-card.is-solved .lc-number {
-  color: #6ee7b7;
-  background: rgba(30, 42, 78, 0.6);
-  border-color: rgba(140, 164, 230, 0.4);
+  color: #e4e9ff;
+  background: rgba(79, 70, 160, 0.55);
+  border-color: rgba(165, 180, 252, 0.5);
 }
 
 /* --------------------------------------------------------------------------
@@ -7918,7 +8167,7 @@ details[open]>.admin-activity-summary svg {
 }
 
 :root[data-theme="dark"] .question-card.is-solved .question-title {
-  color: #82a8ba;
+  color: #d9e0fb;
 }
 
 :root[data-theme="dark"] .question-actions-guide {
@@ -8017,30 +8266,30 @@ details[open]>.admin-activity-summary svg {
 }
 
 :root[data-theme="dark"] .daily-leaderboard-row.top-rank-1 {
-  background-color: #1e1b12;
+  background-color: #2a220f;
   background-image:
-    radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.28) 0px, transparent 60%),
-    radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.16) 0px, transparent 60%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
-  border-color: rgba(245, 158, 11, 0.42);
+    radial-gradient(at 0% 0%, rgba(251, 191, 36, 0.34) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.16) 0px, transparent 60%),
+    linear-gradient(135deg, rgba(255, 236, 179, 0.06) 0%, transparent 100%);
+  border-color: rgba(250, 204, 21, 0.55);
 }
 
 :root[data-theme="dark"] .daily-leaderboard-row.top-rank-2 {
-  background-color: #121c24;
+  background-color: #1c2230;
   background-image:
-    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.28) 0px, transparent 60%),
-    radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.16) 0px, transparent 60%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
-  border-color: rgba(56, 189, 248, 0.38);
+    radial-gradient(at 0% 0%, rgba(226, 232, 240, 0.22) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(148, 163, 184, 0.14) 0px, transparent 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+  border-color: rgba(203, 213, 225, 0.5);
 }
 
 :root[data-theme="dark"] .daily-leaderboard-row.top-rank-3 {
-  background-color: #221814;
+  background-color: #2a1a12;
   background-image:
-    radial-gradient(at 0% 0%, rgba(234, 88, 12, 0.25) 0px, transparent 60%),
-    radial-gradient(at 100% 100%, rgba(251, 146, 60, 0.15) 0px, transparent 60%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
-  border-color: rgba(249, 115, 22, 0.35);
+    radial-gradient(at 0% 0%, rgba(217, 119, 6, 0.32) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(180, 83, 9, 0.16) 0px, transparent 60%),
+    linear-gradient(135deg, rgba(255, 214, 170, 0.05) 0%, transparent 100%);
+  border-color: rgba(217, 119, 6, 0.5);
 }
 
 :root[data-theme="dark"] .explainer-locked-banner {
@@ -8290,7 +8539,7 @@ details[open]>.admin-activity-summary svg {
 }
 
 :root[data-theme="dark"] .attempt-points-tag {
-  background: rgba(13, 148, 136, 0.2);
+  background: rgba(99, 102, 241, 0.2);
   color: #93b2ff;
 }
 
@@ -10499,19 +10748,14 @@ details[open]>.admin-activity-summary svg {
     padding: 16px !important;
     border-radius: 14px !important;
 
-    background: linear-gradient(140deg,
-        rgba(255, 255, 255, 0.92),
-        rgba(252, 254, 250, 0.82)) !important;
+    background: #f7faf8 !important;
 
     border: 1px solid rgba(255, 255, 255, 0.9) !important;
 
-    box-shadow:
-      0 8px 24px -4px rgba(32, 45, 36, 0.10),
-      0 2px 6px -1px rgba(32, 45, 36, 0.05),
-      inset 0 1px 1px rgba(255, 255, 255, 0.95) !important;
+    box-shadow: none !important;
 
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .overview-card.personal-card {
@@ -10524,10 +10768,9 @@ details[open]>.admin-activity-summary svg {
 
   :root[data-theme="dark"] .overview-card.personal-card,
   :root[data-theme="dark"] .overview-card.community-card {
-    background: linear-gradient(140deg,
-        rgba(14, 30, 44, 0.96),
-        rgba(9, 21, 30, 0.94)) !important;
-    border-color: rgba(125, 211, 252, 0.18) !important;
+    background: #171e32 !important;
+    border-color: rgba(158, 180, 255, 0.22) !important;
+    box-shadow: none !important;
   }
 }
 
@@ -11096,4 +11339,168 @@ details[open]>.admin-activity-summary svg {
 :root[data-theme="dark"] .month-flyout-csv-btn.primary:hover {
   background: #3e5aa8;
   border-color: #8eaaef;
+}
+
+/* Phone dark mode: this must follow the dark theme so the fixed gradient
+   does not win and force a full-page blur on every scroll. */
+@media (max-width: 768px), (hover: none) {
+  :root[data-theme="dark"] body {
+    background: #0b0e18;
+    background-attachment: scroll;
+  }
+
+  :root[data-theme="dark"] .topbar {
+    background: #121826;
+  }
+
+  :root[data-theme="dark"] .liquid-glass,
+  :root[data-theme="dark"] .water-glass-card,
+  :root[data-theme="dark"] .panel,
+  :root[data-theme="dark"] .metric-card,
+  :root[data-theme="dark"] .dashboard-activity-panel,
+  :root[data-theme="dark"] .question-card {
+    background: #171e32;
+    box-shadow: none;
+  }
+
+  :root[data-theme="dark"] .today-card,
+  :root[data-theme="dark"] .qotd-panel {
+    box-shadow: none !important;
+  }
+
+  .member-admin-overlay-backdrop {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* Dark slate theme: section labels and completed rows use periwinkle, not sage. */
+:root[data-theme="dark"] .eyebrow,
+:root[data-theme="dark"] .micro-label,
+:root[data-theme="dark"] .question-total,
+:root[data-theme="dark"] .personal-legend,
+:root[data-theme="dark"] .card-kicker,
+:root[data-theme="dark"] .hero-index span,
+:root[data-theme="dark"] .hero-subtitle,
+:root[data-theme="dark"] .metric-card span,
+:root[data-theme="dark"] .history-date,
+:root[data-theme="dark"] .rank,
+:root[data-theme="dark"] .club-date-badge strong,
+:root[data-theme="dark"] .progress-summary article span,
+:root[data-theme="dark"] .progress-summary small,
+:root[data-theme="dark"] .personal-stat>span,
+:root[data-theme="dark"] .personal-card p,
+:root[data-theme="dark"] .community-figure span,
+:root[data-theme="dark"] .site-footer,
+:root[data-theme="dark"] .library-locked p,
+:root[data-theme="dark"] .difficulty,
+:root[data-theme="dark"] .club-participation,
+:root[data-theme="dark"] .empty-assignment p,
+:root[data-theme="dark"] .privacy-note,
+:root[data-theme="dark"] .page-heading p,
+:root[data-theme="dark"] .login-prompt p,
+:root[data-theme="dark"] .empty-panel p,
+:root[data-theme="dark"] .assignment-meta,
+:root[data-theme="dark"] .assignment-prompt,
+:root[data-theme="dark"] .assignment-counts span,
+:root[data-theme="dark"] .submission-info,
+:root[data-theme="dark"] .submission-form>label,
+:root[data-theme="dark"] .publish-form label>span,
+:root[data-theme="dark"] .submission-form small,
+:root[data-theme="dark"] .no-assignment-note,
+:root[data-theme="dark"] .profile-head p,
+:root[data-theme="dark"] .privacy-toggle,
+:root[data-theme="dark"] .publish-form label>span i,
+:root[data-theme="dark"] .helper-copy,
+:root[data-theme="dark"] .review-item strong span,
+:root[data-theme="dark"] .review-item p,
+:root[data-theme="dark"] .soft-empty,
+:root[data-theme="dark"] .member-identity span,
+:root[data-theme="dark"] .member-search,
+:root[data-theme="dark"] .dashboard-member-identity>small,
+:root[data-theme="dark"] .dashboard-empty p,
+:root[data-theme="dark"] .account-form>label,
+:root[data-theme="dark"] .account-pref-label,
+:root[data-theme="dark"] .pagination-controls>span,
+:root[data-theme="dark"] .scope-toggle-btn,
+:root[data-theme="dark"] .explainer-banner-info p,
+:root[data-theme="dark"] .leaderboard-note,
+:root[data-theme="dark"] .leader-person span,
+:root[data-theme="dark"] .micro-count,
+:root[data-theme="dark"] .my-submission,
+:root[data-theme="dark"] .toast button,
+:root[data-theme="dark"] .modal-close,
+:root[data-theme="dark"] .auth-lede,
+:root[data-theme="dark"] .auth-form>label:not(.check-label),
+:root[data-theme="dark"] .auth-switch,
+:root[data-theme="dark"] .auth-privacy {
+  color: #a9b4d0;
+}
+
+:root[data-theme="dark"] .today-card .card-kicker {
+  color: #a9b4d0 !important;
+}
+
+:root[data-theme="dark"] .rank-1 {
+  color: #f5d76e;
+}
+
+:root[data-theme="dark"] .rank-2 {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .rank-3 {
+  color: #e0a36a;
+}
+
+:root[data-theme="dark"] .completion-date,
+:root[data-theme="dark"] .submitted-today-pill,
+:root[data-theme="dark"] .heatmap-day-submitted-chip,
+:root[data-theme="dark"] .pill-submitted,
+:root[data-theme="dark"] .dot-submitted {
+  color: #c7d2fe;
+}
+
+:root[data-theme="dark"] .personal-legend i,
+:root[data-theme="dark"] .dot-submitted {
+  background: #a5b4fc;
+  box-shadow: 0 0 6px rgba(165, 180, 252, 0.45);
+}
+
+:root[data-theme="dark"] .submitted-today-pill,
+:root[data-theme="dark"] .heatmap-day-submitted-chip,
+:root[data-theme="dark"] .pill-submitted,
+:root[data-theme="dark"] .qotd-panel .inline-callout.submitted,
+:root[data-theme="dark"] .inline-callout.submitted {
+  color: #e0e7ff;
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(165, 180, 252, 0.4);
+}
+
+:root[data-theme="dark"] button:focus-visible,
+:root[data-theme="dark"] a:focus-visible,
+:root[data-theme="dark"] input:focus-visible,
+:root[data-theme="dark"] select:focus-visible,
+:root[data-theme="dark"] textarea:focus-visible {
+  outline-color: #a5b4fc;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #8b98b4;
+}
+
+:root[data-theme="dark"] .auth-form input:not([type="checkbox"]):focus,
+:root[data-theme="dark"] .auth-form select:focus,
+:root[data-theme="dark"] .account-form input:focus,
+:root[data-theme="dark"] .account-form select:focus,
+:root[data-theme="dark"] .account-github-field input:focus,
+:root[data-theme="dark"] .publish-form input:focus,
+:root[data-theme="dark"] .publish-form select:focus,
+:root[data-theme="dark"] .search-input:focus-within,
+:root[data-theme="dark"] .member-search:focus-within,
+:root[data-theme="dark"] .custom-avatar-input:focus,
+:root[data-theme="dark"] .qotd-panel .submission-input-row input:focus {
+  border-color: #a5b4fc;
+  box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.24);
 }
