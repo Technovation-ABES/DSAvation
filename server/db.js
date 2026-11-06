@@ -36,6 +36,10 @@ export async function getDatabase() {
       db.collection('personalProgress').createIndex({ userId: 1, questionId: 1 }, { unique: true }),
       db.collection('assignments').createIndex({ dateKey: 1 }, { unique: true }),
       db.collection('submissions').createIndex({ assignmentId: 1, userId: 1 }, { unique: true }),
+      db.collection('submissions').createIndex({ status: 1, submittedAt: 1 }),
+      db.collection('submissions').createIndex({ status: 1, assignmentId: 1, submittedAt: 1 }),
+      db.collection('submissions').createIndex({ userId: 1, status: 1 }),
+      db.collection('users').createIndex({ approvalStatus: 1 }),
       db.collection('submissions').createIndex({ commitSha: 1 }, {
         unique: true,
         partialFilterExpression: { commitSha: { $type: 'string' } },

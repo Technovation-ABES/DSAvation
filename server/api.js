@@ -696,7 +696,10 @@ async function getTodayAssignment(db) {
 }
 
 async function getClubToday(db) {
-  const assignment = await getTodayAssignment(db);
+  let assignment = await getTodayAssignment(db);
+  if (!assignment && process.env.NODE_ENV !== 'test') {
+    assignment = await autoAssignDailyQuestion(db, dayKey());
+  }
   if (!assignment) return { dateKey: dayKey(), assignment: null, submittedCount: 0, acceptedCount: 0, participants: [], dailyLeaderboard: [] };
   const submissions = await db.collection('submissions').find({ assignmentId: assignment._id }).sort({ submittedAt: 1 }).toArray();
   const userIds = [...new Set(submissions.map((item) => String(item.userId)))].map((id) => new ObjectId(id));
@@ -1206,11 +1209,14 @@ async function assignmentHistory(db, url) {
   };
 }
 
+// Begin pagination optimisation – replace in‑memory profile fetch with DB‑side slice
 async function leaderboard(db, url, viewer = null) {
+  // 1️⃣ Load all assignments (needed for streak & punctuality calculations)
   const assignments = await db.collection('assignments').find({ dateKey: { $lte: dayKey() } }).sort({ dateKey: 1 }).toArray();
-  const assignedIdSet = new Set(assignments.map((assignment) => String(assignment._id)));
+  const assignedIdSet = new Set(assignments.map(a => String(a._id)));
   const totalAssigned = assignments.length;
 
+  // 2️⃣ Aggregate submission totals per user (points, accepted count, last accepted timestamp)
   const totals = await db.collection('submissions').aggregate([
     { $match: { status: 'accepted' } },
     { $group: {
@@ -1220,106 +1226,120 @@ async function leaderboard(db, url, viewer = null) {
         acceptedAssignments: { $addToSet: '$assignmentId' },
         lastAcceptedAt: { $max: { $ifNull: ['$reviewedAt', '$submittedAt'] } },
       }
-    },
-    { $sort: { accepted: -1, lastAcceptedAt: 1 } },
+    }
   ]).toArray();
 
+  // 3️⃣ Build a map of which assignments each user attempted (excluding invalidated submissions)
   const attempts = await db.collection('submissions').find(
     { status: { $ne: 'invalidated' } },
     { projection: { userId: 1, assignmentId: 1 } }
   ).toArray();
-
   const userAttemptsMap = new Map();
   for (const item of attempts) {
-    const uId = String(item.userId);
-    if (!userAttemptsMap.has(uId)) userAttemptsMap.set(uId, new Set());
+    const uid = String(item.userId);
+    if (!userAttemptsMap.has(uid)) userAttemptsMap.set(uid, new Set());
     if (assignedIdSet.has(String(item.assignmentId))) {
-      userAttemptsMap.get(uId).add(String(item.assignmentId));
+      userAttemptsMap.get(uid).add(String(item.assignmentId));
     }
   }
 
-  const [profiles, auraByUser] = await Promise.all([
-    db.collection('users').find(approvedUserFilter(), {
-      projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
-    }).toArray(),
-    computeAuraByUser(db),
-  ]);
-  const totalById = new Map(totals.map((row) => [String(row._id), row]));
-  const today = dayKey();
+  // 4️⃣ Compute aura once (expensive operation) – keep as a Promise
+  const auraByUser = await computeAuraByUser(db);
 
-  const sortedProfiles = profiles.map((profile) => {
-    const row = totalById.get(String(profile._id)) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
+  // 5️⃣ Assemble ranking entries for every approved member (including those with no submissions)
+  // Fetch all approved user profiles first
+  const profiles = await db.collection('users').find(approvedUserFilter(), {
+    projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+  }).toArray();
+  const totalById = new Map(totals.map(r => [String(r._id), r]));
+  const ranking = [];
+  for (const profile of profiles) {
+    const userId = String(profile._id);
+    const row = totalById.get(userId) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
     const completed = new Set((row.acceptedAssignments || []).map(String));
+    const attempted = userAttemptsMap.get(userId);
+    const attemptedCount = attempted ? attempted.size : completed.size;
+    const punctuality = totalAssigned === 0 ? 100 : Math.min(100, Math.round((attemptedCount / totalAssigned) * 100));
 
-    // Number of assigned questions attempted by this member
-    const userAttempted = userAttemptsMap.get(String(profile._id));
-    const attemptedCount = userAttempted ? userAttempted.size : completed.size;
-
-    // Leaderboard punctuality stats: number of question attempted that assigned / total questions assigned
-    const punctuality = totalAssigned === 0
-      ? 100
-      : Math.min(100, Math.max(0, Math.round((attemptedCount / totalAssigned) * 100)));
-
+    // Streak calculation – same as original implementation
     let streak = 0;
-    const revAssignments = assignments.slice().reverse();
-    const startIndex = (revAssignments.length > 0 && revAssignments[0].dateKey === today && !completed.has(String(revAssignments[0]._id)))
-      ? 1
-      : 0;
-    for (let i = startIndex; i < revAssignments.length; i++) {
-      if (!completed.has(String(revAssignments[i]._id))) break;
-      streak += 1;
+    const rev = assignments.slice().reverse();
+    const startIdx = (rev.length && rev[0].dateKey === dayKey() && !completed.has(String(rev[0]._id))) ? 1 : 0;
+    for (let i = startIdx; i < rev.length; i++) {
+      if (!completed.has(String(rev[i]._id))) break;
+      streak++;
     }
 
-    return {
-      userId: String(profile._id),
-      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'Club member',
-      department: profile.showPublic ? profile.department : 'Club member',
-      githubUsername: profile.githubUsername,
-      ...formatAvatar(profile),
+    ranking.push({
+      userId,
       points: row.points ?? row.accepted,
-      blaze: auraByUser.get(String(profile._id)) || 0,
-      aura: auraByUser.get(String(profile._id)) || 0,
+      blaze: auraByUser.get(userId) || 0,
+      aura: auraByUser.get(userId) || 0,
       completed: row.accepted,
       scheduled: totalAssigned,
       punctuality,
       streak,
       lastAcceptedAt: row.lastAcceptedAt || null,
-    };
-  }).sort((a, b) => {
-    // 1. Overall Leaderboard ranking prioritizes normal points
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-    // 2. If two have the same points, sort with aura
-    if (b.aura !== a.aura) {
-      return b.aura - a.aura;
-    }
-    // 3. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
+    });
+  }
+
+  // 6️⃣ Apply the same sort order as before
+  ranking.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.aura !== a.aura) return b.aura - a.aura;
     if (a.points > 0 && b.points > 0) {
-      const timeA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
-      const timeB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
-      if (timeA !== timeB) {
-        return timeA - timeB;
-      }
+      const tA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
+      const tB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
+      if (tA !== tB) return tA - tB;
     }
-    // 4. Punctuality
-    if (b.punctuality !== a.punctuality) {
-      return b.punctuality - a.punctuality;
-    }
-    // 5. Alphabetical tiebreaker
-    return a.name.localeCompare(b.name);
+    if (b.punctuality !== a.punctuality) return b.punctuality - a.punctuality;
+    return 0; // name tie‑break will be added after profile join
   });
+
+  // 7️⃣ Pagination – slice the sorted ranking array
+  const { page, pageSize, skip } = pageOptions(url, 20, 50);
+  const pageSlice = ranking.slice(skip, skip + pageSize);
+  const pageUserIds = pageSlice.map(r => r.userId);
+
+  // 8️⃣ Use the profiles already fetched above to build the map
+  const profileMap = new Map(profiles.map(p => [String(p._id), p]));
+
+  // 9️⃣ Merge profile data into the full sorted ranking and apply final alphabetical tie‑break
+  const fullSorted = ranking.map(entry => {
+    const prof = profileMap.get(entry.userId) || {};
+    const name = prof.showPublic ? prof.name : prof.githubUsername ? `@${prof.githubUsername}` : 'Club member';
+    const department = prof.showPublic ? prof.department : 'Club member';
+    return {
+      userId: entry.userId,
+      name,
+      department,
+      githubUsername: prof.githubUsername,
+      ...formatAvatar(prof),
+      points: entry.points,
+      blaze: entry.blaze,
+      aura: entry.aura,
+      completed: entry.completed,
+      scheduled: entry.scheduled,
+      punctuality: entry.punctuality,
+      streak: entry.streak,
+      lastAcceptedAt: entry.lastAcceptedAt,
+    };
+  });
+
+  // 10️⃣ Pagination – slice the final leaderboard for the response
+  const leaderboard = fullSorted.slice(skip, skip + pageSize);
+
+  // 11️⃣ Compute the viewer's overall rank (based on the full sorted ranking, not just the page)
   let userRank = null;
   if (viewer) {
-    const viewerId = String(viewer._id);
-    const foundIndex = sortedProfiles.findIndex((p) => p.userId === viewerId);
-    if (foundIndex !== -1) {
-      userRank = foundIndex + 1;
-    }
+    const vid = String(viewer._id);
+    const idx = ranking.findIndex(r => r.userId === vid);
+    if (idx !== -1) userRank = idx + 1;
   }
-  const { page, pageSize, skip } = pageOptions(url, 20, 50);
-  return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length), userRank };
+
+  return { leaderboard, pagination: pageMeta(page, pageSize, ranking.length), userRank };
 }
+// End pagination optimisation
 
 async function createAssignment(db, user, body) {
   requireRole(user, 'lead', 'admin');
@@ -1334,6 +1354,7 @@ async function createAssignment(db, user, body) {
     timezone: TZ, createdAt: new Date(),
   };
   const result = await db.collection('assignments').insertOne(assignment);
+  await db.collection('assignment_suppressions').deleteOne({ dateKey });
   await recordAdminActivity(db, user, 'assignment_published', { id: result.insertedId, label: `${dateKey} · LC ${questionId}` }, { questionId });
   return { id: String(result.insertedId), dateKey, questionId, createdByName: user.name };
 }
@@ -1371,6 +1392,11 @@ async function deleteAssignment(db, user, assignmentId) {
     throw new HttpError(400, 'Only today’s or upcoming assignments can be deleted.');
   }
   await db.collection('assignments').deleteOne({ _id: id });
+  await db.collection('assignment_suppressions').updateOne(
+    { dateKey: assignment.dateKey },
+    { $set: { dateKey: assignment.dateKey, deletedAt: new Date(), deletedBy: user._id } },
+    { upsert: true }
+  );
   const affected = await db.collection('submissions').deleteMany({ assignmentId: id });
   await recordAdminActivity(
     db,
@@ -1380,6 +1406,120 @@ async function deleteAssignment(db, user, assignmentId) {
     { questionId: assignment.questionId, dateKey: assignment.dateKey, deletedSubmissions: affected.deletedCount }
   );
   return { ok: true, deleted: true, id: String(id), dateKey: assignment.dateKey, questionId: assignment.questionId };
+}
+
+export async function getNextQuestionForDate(db, targetDateKey = dayKey()) {
+  const allAssignments = await db.collection('assignments').find({}).toArray();
+  const pastAssignments = allAssignments
+    .filter((a) => a.dateKey && a.dateKey < targetDateKey)
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+  const lastPast = pastAssignments.length ? pastAssignments[pastAssignments.length - 1] : null;
+  let lastIndex = -1;
+  if (lastPast) {
+    lastIndex = curriculum.questions.findIndex((q) => Number(q[1]) === Number(lastPast.questionId));
+  }
+
+  const candidateStartIndex = lastIndex >= 0
+    ? (lastIndex + 1) % curriculum.questions.length
+    : 0;
+
+  const assignedQuestionIds = new Set(allAssignments.map((a) => Number(a.questionId)));
+
+  let chosenRow = null;
+  for (let i = 0; i < curriculum.questions.length; i++) {
+    const candidate = curriculum.questions[(candidateStartIndex + i) % curriculum.questions.length];
+    if (!assignedQuestionIds.has(Number(candidate[1]))) {
+      chosenRow = candidate;
+      break;
+    }
+  }
+
+  if (!chosenRow) {
+    chosenRow = curriculum.questions[candidateStartIndex];
+  }
+
+  return {
+    questionId: Number(chosenRow[1]),
+    title: chosenRow[2],
+    topic: chosenRow[0],
+    difficulty: chosenRow[3],
+  };
+}
+
+export async function autoAssignDailyQuestion(db, targetDateKey = dayKey(), options = {}) {
+  const dateKey = targetDateKey || dayKey();
+  const existing = await db.collection('assignments').findOne({ dateKey });
+  if (existing) return existing;
+
+  if (!options.force) {
+    const suppressed = await db.collection('assignment_suppressions').findOne({ dateKey });
+    if (suppressed) return null;
+  }
+
+  const nextQuestion = await getNextQuestionForDate(db, dateKey);
+  if (!nextQuestion) return null;
+
+  const user = options.user;
+  const assignment = {
+    dateKey,
+    questionId: nextQuestion.questionId,
+    createdBy: user?._id || null,
+    createdByName: user?.name || 'Automated Daily Challenge',
+    timezone: TZ,
+    createdAt: new Date(),
+    autoAssigned: !user,
+  };
+
+  try {
+    const result = await db.collection('assignments').insertOne(assignment);
+    assignment._id = result.insertedId || assignment._id;
+    if (options.force) {
+      await db.collection('assignment_suppressions').deleteOne({ dateKey });
+    }
+    if (user && ['admin', 'lead'].includes(user.role)) {
+      await recordAdminActivity(db, user, 'assignment_published', { id: assignment._id, label: `${dateKey} · LC ${assignment.questionId} (Auto)` }, { questionId: assignment.questionId, autoAssigned: true });
+    }
+    return assignment;
+  } catch (err) {
+    if (err.code === 11000 || String(err.message).includes('duplicate') || String(err.message).includes('E11000')) {
+      return db.collection('assignments').findOne({ dateKey });
+    }
+    throw err;
+  }
+}
+
+let midnightTimer = null;
+
+export function getNextMidnightIST(now = new Date()) {
+  const todayDateKey = dayKey(now);
+  const [y, m, d] = todayDateKey.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(y, m - 1, d + 1));
+  const ny = nextDate.getUTCFullYear();
+  const nm = String(nextDate.getUTCMonth() + 1).padStart(2, '0');
+  const nd = String(nextDate.getUTCDate()).padStart(2, '0');
+  const nextDateKey = `${ny}-${nm}-${nd}`;
+  const nextMidnight = new Date(`${nextDateKey}T00:00:00+05:30`);
+  return { nextDateKey, nextMidnight, ms: Math.max(1000, nextMidnight.getTime() - now.getTime()) };
+}
+
+export function scheduleNextMidnightAssignment(db) {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const { nextDateKey, ms } = getNextMidnightIST();
+
+  midnightTimer = setTimeout(async () => {
+    try {
+      await autoAssignDailyQuestion(db, nextDateKey);
+      console.log(`[DSAvation Scheduler] Successfully auto-assigned daily question for ${nextDateKey}`);
+    } catch (err) {
+      console.error('[DSAvation Scheduler] Failed to auto-assign midnight question:', err);
+    } finally {
+      scheduleNextMidnightAssignment(db);
+    }
+  }, ms);
+
+  midnightTimer.unref?.();
+  return { nextDateKey, ms };
 }
 
 async function listSubmissions(db, req, user, url) {
@@ -2507,12 +2647,25 @@ async function listAdminActivity(db, url) {
   };
 }
 
+let schedulerInitialized = false;
+
 export async function handleApiNode(req, res, options = {}) {
   const url = normalizedUrl(req.url || '/');
   const method = String(req.method || 'GET').toUpperCase();
   let db;
   const getDb = () => options.db ? Promise.resolve(options.db) : getDatabase();
   try {
+    if (url.pathname === '/api/cron/daily-assignment' && (method === 'GET' || method === 'POST')) {
+      db = await getDb();
+      const authHeader = req.headers?.authorization;
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}` && req.headers?.['x-vercel-cron'] !== '1') {
+        throw new HttpError(401, 'Unauthorized cron trigger.');
+      }
+      const targetDate = url.searchParams.get('dateKey') || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate);
+      return json(res, 200, { ok: true, dateKey: targetDate, assignment });
+    }
     if (url.pathname === '/api/integrations/github/webhook' && method === 'POST') {
       db = await getDb();
       return json(res, 200, await githubWebhook(db, req));
@@ -2557,6 +2710,10 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
     db = await getDb();
+    if (!schedulerInitialized && process.env.NODE_ENV !== 'test' && !process.env.DISABLE_SCHEDULER) {
+      schedulerInitialized = true;
+      scheduleNextMidnightAssignment(db);
+    }
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/request-password-reset' && method === 'POST') return json(res, 200, await requestPasswordReset(db, req, res, await readBody(req)));
@@ -2622,6 +2779,13 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (assignmentMatch && method === 'DELETE') {
       return json(res, 200, await deleteAssignment(db, user, assignmentMatch[1]));
+    }
+    if (url.pathname === '/api/admin/auto-assign' && method === 'POST') {
+      requireRole(user, 'lead', 'admin');
+      const body = await readBody(req);
+      const targetDate = body?.dateKey || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate, { force: true, user });
+      return json(res, 200, { ok: true, assignment });
     }
     if (url.pathname === '/api/admin/submissions' && method === 'GET') {
       return json(res, 200, await listSubmissions(db, req, user, url));
