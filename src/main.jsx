@@ -20,6 +20,7 @@ import { initLiquidGlass } from './liquidGlass.js';
 import { AtmosphereBackdrop } from './components/atmosphere/AtmosphereBackdrop.jsx';
 import { useAdaptiveCardTheme } from './utils/useAdaptiveCardTheme.js';
 import './style.css';
+import './forest.css';
 
 function normalizeQuestions(rows = []) {
   return rows.map((row, index) => ({
@@ -69,9 +70,18 @@ function getPathFromView(v) {
 }
 
 function initialTheme() {
-  const theme = localStorage.getItem('dsavation-theme') === 'dark' ? 'dark' : 'light';
+  const stored = localStorage.getItem('dsavation-theme');
+  const theme = stored === 'dark' || stored === 'forest' ? stored : 'light';
   document.documentElement.dataset.theme = theme;
   return theme;
+}
+
+function rememberDarkStyle(theme) {
+  if (theme === 'dark' || theme === 'forest') localStorage.setItem('dsavation-dark-style', theme);
+}
+
+function storedDarkStyle() {
+  return localStorage.getItem('dsavation-dark-style') === 'dark' ? 'dark' : 'forest';
 }
 
 async function api(path, options = {}) {
@@ -884,6 +894,7 @@ function App() {
 
   const [account, setAccount] = useState(null);
   const [theme, setTheme] = useState(initialTheme);
+  const [darkStyle, setDarkStyle] = useState(storedDarkStyle);
   const [questions, setQuestions] = useState([]);
   const [topics, setTopics] = useState([]);
   const [authReady, setAuthReady] = useState(false);
@@ -1819,6 +1830,10 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('dsavation-theme', theme);
+    if (theme === 'dark' || theme === 'forest') {
+      rememberDarkStyle(theme);
+      setDarkStyle(theme);
+    }
   }, [theme]);
   useLayoutEffect(() => {
     localStorage.removeItem('dsavation-font-scale');
@@ -2184,14 +2199,18 @@ function App() {
     <header className="topbar">
       <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate('general'); }}><img className="brand-mark" src="/technovation-logo.png" alt="Technovation Logo" /><span>DSAvation</span></a>
       <nav className="main-nav" aria-label="Main navigation">
-        <button className={view === 'general' ? 'active' : ''} onClick={() => navigate('general')}><IconifyIcon icon="bi:journal-bookmark" width={16} height={16} />General</button>
+        <button className={view === 'general' ? 'active' : ''} onClick={() => navigate('general')}><IconifyIcon icon="bi:journal-bookmark" width={16} height={16} />Home</button>
         {account && <button className={view === 'members' ? 'active' : ''} onClick={() => navigate('members')}><Icon name="users" size={15} />Members</button>}
         <button className={view === 'club' ? 'active' : ''} onClick={() => navigate('club')}><Icon name="users" size={15} />Club challenge</button>
         {account && <button className={view === 'activity' ? 'active' : ''} onClick={() => navigate('activity')}><Icon name="calendar" size={15} />Activity</button>}
         {isAdmin && <button className={view === 'dashboard' ? 'active' : ''} onClick={() => navigate('dashboard')}><IconifyIcon icon="hugeicons:dashboard-square-02" width={16} height={16} />Dashboard{memberCounts.pending > 0 && <span className="nav-count">{memberCounts.pending}</span>}</button>}
       </nav>
       <div className="account-actions">
-        <button className="theme-toggle" type="button" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15} /><span>{theme === 'dark' ? 'Light' : 'Dark'}</span></button>
+        <button className="theme-toggle" type="button" onClick={() => setTheme((current) => {
+          if (current === 'light') return storedDarkStyle();
+          rememberDarkStyle(current);
+          return 'light';
+        })} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}><Icon name={theme === 'light' ? 'moon' : 'sun'} size={15} /><span>{theme === 'light' ? 'Dark' : 'Light'}</span></button>
         {account ? (
           <button
             type="button"
@@ -2429,7 +2448,7 @@ function App() {
             Direct LeetCode submissions require administrator approval. You can submit solutions via GitHub commit anytime.
           </small>
         )}
-      </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview" /><div><strong>Choose your avatar</strong>{avatarDraftStyle !== 'custom' && <span>Pick a style, then select a face or shuffle the options.</span>}</div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }} />{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16} /> : <Icon name="lock" size={14} />}<span>{customUrlStatus.message}</span></div></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label="" /></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)} />{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label></div><div className="account-form-actions">
+      </div><div className="avatar-picker"><div className="avatar-picker-heading"><MemberAvatar style={avatarDraftStyle} seed={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : (avatarDraftSeed || account.avatarSeed || account.id)} url={avatarDraftStyle === 'custom' ? avatarDraftCustomUrl : undefined} className="avatar-current" label="Selected avatar preview" /><div><strong>Choose your avatar</strong>{avatarDraftStyle !== 'custom' && <span>Pick a style, then select a face or shuffle the options.</span>}</div>{avatarDraftStyle !== 'custom' && <button type="button" className="button button-quiet" onClick={shuffleAvatarChoices}>Shuffle options</button>}</div><div className="avatar-style-tabs" role="tablist" aria-label="Avatar styles">{AVATAR_STYLES.map((style) => <button type="button" key={style.id} role="tab" aria-selected={avatarDraftStyle === style.id} className={avatarDraftStyle === style.id ? 'selected' : ''} onClick={() => chooseAvatarStyle(style.id)}>{style.name}</button>)}<button type="button" role="tab" aria-selected={avatarDraftStyle === 'custom'} className={avatarDraftStyle === 'custom' ? 'selected' : ''} onClick={() => chooseAvatarStyle('custom')}>Custom URL</button></div>{avatarDraftStyle === 'custom' ? <div className="custom-avatar-box"><label className="custom-avatar-label"><span>CUSTOM IMAGE URL</span><div className="custom-avatar-input-wrapper"><input type="url" className="custom-avatar-input" placeholder="https://example.com/avatar.png" value={avatarDraftCustomUrl} onChange={(e) => { setAvatarDraftCustomUrl(e.target.value); setAvatarDraftSeed(e.target.value.trim() || 'custom-avatar'); }} />{avatarDraftCustomUrl && <button type="button" className="button button-quiet" onClick={() => { setAvatarDraftCustomUrl(''); setAvatarDraftSeed('custom-avatar'); }}>Clear</button>}</div></label><div className={`custom-url-status ${customUrlStatus.type}`}>{customUrlStatus.valid ? <IconifyIcon icon="keyline-icons:image-check-fill" width={16} height={16} /> : <Icon name="lock" size={14} />}<span>{customUrlStatus.message}</span></div></div> : <><div className="avatar-choice-grid" aria-label="Choose an avatar">{avatarChoices.map((seed, index) => <button type="button" key={seed} className={`avatar-choice ${avatarDraftSeed === seed ? 'selected' : ''}`} aria-label={`Choose avatar ${index + 1}`} aria-pressed={avatarDraftSeed === seed} onClick={() => setAvatarDraftSeed(seed)}><MemberAvatar style={avatarDraftStyle} seed={seed} label="" /></button>)}</div><small className="avatar-license-note">CC BY 4.0 credits: <a href="https://www.dicebear.com/styles/fun-emoji/" target="_blank" rel="noreferrer">Fun Emoji Set by Davis Uche</a> and <a href="https://www.dicebear.com/styles/micah/" target="_blank" rel="noreferrer">Avatar Illustration System by Micah Lanier</a>.</small></>}</div><div className="custom-card-bg-box"><div className="custom-card-bg-header"><div><strong>Custom background image</strong></div></div><label className="custom-avatar-label"><span>CUSTOM CARD BACKGROUND URL</span><div className="custom-avatar-input-wrapper"><input type="url" name="cardBgUrl" className="custom-avatar-input" placeholder="https://example.com/background.jpg" value={profileCardBgUrl} onChange={(e) => setProfileCardBgUrl(e.target.value)} />{profileCardBgUrl && <button type="button" className="button button-quiet" onClick={() => setProfileCardBgUrl('')}>Clear</button>}</div></label></div><div className="theme-choice"><span className="account-pref-label">DEFAULT DARK MODE</span><div className="theme-choice-grid" role="radiogroup" aria-label="Default dark mode"><button type="button" className={`theme-choice-card ${darkStyle === 'forest' ? 'selected' : ''}`} aria-pressed={darkStyle === 'forest'} onClick={() => { rememberDarkStyle('forest'); setDarkStyle('forest'); if (theme !== 'light') setTheme('forest'); }}><i className="theme-swatch forest" /><span className="theme-choice-copy"><strong>Forest</strong><span>Soft teal night</span></span></button><button type="button" className={`theme-choice-card ${darkStyle === 'dark' ? 'selected' : ''}`} aria-pressed={darkStyle === 'dark'} onClick={() => { rememberDarkStyle('dark'); setDarkStyle('dark'); if (theme !== 'light') setTheme('dark'); }}><i className="theme-swatch slate" /><span className="theme-choice-copy"><strong>Slate</strong><span>Cool navy night</span></span></button></div></div><div className="account-form-actions">
           <button className="button button-dark" disabled={profileBusy || !isProfileDirty}>{profileBusy ? 'Saving…' : 'Save account details'} <Icon name="arrow" size={14} /></button>
           <button
             type="button"
@@ -3888,7 +3907,7 @@ function App() {
       </form>
       <div className="auth-switch">{authMode === 'signup' ? 'Already a member?' : 'New to DSAvation?'} <button onClick={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setAuthError(''); setShowPassword(false); }}>{authMode === 'signup' ? 'Sign in' : 'Create account'}</button>{authMode === 'login' && <><span> · </span><button onClick={() => { setAuthOpen(false); setForgotOpen(true); }}>Forgot password?</button></>}</div>
     </section></div>}
-    <div className={`mobile-bottom-nav ${account ? 'has-account' : ''} ${isAdmin ? 'admin-nav' : ''}`}><button className={view === 'general' ? 'active' : ''} onClick={() => navigate('general')}><IconifyIcon icon="bi:journal-bookmark" width={17} height={17} />General</button>{account && <button className={view === 'members' ? 'active' : ''} onClick={() => navigate('members')}><Icon name="users" size={17} />Members</button>}<button className={view === 'club' ? 'active' : ''} onClick={() => navigate('club')}><Icon name="users" size={17} />Club</button>{account && <button className={view === 'activity' ? 'active' : ''} onClick={() => navigate('activity')}><Icon name="calendar" size={17} />Activity</button>}{isAdmin && <button className={view === 'dashboard' ? 'active' : ''} onClick={() => navigate('dashboard')}><Icon name="users" size={17} />Admin</button>}</div>
+    <div className={`mobile-bottom-nav ${account ? 'has-account' : ''} ${isAdmin ? 'admin-nav' : ''}`}><button className={view === 'general' ? 'active' : ''} onClick={() => navigate('general')}><IconifyIcon icon="bi:journal-bookmark" width={17} height={17} />Home</button>{account && <button className={view === 'members' ? 'active' : ''} onClick={() => navigate('members')}><Icon name="users" size={17} />Members</button>}<button className={view === 'club' ? 'active' : ''} onClick={() => navigate('club')}><Icon name="users" size={17} />Club</button>{account && <button className={view === 'activity' ? 'active' : ''} onClick={() => navigate('activity')}><Icon name="calendar" size={17} />Activity</button>}{isAdmin && <button className={view === 'dashboard' ? 'active' : ''} onClick={() => navigate('dashboard')}><Icon name="users" size={17} />Admin</button>}</div>
     <Analytics />
   </div>;
 }
