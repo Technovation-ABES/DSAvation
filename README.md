@@ -125,8 +125,8 @@ solutions.*
 
 * 🎨 **Avatar Studio:** Switch between custom art themes — *Critters, Emoji,
   Clay, Micah* — or roll for a random avatar.
-* 📅 **Activity Heatmap:** Question Activity on Account — the heatmap, the four
-  stat cards, and Recently Tracked — counts only accepted Club Challenge
+* 📅 **Practice History:** The heatmap, the four stat cards, and Recently Tracked
+  live on their own Practice page. They count only accepted Club Challenge
   submissions. A submitted Club Challenge question stays checked in Club
   Challenge and in personal progress; members cannot clear that tick.
 

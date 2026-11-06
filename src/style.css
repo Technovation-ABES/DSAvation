@@ -6438,11 +6438,11 @@ details[open]>.admin-activity-summary svg {
   }
 
   .mobile-bottom-nav.has-account {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .mobile-bottom-nav.admin-nav {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
 
   .mobile-bottom-nav button {
