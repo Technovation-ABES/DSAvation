@@ -2792,6 +2792,31 @@ p {
   background: var(--green-dark);
 }
 
+.solve-button.locked,
+.solve-button.locked:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.solve-button.complete.locked,
+.solve-button.complete.locked:disabled {
+  color: #f4fffb;
+  border-color: #042f2e;
+  background: #042f2e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.solve-button.complete.locked svg {
+  stroke-width: 2.6;
+}
+
+.solve-button.complete.locked:hover,
+.solve-button.complete.locked:disabled:hover {
+  color: #f4fffb;
+  border-color: #042f2e;
+  background: #042f2e;
+}
+
 .check-empty {
   width: 14px;
   height: 14px;
@@ -5915,6 +5940,23 @@ details[open]>.admin-activity-summary svg {
   font: 0.5rem var(--mono);
 }
 
+.history-club-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border-radius: 4px;
+  color: #f4fffb;
+  background: #042f2e;
+  vertical-align: middle;
+}
+
+.history-club-check svg {
+  stroke-width: 2.8;
+}
+
 .micro-count {
   color: #708f8c;
   font: 0.5625rem var(--mono);
@@ -7644,6 +7686,21 @@ details[open]>.admin-activity-summary svg {
 :root[data-theme="dark"] .button-green:hover,
 :root[data-theme="dark"] .solve-button.complete:hover {
   background: #347d50;
+}
+
+:root[data-theme="dark"] .solve-button.complete.locked,
+:root[data-theme="dark"] .solve-button.complete.locked:disabled,
+:root[data-theme="dark"] .solve-button.complete.locked:hover,
+:root[data-theme="dark"] .solve-button.complete.locked:disabled:hover {
+  color: #ecfdf5;
+  border-color: #022c22;
+  background: #022c22;
+  box-shadow: inset 0 0 0 1px rgba(236, 253, 245, 0.16);
+}
+
+:root[data-theme="dark"] .history-club-check {
+  color: #ecfdf5;
+  background: #022c22;
 }
 
 :root[data-theme="dark"] .avatar {
