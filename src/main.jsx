@@ -3167,7 +3167,7 @@ function App() {
                     <span>{assignedQuestion.pattern}</span>
                   </div>
                   <p className="assignment-prompt">
-                    Submit today’s verified solution using {isLeetcodeApproved && account?.defaultSubmissionMethod === 'leetcode' ? <>directly via <strong>LeetCode</strong></> : <>your <strong>GitHub commit</strong></>}. A verified submission earns 1 point on the club leaderboard.
+                    Submit today’s verified solution {isLeetcodeApproved && account?.defaultSubmissionMethod === 'leetcode' ? <>directly via <strong>LeetCode</strong></> : <>using your <strong>GitHub commit</strong></>}.
                   </p>
                   <div className="assignment-counts">
                     <div><strong>{club.acceptedCount}</strong><span>ACCEPTED</span></div>
@@ -3237,12 +3237,9 @@ function App() {
                                 <IconifyIcon icon="bxl:leetcode" width={14} height={14} />
                                 LeetCode: <strong>@{account.leetcodeUsername}</strong>
                               </span>
-                              <span className="leetcode-target-tag">
-                                Target: <strong>{assignedQuestion.title}</strong> (LC #{assignedQuestion.id})
-                              </span>
                             </div>
                             <p>
-                              Solve <strong>{assignedQuestion.title}</strong> on LeetCode under <strong>@{account.leetcodeUsername}</strong> and obtain an <strong>Accepted</strong> status today ({club.assignment.dateKey} IST). Once submitted on LeetCode, click below to verify directly and award your club point.
+                              Solve <strong>{assignedQuestion.title}</strong> on LeetCode under <strong>@{account.leetcodeUsername}</strong> and obtain an <strong>Accepted</strong> status <strong>today</strong>.<br /> Once submitted on LeetCode, click below to verify directly and award your club point.
                             </p>
                             <div className="leetcode-direct-actions">
                               <button
@@ -3251,7 +3248,7 @@ function App() {
                                 disabled={submissionBusy}
                                 onClick={submitLeetCodeSolution}
                               >
-                                {submissionBusy ? 'Verifying on LeetCode…' : <>Submit with LeetCode <Icon name="arrow" size={13} /></>}
+                                {submissionBusy ? 'Verifying on LeetCode…' : <>Verify & Submit<Icon name="arrow" size={13} /></>}
                               </button>
                             </div>
                           </div>
