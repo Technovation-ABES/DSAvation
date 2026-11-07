@@ -2441,17 +2441,6 @@ function App() {
                   <Pill tone={assignedQuestion.difficulty.toLowerCase()}>{assignedQuestion.difficulty}</Pill>
                   <span className="meta-badge">LeetCode #{assignedQuestion.id}</span>
                   <span className="meta-badge">Day {assignedQuestion.day} / 220</span>
-                  {(isAdmin || isLeader) && (
-                    <button
-                      type="button"
-                      className={`assignment-copy-btn ${copiedAnnouncement ? 'copied' : ''}`}
-                      onClick={handleCopyAnnouncement}
-                      title="Copy Daily Challenge announcement text"
-                      aria-label="Copy Daily Challenge announcement text"
-                    >
-                      <Icon name={copiedAnnouncement ? "check" : "copy"} size={13} />
-                    </button>
-                  )}
                 </div>
                 <div className="club-participation">
                   <button className="challenge-link-btn" onClick={() => navigate('club')}>
@@ -3500,10 +3489,11 @@ function App() {
                   {(club.assignment?.explainer || selectedExplainer) && (
                     <button
                       type="button"
-                      className="assignment-copy-btn"
+                      className="assignment-copy-btn explainer-copy-head-btn"
                       onClick={() => openMessageModal('explainer')}
                       title="Open & copy evening solution breakdown message"
                       aria-label="Copy evening breakdown message"
+                      style={{ color: '#000000' }}
                     >
                       <Icon name="copy" size={13} />
                     </button>
@@ -3532,14 +3522,6 @@ function App() {
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="button button-quiet"
-                    onClick={() => openMessageModal('explainer')}
-                    title="Open & copy evening solution breakdown message"
-                  >
-                    <Icon name="copy" size={13} /> <span>Copy message</span>
-                  </button>
                   <button
                     type="button"
                     className="button button-quiet repick-banner-btn"

@@ -3798,6 +3798,25 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   align-items: center;
   gap: 5px;
 }
+.explainer-copy-head-btn,
+.moderation-tools-panel .assignment-copy-btn {
+  color: #000000 !important;
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.explainer-copy-head-btn:hover,
+.moderation-tools-panel .assignment-copy-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #000000 !important;
+}
+
+.explainer-copy-head-btn svg,
+.moderation-tools-panel .assignment-copy-btn svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+}
 
 .delete-today-btn {
   display: inline-flex;
