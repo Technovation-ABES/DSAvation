@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { after, before, beforeEach, test } from 'node:test';
 import bcrypt from 'bcryptjs';
 import { ObjectId } from 'mongodb';
-import { handleApiFetch, isAssignmentSolutionPath, isOnAssignmentDay, parsePersonalCommitUrl, resolveCommitInput } from '../server/api.js';
+import { autoAssignDailyQuestion, getNextMidnightIST, getNextQuestionForDate, handleApiFetch, isAssignmentSolutionPath, isOnAssignmentDay, parsePersonalCommitUrl, resolveCommitInput } from '../server/api.js';
 
 const hashToken = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -1806,6 +1806,44 @@ test('submissions heatmap provides full and second-year counts, and enforces adm
   const filtered = await call(db, '/admin/submissions-heatmap?studyYear=second-year', { cookie: admin.cookie });
   assert.equal(filtered.response.status, 200);
   assert.equal(filtered.data.counts['2026-11-04'], 1);
+
+  // 5. Admin fetches submissions by date
+  const byDateRes = await call(db, '/admin/submissions-by-date?date=2026-11-04', { cookie: admin.cookie });
+  assert.equal(byDateRes.response.status, 200);
+  assert.equal(byDateRes.data.count, 2);
+  assert.equal(byDateRes.data.submissions.length, 2);
+
+  // 6. Admin filters submissions by date for second-year
+  const byDateSecondYear = await call(db, '/admin/submissions-by-date?date=2026-11-04&studyYear=second-year', { cookie: admin.cookie });
+  assert.equal(byDateSecondYear.response.status, 200);
+  assert.equal(byDateSecondYear.data.count, 1);
+  assert.equal(byDateSecondYear.data.submissions[0].name, 'Sophomore Sam');
+
+  // 7. Regular user is forbidden
+  const forbiddenByDate = await call(db, '/admin/submissions-by-date?date=2026-11-04', { cookie: regular.cookie });
+  assert.equal(forbiddenByDate.response.status, 403);
+
+  // 8. Month CSV export
+  const monthCsvRes = await call(db, '/admin/month-submissions-csv?month=2026-11&format=csv', { cookie: admin.cookie });
+  assert.equal(monthCsvRes.response.status, 200);
+  assert.ok(monthCsvRes.response.headers.get('content-type').includes('text/csv'));
+  assert.ok(monthCsvRes.text.includes('Name,Department,nov1,nov2'));
+  assert.ok(monthCsvRes.text.includes('Submissions'));
+  assert.ok(monthCsvRes.text.includes('✔'));
+  assert.ok(monthCsvRes.text.includes('✘'));
+
+  // 8b. Month XLSX export
+  const monthXlsxRes = await call(db, '/admin/month-submissions-csv?month=2026-11&format=xlsx', { cookie: admin.cookie });
+  assert.equal(monthXlsxRes.response.status, 200);
+  assert.ok(monthXlsxRes.response.headers.get('content-type').includes('spreadsheetml'));
+
+  // 9. Regular user cannot download month CSV
+  const forbiddenCsv = await call(db, '/admin/month-submissions-csv?month=2026-11', { cookie: regular.cookie });
+  assert.equal(forbiddenCsv.response.status, 403);
+
+  // 10. Invalid month format rejected
+  const invalidMonth = await call(db, '/admin/month-submissions-csv?month=bad-format', { cookie: admin.cookie });
+  assert.equal(invalidMonth.response.status, 400);
 });
 
 test('admin view all stats rate limit allows more than 12 stats fetches without hitting rate limit', async () => {
@@ -1906,4 +1944,119 @@ test('admins can view active rate limit count and clear rate limits in one click
   // 5. Verify audit log entry
   const activity = await call(db, '/admin/activity', { cookie: admin.cookie });
   assert.equal(activity.data.activity[0].action, 'rate_limits_cleared');
+});
+
+test('automatic daily assignment picks sequential curriculum questions, preserves admin edits and deletions', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const student = await seedUser(db, { name: 'Auto Solver', email: 'auto@abes.ac.in', username: 'student-gh' });
+
+  // 1. First automated assignment on a clean DB picks Day 1 (LC 217)
+  const day1Q = await getNextQuestionForDate(db, '2026-11-01');
+  assert.equal(day1Q.questionId, 217);
+
+  const auto1 = await autoAssignDailyQuestion(db, '2026-11-01');
+  assert.ok(auto1);
+  assert.equal(auto1.questionId, 217);
+  assert.equal(auto1.autoAssigned, true);
+  assert.equal(auto1.createdByName, 'Automated Daily Challenge');
+
+  // 2. Next day automated assignment picks Day 2 (LC 242)
+  const day2Q = await getNextQuestionForDate(db, '2026-11-02');
+  assert.equal(day2Q.questionId, 242);
+
+  const auto2 = await autoAssignDailyQuestion(db, '2026-11-02');
+  assert.equal(auto2.questionId, 242);
+
+  // 3. Next day automated assignment picks Day 3 (LC 1)
+  const day3Q = await getNextQuestionForDate(db, '2026-11-03');
+  assert.equal(day3Q.questionId, 1);
+
+  // 4. Admin edits/replaces today's automated assignment (must remain editable)
+  const today = indiaDay();
+  const todayAuto = await autoAssignDailyQuestion(db, today);
+  assert.ok(todayAuto);
+
+  // Admin changes today's question to LC 49
+  const editRes = await call(db, `/admin/assignments/${todayAuto._id}`, {
+    method: 'PATCH',
+    cookie: admin.cookie,
+    body: { questionId: 49 },
+  });
+  assert.equal(editRes.response.status, 200);
+  assert.equal(editRes.data.assignment.questionId, 49);
+
+  // Verify DB reflects admin edit
+  const updatedDoc = await db.collection('assignments').findOne({ _id: todayAuto._id });
+  assert.equal(updatedDoc.questionId, 49);
+
+  // 5. When auto-assign runs again for today, it does NOT overwrite existing assignment
+  const secondRun = await autoAssignDailyQuestion(db, today);
+  assert.equal(secondRun.questionId, 49);
+
+  // 6. Admin deletes today's assignment (must remain deletable)
+  const deleteRes = await call(db, `/admin/assignments/${todayAuto._id}`, {
+    method: 'DELETE',
+    cookie: admin.cookie,
+  });
+  assert.equal(deleteRes.response.status, 200);
+  assert.equal(deleteRes.data.deleted, true);
+
+  // Verify deletion is respected: autoAssign will NOT resurrect a deleted assignment
+  const deletedCheck = await autoAssignDailyQuestion(db, today);
+  assert.equal(deletedCheck, null);
+
+  // 7. Cron endpoint /api/cron/daily-assignment works and returns success
+  const cronRes = await call(db, '/cron/daily-assignment?dateKey=2026-11-10');
+  assert.equal(cronRes.response.status, 200);
+  assert.equal(cronRes.data.ok, true);
+  assert.equal(cronRes.data.dateKey, '2026-11-10');
+  assert.ok(cronRes.data.assignment);
+
+  // 8. getNextMidnightIST calculates valid time offset
+  const midnightInfo = getNextMidnightIST();
+  assert.ok(midnightInfo.ms > 0);
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(midnightInfo.nextDateKey));
+});
+
+test('question activity uses club submissions and those completions cannot be unchecked', async () => {
+  const db = new FakeDatabase();
+  const member = await seedUser(db, { name: 'Progress Member', email: 'progress@abes.ac.in', username: 'progress-gh' });
+  const personal = await call(db, '/progress/242', { method: 'PUT', cookie: member.cookie, body: { solved: true } });
+  assert.equal(personal.response.status, 200);
+
+  const assignmentId = new ObjectId();
+  const submittedAt = new Date('2026-11-02T08:30:00.000Z');
+  await db.collection('submissions').insertOne({
+    _id: new ObjectId(),
+    assignmentId,
+    userId: member.user._id,
+    questionId: 217,
+    status: 'accepted',
+    submittedAt,
+    points: 1,
+  });
+
+  const progress = await call(db, '/progress', { cookie: member.cookie });
+  assert.equal(progress.response.status, 200);
+  const personalRow = progress.data.progress.find((item) => item.questionId === 242);
+  const clubRow = progress.data.progress.find((item) => item.questionId === 217);
+  assert.equal(personalRow.isClub, false);
+  assert.equal(clubRow.isClub, true);
+  assert.deepEqual(progress.data.activity.map((item) => item.questionId), [217]);
+  assert.equal(progress.data.activity.every((item) => item.isClub), true);
+
+  const stored = db.collection('personalProgress').documents.find((item) => item.questionId === 217);
+  assert.equal(stored.isClub, true);
+  assert.equal(String(stored.assignmentId), String(assignmentId));
+
+  const uncheckClub = await call(db, '/progress/217', { method: 'PUT', cookie: member.cookie, body: { solved: false } });
+  assert.equal(uncheckClub.response.status, 403);
+  assert.equal(db.collection('personalProgress').documents.some((item) => item.questionId === 217 && item.isClub), true);
+
+  const uncheckPersonal = await call(db, '/progress/242', { method: 'PUT', cookie: member.cookie, body: { solved: false } });
+  assert.equal(uncheckPersonal.response.status, 200);
+  const after = await call(db, '/progress', { cookie: member.cookie });
+  assert.deepEqual(after.data.progress.map((item) => item.questionId), [217]);
+  assert.deepEqual(after.data.activity.map((item) => item.questionId), [217]);
 });

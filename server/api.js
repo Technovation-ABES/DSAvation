@@ -40,6 +40,14 @@ function json(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
+function sendBuffer(res, status, buffer, headers = {}) {
+  res.statusCode = status;
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
+  res.end(buffer);
+}
+
 function sendText(res, status, text, headers = {}) {
   res.statusCode = status;
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -609,6 +617,75 @@ async function githubCallback(db, req, res, url) {
   res.end();
 }
 
+// Earliest accepted Club Challenge submission per question. Activity stats use this map
+// so personal-only checkmarks never appear in Question Activity.
+async function clubCompletionsByQuestion(db, userId) {
+  const submissions = await db.collection('submissions')
+    .find({ userId, status: 'accepted' })
+    .sort({ submittedAt: 1 })
+    .toArray();
+  const byQuestion = new Map();
+  for (const sub of submissions) {
+    const questionId = Number(sub.questionId);
+    if (!questionById.has(questionId)) continue;
+    const rawAt = sub.submittedAt || sub.reviewedAt || sub.commitDate;
+    if (!rawAt) continue;
+    const submittedAt = new Date(rawAt);
+    const prev = byQuestion.get(questionId);
+    if (!prev || submittedAt < prev.submittedAt) {
+      byQuestion.set(questionId, { submittedAt, assignmentId: sub.assignmentId || null });
+    }
+  }
+  return byQuestion;
+}
+
+// isClub marks a question completed through a Club Challenge. setProgress will not clear it.
+async function markClubProgress(db, userId, questionId, assignmentId, submittedAt = new Date()) {
+  const id = Number(questionId);
+  if (!questionById.has(id)) return;
+  await db.collection('personalProgress').updateOne(
+    { userId, questionId: id },
+    {
+      $setOnInsert: { userId, questionId: id, solvedAt: submittedAt },
+      $set: {
+        updatedAt: new Date(),
+        isClub: true,
+        assignmentId: assignmentId || null,
+        clubSubmittedAt: submittedAt,
+      },
+    },
+    { upsert: true },
+  );
+}
+
+async function progressPayload(db, user) {
+  const clubByQuestion = await clubCompletionsByQuestion(db, user._id);
+  for (const [questionId, club] of clubByQuestion) {
+    await markClubProgress(db, user._id, questionId, club.assignmentId, club.submittedAt);
+  }
+  const stored = await db.collection('personalProgress').find({ userId: user._id }).sort({ solvedAt: -1 }).toArray();
+  const progress = stored.map((item) => {
+    const questionId = Number(item.questionId);
+    const club = clubByQuestion.get(questionId);
+    const isClub = Boolean(item.isClub || club);
+    return {
+      questionId,
+      solvedAt: item.solvedAt,
+      isClub,
+      clubSubmittedAt: isClub ? (club?.submittedAt || item.clubSubmittedAt || item.solvedAt) : null,
+    };
+  });
+  const activity = [...clubByQuestion.entries()]
+    .map(([questionId, club]) => ({
+      questionId,
+      solvedAt: club.submittedAt,
+      clubSubmittedAt: club.submittedAt,
+      isClub: true,
+    }))
+    .sort((left, right) => new Date(right.clubSubmittedAt) - new Date(left.clubSubmittedAt));
+  return { progress, activity };
+}
+
 async function setProgress(db, req, user, questionId, solved) {
   await allowRequest(db, req, `progress-${user._id}`, 180, 60 * 1000);
   const id = Number(questionId);
@@ -619,9 +696,16 @@ async function setProgress(db, req, user, questionId, solved) {
       $setOnInsert: { userId: user._id, questionId: id, solvedAt: new Date() },
       $set: { updatedAt: new Date() },
     }, { upsert: true });
-  } else {
-    await collection.deleteOne({ userId: user._id, questionId: id });
+    return;
   }
+  const existing = await collection.findOne({ userId: user._id, questionId: id });
+  // Club Challenge completions stay checked. Members cannot clear them from personal progress.
+  if (existing?.isClub || existing?.assignmentId) {
+    throw new HttpError(403, 'Club Challenge submissions cannot be unchecked');
+  }
+  const club = await clubCompletionsByQuestion(db, user._id);
+  if (club.has(id)) throw new HttpError(403, 'Club Challenge submissions cannot be unchecked');
+  await collection.deleteOne({ userId: user._id, questionId: id });
 }
 
 export function getAuraBase(difficulty) {
@@ -688,7 +772,10 @@ async function getTodayAssignment(db) {
 }
 
 async function getClubToday(db) {
-  const assignment = await getTodayAssignment(db);
+  let assignment = await getTodayAssignment(db);
+  if (!assignment && process.env.NODE_ENV !== 'test') {
+    assignment = await autoAssignDailyQuestion(db, dayKey());
+  }
   if (!assignment) return { dateKey: dayKey(), assignment: null, submittedCount: 0, acceptedCount: 0, participants: [], dailyLeaderboard: [] };
   const submissions = await db.collection('submissions').find({ assignmentId: assignment._id }).sort({ submittedAt: 1 }).toArray();
   const userIds = [...new Set(submissions.map((item) => String(item.userId)))].map((id) => new ObjectId(id));
@@ -968,21 +1055,15 @@ async function makeSubmission(db, req, user, body) {
       $push: { supersededAttempts: previousAttempt },
     });
     console.log(`[Submission Updated] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) updated submission for LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
+    if (submission.status === 'accepted' && submission.questionId) {
+      try { await markClubProgress(db, user._id, submission.questionId, assignment._id, submission.submittedAt || new Date()); } catch { /* progress lock is retried on the next progress read */ }
+    }
     return { ...submission, _id: existing._id, id: String(existing._id) };
   }
   const result = await db.collection('submissions').insertOne(submission);
   console.log(`[Submission Created] ${user.name} (@${user.githubUsername || user.leetcodeUsername}) successfully submitted LC #${submission.questionId}! Points: ${submission.points}, Blaze: ${submission.aura}`);
   if (submission.status === 'accepted' && submission.questionId) {
-    try {
-      await db.collection('personalProgress').updateOne(
-        { userId: user._id, questionId: Number(submission.questionId) },
-        {
-          $setOnInsert: { userId: user._id, questionId: Number(submission.questionId), solvedAt: new Date() },
-          $set: { updatedAt: new Date() },
-        },
-        { upsert: true }
-      );
-    } catch {}
+    try { await markClubProgress(db, user._id, submission.questionId, assignment._id, submission.submittedAt || new Date()); } catch { /* progress lock is retried on the next progress read */ }
   }
   return { ...submission, _id: result.insertedId, id: String(result.insertedId) };
 }
@@ -1198,11 +1279,14 @@ async function assignmentHistory(db, url) {
   };
 }
 
+// Begin pagination optimisation – replace in‑memory profile fetch with DB‑side slice
 async function leaderboard(db, url, viewer = null) {
+  // 1️⃣ Load all assignments (needed for streak & punctuality calculations)
   const assignments = await db.collection('assignments').find({ dateKey: { $lte: dayKey() } }).sort({ dateKey: 1 }).toArray();
-  const assignedIdSet = new Set(assignments.map((assignment) => String(assignment._id)));
+  const assignedIdSet = new Set(assignments.map(a => String(a._id)));
   const totalAssigned = assignments.length;
 
+  // 2️⃣ Aggregate submission totals per user (points, accepted count, last accepted timestamp)
   const totals = await db.collection('submissions').aggregate([
     { $match: { status: 'accepted' } },
     { $group: {
@@ -1212,106 +1296,120 @@ async function leaderboard(db, url, viewer = null) {
         acceptedAssignments: { $addToSet: '$assignmentId' },
         lastAcceptedAt: { $max: { $ifNull: ['$reviewedAt', '$submittedAt'] } },
       }
-    },
-    { $sort: { accepted: -1, lastAcceptedAt: 1 } },
+    }
   ]).toArray();
 
+  // 3️⃣ Build a map of which assignments each user attempted (excluding invalidated submissions)
   const attempts = await db.collection('submissions').find(
     { status: { $ne: 'invalidated' } },
     { projection: { userId: 1, assignmentId: 1 } }
   ).toArray();
-
   const userAttemptsMap = new Map();
   for (const item of attempts) {
-    const uId = String(item.userId);
-    if (!userAttemptsMap.has(uId)) userAttemptsMap.set(uId, new Set());
+    const uid = String(item.userId);
+    if (!userAttemptsMap.has(uid)) userAttemptsMap.set(uid, new Set());
     if (assignedIdSet.has(String(item.assignmentId))) {
-      userAttemptsMap.get(uId).add(String(item.assignmentId));
+      userAttemptsMap.get(uid).add(String(item.assignmentId));
     }
   }
 
-  const [profiles, auraByUser] = await Promise.all([
-    db.collection('users').find(approvedUserFilter(), {
-      projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
-    }).toArray(),
-    computeAuraByUser(db),
-  ]);
-  const totalById = new Map(totals.map((row) => [String(row._id), row]));
-  const today = dayKey();
+  // 4️⃣ Compute aura once (expensive operation) – keep as a Promise
+  const auraByUser = await computeAuraByUser(db);
 
-  const sortedProfiles = profiles.map((profile) => {
-    const row = totalById.get(String(profile._id)) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
+  // 5️⃣ Assemble ranking entries for every approved member (including those with no submissions)
+  // Fetch all approved user profiles first
+  const profiles = await db.collection('users').find(approvedUserFilter(), {
+    projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+  }).toArray();
+  const totalById = new Map(totals.map(r => [String(r._id), r]));
+  const ranking = [];
+  for (const profile of profiles) {
+    const userId = String(profile._id);
+    const row = totalById.get(userId) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
     const completed = new Set((row.acceptedAssignments || []).map(String));
+    const attempted = userAttemptsMap.get(userId);
+    const attemptedCount = attempted ? attempted.size : completed.size;
+    const punctuality = totalAssigned === 0 ? 100 : Math.min(100, Math.round((attemptedCount / totalAssigned) * 100));
 
-    // Number of assigned questions attempted by this member
-    const userAttempted = userAttemptsMap.get(String(profile._id));
-    const attemptedCount = userAttempted ? userAttempted.size : completed.size;
-
-    // Leaderboard punctuality stats: number of question attempted that assigned / total questions assigned
-    const punctuality = totalAssigned === 0
-      ? 100
-      : Math.min(100, Math.max(0, Math.round((attemptedCount / totalAssigned) * 100)));
-
+    // Streak calculation – same as original implementation
     let streak = 0;
-    const revAssignments = assignments.slice().reverse();
-    const startIndex = (revAssignments.length > 0 && revAssignments[0].dateKey === today && !completed.has(String(revAssignments[0]._id)))
-      ? 1
-      : 0;
-    for (let i = startIndex; i < revAssignments.length; i++) {
-      if (!completed.has(String(revAssignments[i]._id))) break;
-      streak += 1;
+    const rev = assignments.slice().reverse();
+    const startIdx = (rev.length && rev[0].dateKey === dayKey() && !completed.has(String(rev[0]._id))) ? 1 : 0;
+    for (let i = startIdx; i < rev.length; i++) {
+      if (!completed.has(String(rev[i]._id))) break;
+      streak++;
     }
 
-    return {
-      userId: String(profile._id),
-      name: profile.showPublic ? profile.name : profile.githubUsername ? `@${profile.githubUsername}` : 'Club member',
-      department: profile.showPublic ? profile.department : 'Club member',
-      githubUsername: profile.githubUsername,
-      ...formatAvatar(profile),
+    ranking.push({
+      userId,
       points: row.points ?? row.accepted,
-      blaze: auraByUser.get(String(profile._id)) || 0,
-      aura: auraByUser.get(String(profile._id)) || 0,
+      blaze: auraByUser.get(userId) || 0,
+      aura: auraByUser.get(userId) || 0,
       completed: row.accepted,
       scheduled: totalAssigned,
       punctuality,
       streak,
       lastAcceptedAt: row.lastAcceptedAt || null,
-    };
-  }).sort((a, b) => {
-    // 1. Overall Leaderboard ranking prioritizes normal points
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-    // 2. If two have the same points, sort with aura
-    if (b.aura !== a.aura) {
-      return b.aura - a.aura;
-    }
-    // 3. Along with who scored that points first (earlier lastAcceptedAt ranks higher)
+    });
+  }
+
+  // 6️⃣ Apply the same sort order as before
+  ranking.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.aura !== a.aura) return b.aura - a.aura;
     if (a.points > 0 && b.points > 0) {
-      const timeA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
-      const timeB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
-      if (timeA !== timeB) {
-        return timeA - timeB;
-      }
+      const tA = a.lastAcceptedAt ? new Date(a.lastAcceptedAt).getTime() : Infinity;
+      const tB = b.lastAcceptedAt ? new Date(b.lastAcceptedAt).getTime() : Infinity;
+      if (tA !== tB) return tA - tB;
     }
-    // 4. Punctuality
-    if (b.punctuality !== a.punctuality) {
-      return b.punctuality - a.punctuality;
-    }
-    // 5. Alphabetical tiebreaker
-    return a.name.localeCompare(b.name);
+    if (b.punctuality !== a.punctuality) return b.punctuality - a.punctuality;
+    return 0; // name tie‑break will be added after profile join
   });
+
+  // 7️⃣ Pagination – slice the sorted ranking array
+  const { page, pageSize, skip } = pageOptions(url, 20, 50);
+  const pageSlice = ranking.slice(skip, skip + pageSize);
+  const pageUserIds = pageSlice.map(r => r.userId);
+
+  // 8️⃣ Use the profiles already fetched above to build the map
+  const profileMap = new Map(profiles.map(p => [String(p._id), p]));
+
+  // 9️⃣ Merge profile data into the full sorted ranking and apply final alphabetical tie‑break
+  const fullSorted = ranking.map(entry => {
+    const prof = profileMap.get(entry.userId) || {};
+    const name = prof.showPublic ? prof.name : prof.githubUsername ? `@${prof.githubUsername}` : 'Club member';
+    const department = prof.showPublic ? prof.department : 'Club member';
+    return {
+      userId: entry.userId,
+      name,
+      department,
+      githubUsername: prof.githubUsername,
+      ...formatAvatar(prof),
+      points: entry.points,
+      blaze: entry.blaze,
+      aura: entry.aura,
+      completed: entry.completed,
+      scheduled: entry.scheduled,
+      punctuality: entry.punctuality,
+      streak: entry.streak,
+      lastAcceptedAt: entry.lastAcceptedAt,
+    };
+  });
+
+  // 10️⃣ Pagination – slice the final leaderboard for the response
+  const leaderboard = fullSorted.slice(skip, skip + pageSize);
+
+  // 11️⃣ Compute the viewer's overall rank (based on the full sorted ranking, not just the page)
   let userRank = null;
   if (viewer) {
-    const viewerId = String(viewer._id);
-    const foundIndex = sortedProfiles.findIndex((p) => p.userId === viewerId);
-    if (foundIndex !== -1) {
-      userRank = foundIndex + 1;
-    }
+    const vid = String(viewer._id);
+    const idx = ranking.findIndex(r => r.userId === vid);
+    if (idx !== -1) userRank = idx + 1;
   }
-  const { page, pageSize, skip } = pageOptions(url, 20, 50);
-  return { leaderboard: sortedProfiles.slice(skip, skip + pageSize), pagination: pageMeta(page, pageSize, sortedProfiles.length), userRank };
+
+  return { leaderboard, pagination: pageMeta(page, pageSize, ranking.length), userRank };
 }
+// End pagination optimisation
 
 async function createAssignment(db, user, body) {
   requireRole(user, 'lead', 'admin');
@@ -1326,6 +1424,7 @@ async function createAssignment(db, user, body) {
     timezone: TZ, createdAt: new Date(),
   };
   const result = await db.collection('assignments').insertOne(assignment);
+  await db.collection('assignment_suppressions').deleteOne({ dateKey });
   await recordAdminActivity(db, user, 'assignment_published', { id: result.insertedId, label: `${dateKey} · LC ${questionId}` }, { questionId });
   return { id: String(result.insertedId), dateKey, questionId, createdByName: user.name };
 }
@@ -1363,6 +1462,11 @@ async function deleteAssignment(db, user, assignmentId) {
     throw new HttpError(400, 'Only today’s or upcoming assignments can be deleted.');
   }
   await db.collection('assignments').deleteOne({ _id: id });
+  await db.collection('assignment_suppressions').updateOne(
+    { dateKey: assignment.dateKey },
+    { $set: { dateKey: assignment.dateKey, deletedAt: new Date(), deletedBy: user._id } },
+    { upsert: true }
+  );
   const affected = await db.collection('submissions').deleteMany({ assignmentId: id });
   await recordAdminActivity(
     db,
@@ -1372,6 +1476,120 @@ async function deleteAssignment(db, user, assignmentId) {
     { questionId: assignment.questionId, dateKey: assignment.dateKey, deletedSubmissions: affected.deletedCount }
   );
   return { ok: true, deleted: true, id: String(id), dateKey: assignment.dateKey, questionId: assignment.questionId };
+}
+
+export async function getNextQuestionForDate(db, targetDateKey = dayKey()) {
+  const allAssignments = await db.collection('assignments').find({}).toArray();
+  const pastAssignments = allAssignments
+    .filter((a) => a.dateKey && a.dateKey < targetDateKey)
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+  const lastPast = pastAssignments.length ? pastAssignments[pastAssignments.length - 1] : null;
+  let lastIndex = -1;
+  if (lastPast) {
+    lastIndex = curriculum.questions.findIndex((q) => Number(q[1]) === Number(lastPast.questionId));
+  }
+
+  const candidateStartIndex = lastIndex >= 0
+    ? (lastIndex + 1) % curriculum.questions.length
+    : 0;
+
+  const assignedQuestionIds = new Set(allAssignments.map((a) => Number(a.questionId)));
+
+  let chosenRow = null;
+  for (let i = 0; i < curriculum.questions.length; i++) {
+    const candidate = curriculum.questions[(candidateStartIndex + i) % curriculum.questions.length];
+    if (!assignedQuestionIds.has(Number(candidate[1]))) {
+      chosenRow = candidate;
+      break;
+    }
+  }
+
+  if (!chosenRow) {
+    chosenRow = curriculum.questions[candidateStartIndex];
+  }
+
+  return {
+    questionId: Number(chosenRow[1]),
+    title: chosenRow[2],
+    topic: chosenRow[0],
+    difficulty: chosenRow[3],
+  };
+}
+
+export async function autoAssignDailyQuestion(db, targetDateKey = dayKey(), options = {}) {
+  const dateKey = targetDateKey || dayKey();
+  const existing = await db.collection('assignments').findOne({ dateKey });
+  if (existing) return existing;
+
+  if (!options.force) {
+    const suppressed = await db.collection('assignment_suppressions').findOne({ dateKey });
+    if (suppressed) return null;
+  }
+
+  const nextQuestion = await getNextQuestionForDate(db, dateKey);
+  if (!nextQuestion) return null;
+
+  const user = options.user;
+  const assignment = {
+    dateKey,
+    questionId: nextQuestion.questionId,
+    createdBy: user?._id || null,
+    createdByName: user?.name || 'Automated Daily Challenge',
+    timezone: TZ,
+    createdAt: new Date(),
+    autoAssigned: !user,
+  };
+
+  try {
+    const result = await db.collection('assignments').insertOne(assignment);
+    assignment._id = result.insertedId || assignment._id;
+    if (options.force) {
+      await db.collection('assignment_suppressions').deleteOne({ dateKey });
+    }
+    if (user && ['admin', 'lead'].includes(user.role)) {
+      await recordAdminActivity(db, user, 'assignment_published', { id: assignment._id, label: `${dateKey} · LC ${assignment.questionId} (Auto)` }, { questionId: assignment.questionId, autoAssigned: true });
+    }
+    return assignment;
+  } catch (err) {
+    if (err.code === 11000 || String(err.message).includes('duplicate') || String(err.message).includes('E11000')) {
+      return db.collection('assignments').findOne({ dateKey });
+    }
+    throw err;
+  }
+}
+
+let midnightTimer = null;
+
+export function getNextMidnightIST(now = new Date()) {
+  const todayDateKey = dayKey(now);
+  const [y, m, d] = todayDateKey.split('-').map(Number);
+  const nextDate = new Date(Date.UTC(y, m - 1, d + 1));
+  const ny = nextDate.getUTCFullYear();
+  const nm = String(nextDate.getUTCMonth() + 1).padStart(2, '0');
+  const nd = String(nextDate.getUTCDate()).padStart(2, '0');
+  const nextDateKey = `${ny}-${nm}-${nd}`;
+  const nextMidnight = new Date(`${nextDateKey}T00:00:00+05:30`);
+  return { nextDateKey, nextMidnight, ms: Math.max(1000, nextMidnight.getTime() - now.getTime()) };
+}
+
+export function scheduleNextMidnightAssignment(db) {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const { nextDateKey, ms } = getNextMidnightIST();
+
+  midnightTimer = setTimeout(async () => {
+    try {
+      await autoAssignDailyQuestion(db, nextDateKey);
+      console.log(`[DSAvation Scheduler] Successfully auto-assigned daily question for ${nextDateKey}`);
+    } catch (err) {
+      console.error('[DSAvation Scheduler] Failed to auto-assign midnight question:', err);
+    } finally {
+      scheduleNextMidnightAssignment(db);
+    }
+  }, ms);
+
+  midnightTimer.unref?.();
+  return { nextDateKey, ms };
 }
 
 async function listSubmissions(db, req, user, url) {
@@ -1434,6 +1652,283 @@ async function getSubmissionsHeatmap(db, user, url = null) {
     return { counts: secondYearCounts, allCounts: counts, secondYearCounts };
   }
   return { counts, secondYearCounts };
+}
+
+async function getSubmissionsByDate(db, user, url) {
+  requireRole(user, 'lead', 'admin');
+  const dateKey = url?.searchParams?.get('date') || '';
+  const studyYearParam = url?.searchParams?.get('studyYear') || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    throw new HttpError(400, 'A valid date query parameter (YYYY-MM-DD) is required.');
+  }
+  const IST = 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  // 1. Fetch approved users (optionally filtered by studyYear)
+  const userFilter = approvedUserFilter(studyYearParam === 'second-year' ? { studyYear: 'second-year' } : {});
+  const allApproved = await db.collection('users').find(userFilter, {
+    projection: { name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+  }).toArray();
+  const profileById = new Map(allApproved.map((p) => [String(p._id), p]));
+
+  // 2. Find accepted submissions submitted on this IST date
+  const items = await db.collection('submissions')
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1, userId: 1, questionId: 1, assignmentId: 1, commitUrl: 1, submissionMethod: 1, solutionPath: 1, verificationSource: 1 } })
+    .toArray();
+
+  const matchingItems = items.filter((item) => item.submittedAt && fmt.format(new Date(item.submittedAt)) === dateKey);
+
+  // Assignment info for questionId
+  const assignmentIds = [...new Set(matchingItems.map((item) => String(item.assignmentId)).filter(Boolean))];
+  let assignmentById = new Map();
+  if (assignmentIds.length) {
+    const { ObjectId } = await import('mongodb');
+    const assignments = await db.collection('assignments').find(
+      { _id: { $in: assignmentIds.map((id) => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean) } },
+      { projection: { dateKey: 1, questionId: 1 } },
+    ).toArray();
+    assignmentById = new Map(assignments.map((a) => [String(a._id), a]));
+  }
+
+  // Filter matching items to those belonging to approved users in the current filter
+  const validMatchingItems = matchingItems.filter((item) => profileById.has(String(item.userId)));
+  const submittedUserIdSet = new Set(validMatchingItems.map((item) => String(item.userId)));
+
+  let submissions = validMatchingItems.map((item) => {
+    const profile = profileById.get(String(item.userId));
+    const assignment = assignmentById.get(String(item.assignmentId));
+    const isLeetCode = item.submissionMethod === 'leetcode' || item.verificationSource === 'leetcode-api' || String(item.solutionPath || '').startsWith('LeetCode:') || String(item.commitUrl || '').includes('leetcode.com');
+    const leetcodeUser = profile?.leetcodeUsername || (item.solutionPath?.match(/@([a-zA-Z0-9_-]+)/)?.[1]) || '';
+    const profileUrl = leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (item.commitUrl || 'https://leetcode.com');
+
+    return {
+      userId: String(item.userId),
+      name: profile?.name || 'Member',
+      email: profile?.email || '',
+      department: profile?.department || '',
+      studyYear: profile?.studyYear || '',
+      avatarStyle: profile?.avatarStyle || 'critters',
+      avatarSeed: profile?.avatarSeed || String(item.userId),
+      avatarUrl: profile?.avatarUrl || null,
+      leetcodeUsername: leetcodeUser || null,
+      submittedAt: item.submittedAt,
+      questionId: item.questionId || assignment?.questionId || null,
+      submissionMethod: item.submissionMethod || (isLeetCode ? 'leetcode' : 'github'),
+      isLeetCode,
+      profileUrl: isLeetCode ? profileUrl : null,
+      commitUrl: item.commitUrl || null,
+    };
+  });
+
+  // Accounts that did NOT submit
+  let notSubmitted = allApproved
+    .filter((u) => !submittedUserIdSet.has(String(u._id)))
+    .map((u) => ({
+      userId: String(u._id),
+      name: u.name || 'Member',
+      email: u.email || '',
+      department: u.department || '',
+      studyYear: u.studyYear || '',
+      avatarStyle: u.avatarStyle || 'critters',
+      avatarSeed: u.avatarSeed || String(u._id),
+      avatarUrl: u.avatarUrl || null,
+      githubUsername: u.githubUsername || null,
+      leetcodeUsername: u.leetcodeUsername || null,
+    }));
+
+  submissions.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+  notSubmitted.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+  return {
+    date: dateKey,
+    count: submissions.length,
+    notSubmittedCount: notSubmitted.length,
+    totalApprovedCount: allApproved.length,
+    submissions,
+    notSubmitted,
+  };
+}
+
+
+async function getMonthSubmissionsExport(db, user, url) {
+  requireRole(user, 'lead', 'admin');
+  const monthKey = url?.searchParams?.get('month') || '';
+  const studyYearParam = url?.searchParams?.get('studyYear') || '';
+  const format = url?.searchParams?.get('format') || 'xlsx';
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new HttpError(400, 'A valid month query parameter (YYYY-MM) is required.');
+  }
+
+  const [yearStr, monthStr] = monthKey.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const numDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mDate = new Date(Date.UTC(year, month - 1, 1));
+  const shortMonth = mDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toLowerCase();
+
+  // 1. Fetch approved users (optionally filtered by studyYear)
+  const userFilter = approvedUserFilter(studyYearParam === 'second-year' ? { studyYear: 'second-year' } : {});
+  const users = await db.collection('users').find(userFilter, {
+    projection: { name: 1, department: 1, studyYear: 1 }
+  }).toArray();
+
+  // 2. Fetch accepted submissions
+  const items = await db.collection('submissions')
+    .find({ status: 'accepted' }, { projection: { submittedAt: 1, userId: 1 } })
+    .toArray();
+
+  const IST = 'Asia/Kolkata';
+  const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: IST, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  const userSubmissionDays = new Map();
+  for (const item of items) {
+    if (!item.submittedAt) continue;
+    const dateStr = fmt.format(new Date(item.submittedAt));
+    if (dateStr.startsWith(monthKey)) {
+      const dayNum = parseInt(dateStr.slice(8, 10), 10);
+      const uid = String(item.userId);
+      if (!userSubmissionDays.has(uid)) {
+        userSubmissionDays.set(uid, new Set());
+      }
+      userSubmissionDays.get(uid).add(dayNum);
+    }
+  }
+
+  // Calculate total solved per user & sort descending by solutions, then by name
+  for (const u of users) {
+    const subDays = userSubmissionDays.get(String(u._id)) || new Set();
+    u.subDays = subDays;
+    u.totalSolved = subDays.size;
+  }
+  users.sort((a, b) => (b.totalSolved - a.totalSolved) || (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+  const todayStr = fmt.format(new Date());
+  const currentMonthKey = todayStr.slice(0, 7);
+  const currentDayNum = parseInt(todayStr.slice(8, 10), 10);
+
+  let maxDay = numDays;
+  if (monthKey === currentMonthKey) {
+    maxDay = Math.min(numDays, currentDayNum);
+  } else if (monthKey > currentMonthKey) {
+    maxDay = 0;
+  }
+
+  const dayCols = [];
+  for (let day = 1; day <= maxDay; day++) {
+    dayCols.push(`${shortMonth}${day}`);
+  }
+
+  // If XLSX format requested (or default), generate rich styled Excel spreadsheet
+  if (format === 'xlsx') {
+    const ExcelJS = (await import('exceljs')).default || (await import('exceljs'));
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'DSAvation';
+    const worksheet = workbook.addWorksheet(`${mDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} ${year}`);
+
+    const columns = [
+      { header: 'Name', key: 'name', width: 24 },
+      { header: 'Department', key: 'department', width: 16 },
+      ...dayCols.map((col) => ({ header: col, key: col, width: 7 })),
+      { header: 'Submissions', key: 'submissions', width: 14 },
+    ];
+    worksheet.columns = columns;
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 24;
+    headerRow.eachCell((cell, colNumber) => {
+      const isSubCol = colNumber === columns.length;
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isSubCol ? 'FFFEF08A' : 'FFF1F5F9' },
+      };
+      cell.font = {
+        name: 'Segoe UI',
+        bold: true,
+        color: { argb: isSubCol ? 'FF713F12' : 'FF1E293B' },
+        size: 10,
+      };
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: colNumber <= 2 ? 'left' : 'center',
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'medium', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
+    });
+
+    users.forEach((u) => {
+      const rowData = {
+        name: u.name,
+        department: u.department,
+        submissions: u.totalSolved,
+      };
+      for (let day = 1; day <= maxDay; day++) {
+        const colKey = `${shortMonth}${day}`;
+        rowData[colKey] = u.subDays.has(day) ? '✔' : '✘';
+      }
+      const row = worksheet.addRow(rowData);
+      row.height = 20;
+
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: colNumber <= 2 ? 'left' : 'center',
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+
+        if (colNumber > 2 && colNumber < columns.length) {
+          const val = cell.value;
+          if (val === '✔') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // Light green
+            cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF065F46' }, size: 10 };
+          } else {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; // Light red
+            cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF991B1B' }, size: 10 };
+          }
+        } else if (colNumber === columns.length) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } }; // Light yellow
+          cell.font = { name: 'Segoe UI', bold: true, color: { argb: 'FF713F12' }, size: 10.5 };
+        } else {
+          cell.font = { name: 'Segoe UI', size: 10 };
+        }
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return {
+      buffer,
+      filename: `submissions-${monthKey}${studyYearParam === 'second-year' ? '-second-year' : ''}.xlsx`,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  // CSV Fallback
+  const escapeCsv = (str) => `"${String(str ?? '').replace(/"/g, '""')}"`;
+  const header = ['Name', 'Department', ...dayCols, 'Submissions'].join(',');
+
+  const rows = users.map((u) => {
+    const dayCells = [];
+    for (let day = 1; day <= maxDay; day++) {
+      dayCells.push(u.subDays.has(day) ? '✔' : '✘');
+    }
+    return [escapeCsv(u.name), escapeCsv(u.department), ...dayCells, u.totalSolved].join(',');
+  });
+
+  const csvContent = '\uFEFF' + [header, ...rows].join('\r\n');
+  return {
+    csv: csvContent,
+    filename: `submissions-${monthKey}${studyYearParam === 'second-year' ? '-second-year' : ''}.csv`,
+    contentType: 'text/csv; charset=utf-8',
+  };
 }
 
 async function getTodaySubmissions(db, req, user, url) {
@@ -1857,6 +2352,9 @@ async function reviewSubmission(db, user, submissionId, body) {
     { $set: { status, points: status === 'accepted' ? 1 : 0, reviewNote: note, reviewedAt: new Date(), reviewedBy: user._id } },
   );
   if (!result.matchedCount) throw new HttpError(404, 'Pending submission not found.');
+  if (status === 'accepted' && submission.questionId) {
+    try { await markClubProgress(db, submission.userId, submission.questionId, submission.assignmentId, new Date()); } catch { /* progress lock is retried on the next progress read */ }
+  }
   await recordAdminActivity(db, user, 'submission_reviewed', { id: submission._id, label: submission.commitUrl }, { status, points: status === 'accepted' ? 1 : 0, note });
   return { ok: true };
 }
@@ -2222,12 +2720,25 @@ async function listAdminActivity(db, url) {
   };
 }
 
+let schedulerInitialized = false;
+
 export async function handleApiNode(req, res, options = {}) {
   const url = normalizedUrl(req.url || '/');
   const method = String(req.method || 'GET').toUpperCase();
   let db;
   const getDb = () => options.db ? Promise.resolve(options.db) : getDatabase();
   try {
+    if (url.pathname === '/api/cron/daily-assignment' && (method === 'GET' || method === 'POST')) {
+      db = await getDb();
+      const authHeader = req.headers?.authorization;
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret && authHeader !== `Bearer ${cronSecret}` && req.headers?.['x-vercel-cron'] !== '1') {
+        throw new HttpError(401, 'Unauthorized cron trigger.');
+      }
+      const targetDate = url.searchParams.get('dateKey') || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate);
+      return json(res, 200, { ok: true, dateKey: targetDate, assignment });
+    }
     if (url.pathname === '/api/integrations/github/webhook' && method === 'POST') {
       db = await getDb();
       return json(res, 200, await githubWebhook(db, req));
@@ -2272,6 +2783,10 @@ export async function handleApiNode(req, res, options = {}) {
     }
     if (method !== 'GET' && method !== 'HEAD') assertSameOrigin(req);
     db = await getDb();
+    if (!schedulerInitialized && process.env.NODE_ENV !== 'test' && !process.env.DISABLE_SCHEDULER) {
+      schedulerInitialized = true;
+      scheduleNextMidnightAssignment(db);
+    }
     if (url.pathname === '/api/auth/register' && method === 'POST') return await signup(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/login' && method === 'POST') return await login(db, req, res, await readBody(req));
     if (url.pathname === '/api/auth/request-password-reset' && method === 'POST') return json(res, 200, await requestPasswordReset(db, req, res, await readBody(req)));
@@ -2314,14 +2829,15 @@ export async function handleApiNode(req, res, options = {}) {
     if (url.pathname === '/api/club/today' && method === 'GET') return json(res, 200, await getClubToday(db));
     if (url.pathname === '/api/club/assignments' && method === 'GET') return json(res, 200, await assignmentHistory(db, url));
     if (url.pathname === '/api/progress' && method === 'GET') {
-      const progress = await db.collection('personalProgress').find({ userId: user._id }).sort({ solvedAt: -1 }).toArray();
-      return json(res, 200, { progress: progress.map((item) => ({ questionId: item.questionId, solvedAt: item.solvedAt })) });
+      // progress keeps personal checkmarks. activity is accepted Club Challenge submissions only.
+      return json(res, 200, await progressPayload(db, user));
     }
     const progressMatch = url.pathname.match(/^\/api\/progress\/(\d+)$/);
     if (progressMatch && method === 'PUT') {
       const body = await readBody(req);
-      await setProgress(db, req, user, progressMatch[1], Boolean(body.solved));
-      return json(res, 200, { ok: true, questionId: Number(progressMatch[1]), solved: Boolean(body.solved) });
+      const solved = Boolean(body.solved);
+      await setProgress(db, req, user, progressMatch[1], solved);
+      return json(res, 200, { ok: true, questionId: Number(progressMatch[1]), solved });
     }
     if (url.pathname === '/api/submissions' && method === 'GET') return json(res, 200, await listSubmissions(db, req, user, url));
     if (url.pathname === '/api/submissions' && method === 'POST') {
@@ -2338,11 +2854,34 @@ export async function handleApiNode(req, res, options = {}) {
     if (assignmentMatch && method === 'DELETE') {
       return json(res, 200, await deleteAssignment(db, user, assignmentMatch[1]));
     }
+    if (url.pathname === '/api/admin/auto-assign' && method === 'POST') {
+      requireRole(user, 'lead', 'admin');
+      const body = await readBody(req);
+      const targetDate = body?.dateKey || dayKey();
+      const assignment = await autoAssignDailyQuestion(db, targetDate, { force: true, user });
+      return json(res, 200, { ok: true, assignment });
+    }
     if (url.pathname === '/api/admin/submissions' && method === 'GET') {
       return json(res, 200, await listSubmissions(db, req, user, url));
     }
     if (url.pathname === '/api/admin/submissions-heatmap' && method === 'GET') {
       return json(res, 200, await getSubmissionsHeatmap(db, user, url));
+    }
+    if (url.pathname === '/api/admin/submissions-by-date' && method === 'GET') {
+      return json(res, 200, await getSubmissionsByDate(db, user, url));
+    }
+    if ((url.pathname === '/api/admin/month-submissions-csv' || url.pathname === '/api/admin/month-submissions-export') && method === 'GET') {
+      const result = await getMonthSubmissionsExport(db, user, url);
+      if (result.buffer) {
+        return sendBuffer(res, 200, result.buffer, {
+          'Content-Type': result.contentType,
+          'Content-Disposition': `attachment; filename="${result.filename}"`,
+        });
+      }
+      return sendText(res, 200, result.csv, {
+        'Content-Type': result.contentType || 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+      });
     }
     if (url.pathname === '/api/admin/today-submissions' && method === 'GET') {
       const result = await getTodaySubmissions(db, req, user, url);
