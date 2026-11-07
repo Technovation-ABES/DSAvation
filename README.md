@@ -311,6 +311,34 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
           (Profiles, Streaks, Days)                  (Commit Verification)
 ```
 
+### 📁 Project Structure
+
+```text
+DSAvation/
+├── api/                   # Vercel serverless function entry (handler.js)
+├── client/                # Frontend application
+│   ├── public/            # Static assets (favicons, manifests, mascots)
+│   ├── src/               # React application source
+│   │   ├── api/           # API fetch client
+│   │   ├── components/    # Reusable UI & modal components
+│   │   ├── data/          # Frontend constants
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── pages/         # Screen-level views
+│   │   ├── routes/        # Route resolver & path mapping
+│   │   └── utils/         # Helper functions & styling utilities
+│   └── index.html         # Client HTML entry point
+├── docs/                  # Architecture diagrams, screenshots, algorithm specs
+│   ├── charts/            # Flowcharts & diagrams
+│   ├── references/        # Historical specs & reference docs
+│   └── screenshots/       # UI showcase screenshots
+├── server/                # Backend services & data
+│   ├── data/              # 220 DSA questions database
+│   ├── api.js             # Core HTTP API engine & routes
+│   ├── db.js              # MongoDB Atlas connection & schema indexes
+│   └── email.js           # SMTP email dispatch & templates
+└── test/                  # Automated test suite (40/40 passing)
+```
+
 ---
 
 <div align="center">
