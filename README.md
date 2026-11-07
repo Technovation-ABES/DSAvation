@@ -329,8 +329,8 @@ DSAvation/
 │   └── index.html         # Client HTML entry point
 ├── docs/                  # Architecture diagrams, screenshots, algorithm specs
 │   ├── charts/            # Flowcharts & diagrams
-│   ├── references/        # Historical specs & reference docs
-│   └── screenshots/       # UI showcase screenshots
+│   ├── screenshots/       # UI showcase screenshots
+│   └── EXPLAINER_PICKER_ALGORITHM.md # Explainer Engine algorithm spec
 ├── server/                # Backend services & data
 │   ├── data/              # 220 DSA questions database
 │   ├── api.js             # Core HTTP API engine & routes
