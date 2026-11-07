@@ -635,9 +635,25 @@ svg {
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
 }
 
-.account-profile-btn .avatar {
+.account-profile-btn .member-avatar,
+.account-profile-btn .avatar-fallback {
   width: 28px;
   height: 28px;
+}
+
+/* MemberAvatar renders an image (or fallback span), so give both the same
+   bounded dimensions as the legacy .avatar element. */
+.member-avatar,
+.avatar-fallback {
+  width: 29px;
+  height: 29px;
+  min-width: 0;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .account-name-label {
@@ -2322,6 +2338,8 @@ p {
   line-height: 1;
 }
 
+.participant .member-avatar,
+.participant .avatar-fallback,
 .participant .avatar,
 .participant .avatar-image,
 .participant i {
@@ -8730,6 +8748,8 @@ details[open]>.admin-activity-summary svg {
   height: 40px;
 }
 
+.participant .member-avatar,
+.participant .avatar-fallback,
 .participant .avatar-image {
   width: 28px;
   height: 28px;

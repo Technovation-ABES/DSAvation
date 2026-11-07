@@ -1,4 +1,5 @@
 import React from 'react';
+import { Icon as IconifyIcon } from '@iconify/react';
 
 const paths = {
   flame: 'M12 2c.6 3-1.5 5.5-2.5 7.5C8.5 7 8 5.5 8 4 5 7 4 10.5 4 13a8 8 0 0 0 16 0c0-4-3-7.5-6-11z',
@@ -21,9 +22,15 @@ const paths = {
   refresh: 'M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-1.19',
   dice: 'M3 3h18v18H3z M8 8h.01 M16 8h.01 M12 12h.01 M8 16h.01 M16 16h.01',
   info: 'M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm0-14v2m0 4v4',
+  moon: 'M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5z',
+  sun: 'M12 3v2m0 14v2M3 12h2m14 0h2m-15.36-6.36 1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
+  logout: 'M10 17l5-5-5-5m5 5H3m9-9h5a2 2 0 0 1 2 2v2m0 10v2a2 2 0 0 1-2 2h-5',
 };
 
 export const Icon = React.memo(function Icon({ name, size = 17 }) {
+  if (name === 'leetcode') {
+    return <IconifyIcon icon="simple-icons:leetcode" width={size} height={size} aria-hidden="true" />;
+  }
   return (
     <svg
       width={size}
