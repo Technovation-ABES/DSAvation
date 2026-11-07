@@ -137,6 +137,7 @@ function initialTheme() {
   const stored = localStorage.getItem('dsavation-theme');
   const theme = stored === 'dark' || stored === 'forest' ? stored : 'light';
   document.documentElement.dataset.theme = theme;
+  delete document.documentElement.dataset.style;
   return theme;
 }
 
@@ -1908,6 +1909,7 @@ function App() {
   useEffect(() => { localStorage.setItem('dsavation-bookmarks', JSON.stringify(bookmarks)); }, [bookmarks]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    delete document.documentElement.dataset.style;
     localStorage.setItem('dsavation-theme', theme);
     if (theme === 'dark' || theme === 'forest') {
       rememberDarkStyle(theme);
@@ -3950,7 +3952,7 @@ function App() {
                     checked={repickWaivePenalty}
                     onChange={(e) => setRepickWaivePenalty(e.target.checked)}
                   />
-                  <span>Waive -50 Blaze penalty for replaced member (admin correction / mutual swap)</span>
+                  <span>Waive -50 Blaze penalty (admin correction / swap)</span>
                 </label>
               )}
 
