@@ -1576,13 +1576,14 @@ p {
 .assignment-copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
   border-radius: 6px;
   background: rgba(56, 189, 248, 0.14);
   border: 1px solid rgba(56, 189, 248, 0.35);
   color: #38bdf8;
-  font: 600 0.5625rem var(--mono);
   cursor: pointer;
   transition: all 180ms ease;
   line-height: 1;
@@ -6008,35 +6009,8 @@ details[open]>.admin-activity-summary svg {
   white-space: nowrap;
 }
 
-.leader-person-link {
-  color: inherit;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: color 150ms ease;
+.leader-person-clickable {
   cursor: pointer;
-}
-
-.leader-person-link:hover {
-  color: var(--blue, #0284c7);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.leader-person-ext-icon {
-  opacity: 0.65;
-  flex-shrink: 0;
-  transition: opacity 150ms ease, transform 150ms ease;
-}
-
-.leader-person-link:hover .leader-person-ext-icon {
-  opacity: 1;
-  transform: translate(1px, -1px);
-}
-
-:root[data-theme="dark"] .leader-person-link:hover {
-  color: #38bdf8;
 }
 
 .leader-person span {

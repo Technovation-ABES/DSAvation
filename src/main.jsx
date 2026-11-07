@@ -2332,8 +2332,7 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                       title="Copy Daily Challenge announcement text"
                       aria-label="Copy Daily Challenge announcement text"
                     >
-                      <Icon name={copiedAnnouncement ? "check" : "copy"} size={12} />
-                      <span>{copiedAnnouncement ? "Copied!" : "Copy"}</span>
+                      <Icon name={copiedAnnouncement ? "check" : "copy"} size={13} />
                     </button>
                   )}
                 </div>
@@ -3268,8 +3267,7 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                         title="Copy Daily Challenge announcement text"
                         aria-label="Copy Daily Challenge announcement text"
                       >
-                        <Icon name={copiedAnnouncement ? "check" : "copy"} size={12} />
-                        <span>{copiedAnnouncement ? "Copied!" : "Copy"}</span>
+                        <Icon name={copiedAnnouncement ? "check" : "copy"} size={13} />
                       </button>
                     )}
                   </div>
@@ -3556,17 +3554,16 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                           <div className="leader-person">
                             <strong>
                               {(isAdmin || isLeader) && targetUrl ? (
-                                <a
-                                  href={targetUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="leader-person-link"
+                                <span
+                                  className="leader-person-clickable"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                                  }}
                                   title={isLeetCode ? `Open ${person.name}'s LeetCode profile` : `Open ${person.name}'s verified GitHub commit`}
-                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  <span>{person.name}</span>
-                                  <Icon name="external" size={11} className="leader-person-ext-icon" />
-                                </a>
+                                  {person.name}
+                                </span>
                               ) : (
                                 person.name
                               )}
