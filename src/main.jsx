@@ -49,6 +49,70 @@ const CLUB_DEPARTMENTS = [
   'Production',
   'Content',
 ];
+
+const DEFAULT_DAILY_TEMPLATE = `🚀 DSAvation Daily Challenge is LIVE! (Day {day}/ 220)
+
+Question: LeetCode #{id} - {title}
+🧠 Topic:  {topic}
+🌐 Club Portal:  https://dsavation.vercel.app/challenge
+🔗 LeetCode Link: {leetcodeUrl}
+
+ Get it done!⚡️`;
+
+const DEFAULT_EXPLAINER_TEMPLATE = `🚨 Evening Solution Breakdown!
+
+Good hustle today on {title}, everyone! 👏
+The randomizer has spoken for tonight's solution explainer 🎲
+👉 {tag}, you're up! 🎉
+Please drop a quick explanation of your approach here in the group.`;
+
+function getMessageTemplate(type) {
+  const key = type === 'daily' ? 'dsavation-daily-template' : 'dsavation-explainer-template';
+  const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  if (stored) return stored;
+  return type === 'daily' ? DEFAULT_DAILY_TEMPLATE : DEFAULT_EXPLAINER_TEMPLATE;
+}
+
+function saveMessageTemplate(type, template) {
+  const key = type === 'daily' ? 'dsavation-daily-template' : 'dsavation-explainer-template';
+  if (typeof localStorage !== 'undefined') localStorage.setItem(key, template);
+}
+
+function resetMessageTemplate(type) {
+  const key = type === 'daily' ? 'dsavation-daily-template' : 'dsavation-explainer-template';
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+  return type === 'daily' ? DEFAULT_DAILY_TEMPLATE : DEFAULT_EXPLAINER_TEMPLATE;
+}
+
+function renderMessageText(template, { question, explainer }) {
+  if (!template) return '';
+  let text = template;
+  if (question) {
+    const slug = question.title ? question.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : '';
+    const url = `https://leetcode.com/problems/${slug}/`;
+    text = text
+      .replace(/{day}/gi, String(question.day || '—'))
+      .replace(/{id}/gi, String(question.id || '—'))
+      .replace(/{title}/gi, question.title || 'today’s question')
+      .replace(/{topic}/gi, question.topic || 'General')
+      .replace(/{leetcodeUrl}/gi, url);
+  }
+  if (explainer) {
+    const tag = explainer.githubUsername ? `@${explainer.githubUsername}` : (explainer.name ? `@${explainer.name}` : '@explainer');
+    text = text
+      .replace(/{tag}/gi, tag)
+      .replace(/<tag>/gi, tag)
+      .replace(/{name}/gi, explainer.name || 'explainer')
+      .replace(/<name>/gi, explainer.name || 'explainer');
+  } else {
+    text = text
+      .replace(/{tag}/gi, '@explainer')
+      .replace(/<tag>/gi, '@explainer')
+      .replace(/{name}/gi, 'explainer')
+      .replace(/<name>/gi, 'explainer');
+  }
+  return text;
+}
 function getViewFromPath(path) {
   if (path === '/dashboard') return 'dashboard';
   if (path === '/members') return 'members';
@@ -997,6 +1061,13 @@ function App() {
   const [imageExporting, setImageExporting] = useState(false);
   const [copiedNotice, setCopiedNotice] = useState(false);
   const [copiedAnnouncement, setCopiedAnnouncement] = useState(false);
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [messageModalType, setMessageModalType] = useState('daily');
+  const [messageModalTab, setMessageModalTab] = useState('preview');
+  const [messageDraft, setMessageDraft] = useState('');
+  const [templateDraft, setTemplateDraft] = useState('');
+  const [messageCopiedNotice, setMessageCopiedNotice] = useState(false);
+  const [templateSavedNotice, setTemplateSavedNotice] = useState(false);
   const [memberBusy, setMemberBusy] = useState('');
   const [memberFilter, setMemberFilter] = useState('heatmap');
   const [memberQuery, setMemberQuery] = useState('');
@@ -2034,7 +2105,9 @@ function App() {
   }
 
   async function deleteMember(member) {
-    const detail = member?.email?.trim() ? ` (${member.email.trim()})` : member?.githubUsername?.trim() ? ` (@${member.githubUsername.trim()})` : '';
+    const cleanEmail = (member?.email && member.email !== 'undefined') ? member.email.trim() : '';
+    const cleanGithub = (member?.githubUsername && member.githubUsername !== 'undefined') ? member.githubUsername.trim() : '';
+    const detail = cleanEmail ? ` (${cleanEmail})` : cleanGithub ? ` (@${cleanGithub})` : '';
     if (!window.confirm(`Delete ${member?.name || 'this member'}${detail} and their saved progress and club submissions? This cannot be undone.`)) return;
     setMemberBusy(member.id);
     try {
@@ -2075,25 +2148,40 @@ function App() {
     }
   }
 
-  async function handleCopyAnnouncement() {
-    if (!assignedQuestion) return;
-    const leetcodeSlug = assignedQuestion.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const leetcodeUrl = `https://leetcode.com/problems/${leetcodeSlug}/`;
-    const text = `🚀 DSAvation Daily Challenge is LIVE! (Day ${assignedQuestion.day}/ 220)
+  function openMessageModal(type = 'daily') {
+    setMessageModalType(type);
+    setMessageModalTab('preview');
+    setMessageCopiedNotice(false);
+    setTemplateSavedNotice(false);
 
-Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
-🧠 Topic:  ${assignedQuestion.topic}
-🌐 Club Portal:  https://dsavation.vercel.app/challenge
-🔗 LeetCode Link: ${leetcodeUrl}
+    const tmpl = getMessageTemplate(type);
+    setTemplateDraft(tmpl);
 
- Get it done!⚡️`;
+    const currentExplainer = club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer;
+    const rendered = renderMessageText(tmpl, {
+      question: assignedQuestion,
+      explainer: currentExplainer,
+    });
+    setMessageDraft(rendered);
+    setMessageModalOpen(true);
+  }
+
+  function handleCopyAnnouncement() {
+    openMessageModal('daily');
+  }
+
+  async function handleCopyMessageFromModal() {
+    const textToCopy = messageModalTab === 'preview' ? messageDraft : renderMessageText(templateDraft, {
+      question: assignedQuestion,
+      explainer: club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer,
+    });
 
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(textToCopy);
       } else {
         const textarea = document.createElement('textarea');
-        textarea.value = text;
+        textarea.value = textToCopy;
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
@@ -2101,12 +2189,41 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
         document.execCommand('copy');
         document.body.removeChild(textarea);
       }
-      setCopiedAnnouncement(true);
-      setNotice('Daily Challenge announcement copied to clipboard!');
-      setTimeout(() => setCopiedAnnouncement(false), 2400);
+      setMessageCopiedNotice(true);
+      setNotice('Message copied to clipboard!');
+      setTimeout(() => setMessageCopiedNotice(false), 2400);
     } catch {
-      setNotice('Could not copy announcement to clipboard.');
+      setNotice('Could not copy message to clipboard.');
     }
+  }
+
+  function handleSaveTemplate() {
+    saveMessageTemplate(messageModalType, templateDraft);
+    setTemplateSavedNotice(true);
+    setNotice('Saved new default message template!');
+    setTimeout(() => setTemplateSavedNotice(false), 2400);
+
+    const currentExplainer = club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer;
+    const rendered = renderMessageText(templateDraft, {
+      question: assignedQuestion,
+      explainer: currentExplainer,
+    });
+    setMessageDraft(rendered);
+  }
+
+  function handleResetTemplate() {
+    const orig = resetMessageTemplate(messageModalType);
+    setTemplateDraft(orig);
+    setTemplateSavedNotice(true);
+    setNotice('Reset to default message template.');
+    setTimeout(() => setTemplateSavedNotice(false), 2400);
+
+    const currentExplainer = club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer;
+    const rendered = renderMessageText(orig, {
+      question: assignedQuestion,
+      explainer: currentExplainer,
+    });
+    setMessageDraft(rendered);
   }
 
   async function updatePublicPreference(showPublic) {
@@ -3380,6 +3497,17 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                   <h2>Today's Explainer</h2>
                 </div>
                 <div className="panel-heading-actions">
+                  {(club.assignment?.explainer || selectedExplainer) && (
+                    <button
+                      type="button"
+                      className="assignment-copy-btn"
+                      onClick={() => openMessageModal('explainer')}
+                      title="Open & copy evening solution breakdown message"
+                      aria-label="Copy evening breakdown message"
+                    >
+                      <Icon name="copy" size={13} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="button button-green pick-explainer-head-btn"
@@ -3404,6 +3532,14 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                       <p>{club.assignment.explainer.department} · {studyYearLabel(club.assignment.explainer.studyYear)}</p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={() => openMessageModal('explainer')}
+                    title="Open & copy evening solution breakdown message"
+                  >
+                    <Icon name="copy" size={13} /> <span>Copy message</span>
+                  </button>
                   <button
                     type="button"
                     className="button button-quiet repick-banner-btn"
@@ -3567,11 +3703,7 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                               ) : (
                                 person.name
                               )}
-                              {person.role === 'admin' && (
-                                <span className="admin-verified-badge" title="Administrator">
-                                  <IconifyIcon icon="codicon:verified" width={16} height={16} />
-                                </span>
-                              )}
+                              
                             </strong>
                             <span>{person.department || 'Club Member'}{submittedTimeStr ? ` · ${submittedTimeStr}` : ''}</span>
                           </div>
@@ -3970,6 +4102,155 @@ Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
                 <Icon name="download" size={14} /> <span>Download .CSV ({matchingExportCount})</span>
               </button>
             </div>
+          </div>
+        </section>
+      </div>,
+      document.body
+    )}
+
+    {messageModalOpen && typeof document !== 'undefined' && createPortal(
+      <div
+        className="modal-scrim"
+        role="presentation"
+        onMouseDown={(event) => { if (event.target === event.currentTarget) setMessageModalOpen(false); }}
+      >
+        <section
+          className="auth-modal message-broadcast-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="message-broadcast-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="modal-close" onClick={() => setMessageModalOpen(false)} aria-label="Close">×</button>
+          <div className="message-modal-header">
+            <div className="eyebrow"><span className="eyebrow-line" />COMMUNICATION · BROADCAST</div>
+            <h2 id="message-broadcast-title">
+              {messageModalType === 'daily' ? 'Daily Challenge Announcement' : 'Evening Solution Breakdown'}<span>.</span>
+            </h2>
+          </div>
+
+          <div className="message-modal-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={messageModalTab === 'preview'}
+              className={`message-modal-tab ${messageModalTab === 'preview' ? 'active' : ''}`}
+              onClick={() => setMessageModalTab('preview')}
+            >
+              Today's Message
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={messageModalTab === 'template'}
+              className={`message-modal-tab ${messageModalTab === 'template' ? 'active' : ''}`}
+              onClick={() => setMessageModalTab('template')}
+            >
+              Edit Default Template
+            </button>
+          </div>
+
+          <div className="message-modal-body">
+            {messageModalTab === 'preview' ? (
+              <>
+                <textarea
+                  className="message-modal-textarea"
+                  rows={8}
+                  value={messageDraft}
+                  onChange={(e) => setMessageDraft(e.target.value)}
+                  placeholder="Today's message draft..."
+                />
+                <p className="message-modal-tip">
+                  You can edit today’s message above before copying, or switch to “Edit Default Template” to change it permanently.
+                </p>
+                <div className="message-modal-actions">
+                  <button
+                    type="button"
+                    className="button button-green message-copy-action-btn"
+                    onClick={handleCopyMessageFromModal}
+                  >
+                    <Icon name={messageCopiedNotice ? 'check' : 'copy'} size={14} />
+                    <span>{messageCopiedNotice ? 'Copied to clipboard!' : 'Copy message'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={() => {
+                      const tmpl = getMessageTemplate(messageModalType);
+                      const currentExplainer = club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer;
+                      const rendered = renderMessageText(tmpl, {
+                        question: assignedQuestion,
+                        explainer: currentExplainer,
+                      });
+                      setMessageDraft(rendered);
+                      setNotice('Reset draft to current default template.');
+                    }}
+                    title="Reload from default template"
+                  >
+                    <IconifyIcon icon="charm:refresh" width={13} height={13} />
+                    <span>Revert edits</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <textarea
+                  className="message-modal-textarea"
+                  rows={8}
+                  value={templateDraft}
+                  onChange={(e) => setTemplateDraft(e.target.value)}
+                  placeholder="Template with placeholders like {title}, {tag}..."
+                />
+                <div className="message-variable-chips-row">
+                  <span className="chips-label">Insert variable:</span>
+                  {(messageModalType === 'daily'
+                    ? ['{day}', '{id}', '{title}', '{topic}', '{leetcodeUrl}']
+                    : ['{title}', '{tag}', '{name}']
+                  ).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className="message-var-chip"
+                      onClick={() => setTemplateDraft((prev) => `${prev} ${v} `)}
+                      title={`Insert ${v}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                <p className="message-modal-tip">
+                  Saving this template will persist it as your new default for future {messageModalType === 'daily' ? 'Daily Challenge' : 'Evening Breakdown'} messages.
+                </p>
+                <div className="message-modal-actions">
+                  <button
+                    type="button"
+                    className="button button-green message-copy-action-btn"
+                    onClick={handleSaveTemplate}
+                  >
+                    <Icon name={templateSavedNotice ? 'check' : 'arrow'} size={14} />
+                    <span>{templateSavedNotice ? 'Saved as default!' : 'Save new default template'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={handleCopyMessageFromModal}
+                    title="Copy with today's values resolved"
+                  >
+                    <Icon name={messageCopiedNotice ? 'check' : 'copy'} size={13} />
+                    <span>{messageCopiedNotice ? 'Copied!' : 'Copy resolved'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    onClick={handleResetTemplate}
+                    title="Reset to factory original default"
+                  >
+                    <IconifyIcon icon="charm:refresh" width={13} height={13} />
+                    <span>Reset default</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </div>,
