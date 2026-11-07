@@ -1271,6 +1271,155 @@ test('explainer selection prioritizes second-year students, locks for today, and
   assert.equal(customPick.data.explainer.name, 'Sophomore Alice');
 });
 
+test('Randomized Round Robin: safe past-explainer persistence, 3-tier priority, cycle reset, volunteer shield, and boundary protection', async () => {
+  const db = new FakeDatabase();
+  const admin = await seedAdmin(db);
+  const indiaToday = indiaDay();
+
+  // Create 4 second-year members
+  const s1 = await seedUser(db, { email: 's1@abes.ac.in', name: 'Student One', username: 's1-gh', studyYear: 'second-year', role: 'member', approved: true });
+  const s2 = await seedUser(db, { email: 's2@abes.ac.in', name: 'Student Two', username: 's2-gh', studyYear: 'second-year', role: 'member', approved: true });
+  const s3 = await seedUser(db, { email: 's3@abes.ac.in', name: 'Student Three', username: 's3-gh', studyYear: 'second-year', role: 'member', approved: true });
+  const s4 = await seedUser(db, { email: 's4@abes.ac.in', name: 'Student Four', username: 's4-gh', studyYear: 'second-year', role: 'member', approved: true });
+
+  // Simulate past assignments: s1 was ALREADY selected as an explainer previously!
+  await db.collection('assignments').insertOne({
+    dateKey: '2026-10-30',
+    questionId: 1,
+    explainerUserId: s1.user._id,
+    explainer: { userId: String(s1.user._id), name: 'Student One' },
+    createdAt: new Date('2026-10-30T10:00:00Z'),
+  });
+
+  // Create today’s assignment
+  const todayAssign = await db.collection('assignments').insertOne({
+    dateKey: indiaToday,
+    questionId: 217,
+    createdByName: 'Admin',
+    createdBy: admin.user._id,
+    createdAt: new Date(),
+  });
+  const todayAssignmentId = todayAssign.insertedId;
+
+  // s2 submitted today with accepted status. s3 and s4 did not submit.
+  await db.collection('submissions').insertOne({
+    assignmentId: todayAssignmentId,
+    userId: s2.user._id,
+    questionId: 217,
+    status: 'accepted',
+    points: 1,
+    commitUrl: 'https://github.com/s2/repo/commit/111',
+    submittedAt: new Date(),
+  });
+
+  // Initial pick today:
+  // Safe migration must pick up s1 from past assignments into primaryCompletedIds.
+  // s2 is an accepted submitter among unpicked (s2, s3, s4) -> s2 MUST be selected!
+  const pickRes1 = await call(db, '/admin/pick-explainer', { method: 'POST', cookie: admin.cookie });
+  assert.equal(pickRes1.response.status, 200);
+  assert.equal(pickRes1.data.explainer.name, 'Student Two');
+  assert.equal(pickRes1.data.cycle.cycleNumber, 1);
+  assert.equal(pickRes1.data.cycle.completedCount, 2); // s1 and s2
+  assert.equal(pickRes1.data.cycle.remainingCount, 2); // s3 and s4
+
+  // Verify explainer-candidates reflects completed state
+  const candsRes = await call(db, '/admin/explainer-candidates', { cookie: admin.cookie });
+  assert.equal(candsRes.response.status, 200);
+  const candMap = new Map(candsRes.data.candidates.map((c) => [c.name, c]));
+  assert.equal(candMap.get('Student One').turnCompleted, true);
+  assert.equal(candMap.get('Student Two').turnCompleted, true);
+  assert.equal(candMap.get('Student Three').turnCompleted, false);
+  assert.equal(candMap.get('Student Four').turnCompleted, false);
+
+  // Test Re-pick: s2 declines. Re-pick must choose between s3 or s4, and s2 loses 50 Blaze
+  const repickRes = await call(db, '/admin/pick-explainer', { method: 'POST', cookie: admin.cookie, body: { repick: true } });
+  assert.equal(repickRes.response.status, 200);
+  assert.ok(['Student Three', 'Student Four'].includes(repickRes.data.explainer.name));
+  const chosenReplacementName = repickRes.data.explainer.name;
+
+  // Check s2 penalized -50 and s2 turn restored
+  const s2User = await db.collection('users').findOne({ _id: s2.user._id });
+  assert.equal(s2User.customAura, -50);
+  const cycleAfterRepick = await db.collection('explainerCycle').findOne({ _id: 'current' });
+  assert.ok(!cycleAfterRepick.primaryCompletedIds.includes(String(s2.user._id)));
+
+  // Test Volunteer Shield on Custom Re-pick:
+  // Admin custom-re-picks s1 (who already completed turn in past assignment)
+  const customVolRes = await call(db, '/admin/pick-explainer', {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { repick: true, userId: String(s1.user._id) },
+  });
+  assert.equal(customVolRes.response.status, 200);
+  assert.equal(customVolRes.data.explainer.name, 'Student One');
+
+  // Now s1 (the volunteer) has an emergency and is replaced by s3 (or s4)
+  const unpickedCandidate = chosenReplacementName === 'Student Three' ? s4 : s3;
+  const replaceVolRes = await call(db, '/admin/pick-explainer', {
+    method: 'POST',
+    cookie: admin.cookie,
+    body: { repick: true, userId: String(unpickedCandidate.user._id) },
+  });
+  assert.equal(replaceVolRes.response.status, 200);
+
+  // Verify s1 (volunteer) did NOT get penalized 50 Blaze!
+  const s1User = await db.collection('users').findOne({ _id: s1.user._id });
+  assert.equal(s1User.customAura ?? 0, 0); // Still 0!
+  // And s1 is still in primaryCompletedIds!
+  const cycleWithVol = await db.collection('explainerCycle').findOne({ _id: 'current' });
+  assert.ok(cycleWithVol.primaryCompletedIds.includes(String(s1.user._id)));
+
+  // Now complete turns across consecutive days to test Cycle Reset
+  // So far in cycle: s1 (from 2026-10-30 past assignment) and unpickedCandidate (from today's assignment)
+  // Let unpickedCandidate be locked on today's assignment.
+  // Now create day 3 assignment for s2, and day 4 assignment for the other remaining student.
+  const currentCompleted = [String(s1.user._id), String(unpickedCandidate.user._id)];
+  const remainingStudents = [s2, s3, s4].filter((s) => !currentCompleted.includes(String(s.user._id)));
+
+  let dayCounter = 1;
+  for (const remainingStudent of remainingStudents) {
+    // Archive previous today assignment to past
+    await db.collection('assignments').updateOne({ dateKey: indiaToday }, { $set: { dateKey: `2026-11-0${dayCounter++}` } });
+    // Create new today assignment
+    await db.collection('assignments').insertOne({
+      dateKey: indiaToday,
+      questionId: 200 + dayCounter,
+      createdByName: 'Admin',
+      createdBy: admin.user._id,
+      createdAt: new Date(),
+    });
+    // Pick this remaining student for today
+    await call(db, '/admin/pick-explainer', {
+      method: 'POST',
+      cookie: admin.cookie,
+      body: { userId: String(remainingStudent.user._id) },
+    });
+  }
+
+  // Now all 4 students (s1, s2, s3, s4) have completed their turns in Cycle 1
+  const fullCycle = await db.collection('explainerCycle').findOne({ _id: 'current' });
+  assert.equal(fullCycle.primaryCompletedIds.length, 4);
+  const lastPersonInCycle1 = fullCycle.lastExplainerId;
+
+  // Archive today's assignment to past and create new today assignment for Cycle 2
+  await db.collection('assignments').updateOne({ dateKey: indiaToday }, { $set: { dateKey: `2026-11-0${dayCounter++}` } });
+  await db.collection('assignments').insertOne({
+    dateKey: indiaToday,
+    questionId: 300,
+    createdByName: 'Admin',
+    createdBy: admin.user._id,
+    createdAt: new Date(),
+  });
+
+  // Next random pick must automatically trigger cycle reset to Cycle 2!
+  // And boundary protection must avoid lastPersonInCycle1 as the first pick
+  const newCyclePick = await call(db, '/admin/pick-explainer', { method: 'POST', cookie: admin.cookie });
+  assert.equal(newCyclePick.response.status, 200);
+  assert.equal(newCyclePick.data.cycle.cycleNumber, 2);
+  assert.equal(newCyclePick.data.cycle.completedCount, 1);
+  assert.notEqual(String(newCyclePick.data.explainer.userId), String(lastPersonInCycle1));
+});
+
 test('submitting solutions directly via LeetCode verifies titleSlug, statusDisplay, and India date', async () => {
   const db = new FakeDatabase();
   const admin = await seedAdmin(db);

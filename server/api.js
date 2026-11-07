@@ -1463,6 +1463,20 @@ async function deleteAssignment(db, user, assignmentId) {
   if (assignment.dateKey < dayKey() && user.role !== 'admin') {
     throw new HttpError(400, 'Only today’s or upcoming assignments can be deleted.');
   }
+  if (assignment.explainerUserId) {
+    const prevId = String(assignment.explainerUserId);
+    const wasCredit = assignment.explainerCycleCreditGranted !== undefined ? Boolean(assignment.explainerCycleCreditGranted) : true;
+    if (wasCredit) {
+      const cycleDoc = await db.collection('explainerCycle').findOne({ _id: 'current' });
+      if (cycleDoc && Array.isArray(cycleDoc.primaryCompletedIds)) {
+        const updatedIds = cycleDoc.primaryCompletedIds.filter((cid) => String(cid) !== prevId);
+        await db.collection('explainerCycle').updateOne(
+          { _id: 'current' },
+          { $set: { primaryCompletedIds: updatedIds, updatedAt: new Date() } }
+        );
+      }
+    }
+  }
   await db.collection('assignments').deleteOne({ _id: id });
   await db.collection('assignment_suppressions').updateOne(
     { dateKey: assignment.dateKey },
@@ -2084,6 +2098,94 @@ async function getTodaySubmissions(db, req, user, url) {
   };
 }
 
+async function getOrCreateExplainerCycle(db, currentAssignmentId = null) {
+  let cycle = await db.collection('explainerCycle').findOne({ _id: 'current' });
+
+  const cohort = await db.collection('users').find(
+    approvedUserFilter({ studyYear: 'second-year' }),
+    { projection: { _id: 1, name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 } }
+  ).sort({ name: 1 }).toArray();
+
+  const cohortIdSet = new Set(cohort.map((u) => String(u._id)));
+
+  if (!cycle) {
+    // Safe initialization from past assignments for previously selected explainers:
+    const pastAssignments = await db.collection('assignments').find(
+      { ...(currentAssignmentId ? { _id: { $ne: currentAssignmentId } } : {}), explainerUserId: { $exists: true, $ne: null } },
+      { projection: { explainerUserId: 1 } }
+    ).toArray();
+
+    const pastExplainerIds = [];
+    const seen = new Set();
+    for (const pa of pastAssignments) {
+      const uId = String(pa.explainerUserId);
+      if (cohortIdSet.has(uId) && !seen.has(uId)) {
+        seen.add(uId);
+        pastExplainerIds.push(uId);
+      }
+    }
+
+    // Also include today’s assignment explainer if already selected and in cohort
+    if (currentAssignmentId) {
+      const todayAssignment = await db.collection('assignments').findOne(
+        { _id: currentAssignmentId },
+        { projection: { explainerUserId: 1 } }
+      );
+      if (todayAssignment?.explainerUserId) {
+        const todayId = String(todayAssignment.explainerUserId);
+        if (cohortIdSet.has(todayId) && !seen.has(todayId)) {
+          seen.add(todayId);
+          pastExplainerIds.push(todayId);
+        }
+      }
+    }
+
+    cycle = {
+      _id: 'current',
+      cycleNumber: 1,
+      primaryCompletedIds: pastExplainerIds,
+      lastExplainerId: pastExplainerIds.length > 0 ? pastExplainerIds[pastExplainerIds.length - 1] : null,
+      updatedAt: new Date(),
+    };
+    await db.collection('explainerCycle').insertOne(cycle);
+  } else {
+    if (!Array.isArray(cycle.primaryCompletedIds)) {
+      cycle.primaryCompletedIds = [];
+    } else {
+      cycle.primaryCompletedIds = cycle.primaryCompletedIds.map(String);
+    }
+  }
+
+  return { cycle, cohort, cohortIdSet };
+}
+
+function selectFromUnpickedWithPriority(pool, submissions = []) {
+  if (!pool || pool.length === 0) return null;
+  if (pool.length === 1) return pool[0];
+
+  const subMap = new Map();
+  for (const s of submissions) {
+    if (s.userId && s.status !== 'invalidated') {
+      subMap.set(String(s.userId), s);
+    }
+  }
+
+  // Priority 1: Accepted submissions
+  const tier1 = pool.filter((u) => subMap.get(String(u._id))?.status === 'accepted');
+  if (tier1.length > 0) {
+    return tier1[Math.floor(Math.random() * tier1.length)];
+  }
+
+  // Priority 2: Other valid submissions (pending, rejected, etc.)
+  const tier2 = pool.filter((u) => subMap.has(String(u._id)));
+  if (tier2.length > 0) {
+    return tier2[Math.floor(Math.random() * tier2.length)];
+  }
+
+  // Priority 3: Non-submitters (Nobody is safe)
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 async function pickTodayExplainer(db, user, body = {}) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
@@ -2102,158 +2204,234 @@ async function pickTodayExplainer(db, user, body = {}) {
     return { explainer: assignment.explainer, isExisting: true };
   }
 
-  // 2. Query today's submissions (non-invalidated)
+  // 2. Load or initialize cycle state safely!
+  const { cycle, cohort, cohortIdSet } = await getOrCreateExplainerCycle(db, assignment._id);
+
+  if (cohort.length === 0) {
+    throw new HttpError(400, 'No approved second-year members found in the club.');
+  }
+
+  let completedSet = new Set(cycle.primaryCompletedIds.map(String));
+
+  // 3. Check cycle completion: if all currently eligible 2nd-year members have completed their turn, start new cycle!
+  const allCompleted = cohort.every((u) => completedSet.has(String(u._id)));
+  if (allCompleted) {
+    cycle.cycleNumber = (cycle.cycleNumber || 1) + 1;
+    cycle.primaryCompletedIds = [];
+    cycle.updatedAt = new Date();
+    completedSet.clear();
+    await db.collection('explainerCycle').updateOne(
+      { _id: 'current' },
+      { $set: { cycleNumber: cycle.cycleNumber, primaryCompletedIds: [], updatedAt: cycle.updatedAt } }
+    );
+  }
+
+  // Query today's non-invalidated submissions
   const submissions = await db.collection('submissions')
     .find({ assignmentId: assignment._id, status: { $ne: 'invalidated' } })
     .sort({ submittedAt: 1 })
     .toArray();
 
-  if (!submissions.length) {
-    throw new HttpError(400, 'No members have attempted today’s question yet.');
-  }
+  let chosenMember = null;
+  let creditToGrant = true;
 
-  const userIds = [...new Set(submissions.map((s) => String(s.userId)))].map((id) => new ObjectId(id));
-  const profiles = await db.collection('users').find(approvedUserFilter({ _id: { $in: userIds } }), {
-    projection: { name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
-  }).toArray();
-  const profileById = new Map(profiles.map((p) => [String(p._id), p]));
-
-  const candidates = submissions.map((sub) => {
-    const profile = profileById.get(String(sub.userId));
-    return {
-      userId: String(sub.userId),
-      submissionId: String(sub._id),
-      name: profile?.name || sub.authorLogin || 'Member',
-      email: profile?.email || '',
-      department: profile?.department || '',
-      studyYear: profile?.studyYear || '',
-      githubUsername: profile?.githubUsername || sub.authorLogin || '',
-      leetcodeUsername: profile?.leetcodeUsername || '',
-      ...formatAvatar(profile, sub.userId),
-      submittedAt: sub.submittedAt,
-      status: sub.status,
-      points: sub.points ?? (sub.status === 'accepted' ? 1 : 0),
-      commitUrl: sub.commitUrl,
-      questionId: assignment.questionId,
-    };
-  }).filter((c) => profileById.has(c.userId));
-
-  if (!candidates.length) {
-    throw new HttpError(400, 'No eligible members found among today’s submitters.');
-  }
-
-  const acceptedCandidates = candidates.filter((c) => c.status === 'accepted');
-  const pool = acceptedCandidates.length > 0 ? acceptedCandidates : candidates;
-
-  // For re-picking: if previous explainer exists, exclude them so another member is chosen
-  let selectionPool = pool;
-  if (isRepick && previousExplainerId && !body?.userId) {
-    const withoutPrevious = pool.filter((c) => String(c.userId) !== String(previousExplainerId));
-    if (withoutPrevious.length === 0) {
-      throw new HttpError(400, 'No other members have attempted today’s question to re-pick from.');
+  if (isRepick) {
+    if (!previousExplainerId) {
+      throw new HttpError(400, 'No explainer is currently assigned to re-pick.');
     }
-    selectionPool = withoutPrevious;
-  }
 
-  // Past assignments where an explainer was selected, EXCLUDING today's assignment!
-  // This ensures the current/previous explainer's turn is NOT marked as used, so their turn comes again!
-  const pastAssignments = await db.collection('assignments')
-    .find({ _id: { $ne: assignment._id }, explainerUserId: { $exists: true, $ne: null } }, { projection: { explainerUserId: 1 } })
-    .toArray();
-  const pastExplainerIds = new Set(pastAssignments.map((a) => String(a.explainerUserId)));
+    const prevCreditGranted = assignment.explainerCycleCreditGranted !== undefined
+      ? Boolean(assignment.explainerCycleCreditGranted)
+      : completedSet.has(previousExplainerId);
 
-  let chosen;
-  if (body?.userId) {
-    const fromPool = pool.find((c) => String(c.userId) === String(body.userId));
-    if (fromPool) {
-      chosen = fromPool;
-    } else {
-      const member = await db.collection('users').findOne({ _id: new ObjectId(body.userId) });
-      if (!member) throw new HttpError(404, 'Member not found.');
-      chosen = {
-        userId: String(member._id),
-        submissionId: null,
-        name: member.name,
-        email: member.email || '',
-        department: member.department || '',
-        studyYear: member.studyYear || '',
-        githubUsername: member.githubUsername || '',
-        leetcodeUsername: member.leetcodeUsername || '',
-        ...formatAvatar(member, member._id),
-        submittedAt: new Date(),
-        status: 'accepted',
-        points: 1,
-        commitUrl: '',
-        questionId: assignment.questionId,
-      };
-    }
-  }
-
-  if (!chosen) {
-    // "dont repeat same person until you cover all second year student"
-    const secondYearUnpicked = selectionPool.filter((c) => c.studyYear === 'second-year' && !pastExplainerIds.has(c.userId));
-
-    if (secondYearUnpicked.length > 0) {
-      chosen = secondYearUnpicked[Math.floor(Math.random() * secondYearUnpicked.length)];
-    } else {
-      // If all second-years among available submitters were picked in the past, or none submitted:
-      const othersUnpicked = selectionPool.filter((c) => !pastExplainerIds.has(c.userId));
-      if (othersUnpicked.length > 0) {
-        chosen = othersUnpicked[Math.floor(Math.random() * othersUnpicked.length)];
-      } else {
-        // Everyone has been picked in the past: prioritize second-years if present, otherwise any
-        const allSecondYears = selectionPool.filter((c) => c.studyYear === 'second-year');
-        const fallbackPool = allSecondYears.length > 0 ? allSecondYears : selectionPool;
-        chosen = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
+    if (body?.userId) {
+      // Custom Re-pick
+      const targetUserId = String(body.userId);
+      if (targetUserId === previousExplainerId) {
+        throw new HttpError(400, 'The selected member is already assigned as today’s explainer.');
       }
+      const targetUser = await db.collection('users').findOne({ _id: new ObjectId(targetUserId) });
+      if (!targetUser) throw new HttpError(404, 'Member not found.');
+
+      // Restore previous explainer's rotation credit if it was newly granted by this assignment
+      if (prevCreditGranted) {
+        cycle.primaryCompletedIds = cycle.primaryCompletedIds.filter((id) => id !== previousExplainerId);
+        completedSet.delete(previousExplainerId);
+
+        if (!body.waivePenalty) {
+          await db.collection('users').updateOne(
+            { _id: new ObjectId(previousExplainerId) },
+            { $inc: { customAura: -50 }, $set: { updatedAt: new Date() } }
+          );
+          await recordAdminActivity(db, user, 'member_blaze_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
+            amount: -50,
+            reason: 'Replaced during Today’s Explainer re-pick',
+          });
+        }
+      }
+
+      chosenMember = targetUser;
+      const isTargetSecondYear = targetUser.studyYear === 'second-year' && targetUser.approvalStatus === 'approved';
+      const isTargetAlreadyCompleted = completedSet.has(targetUserId);
+
+      if (isTargetSecondYear && !isTargetAlreadyCompleted) {
+        creditToGrant = true;
+        cycle.primaryCompletedIds.push(targetUserId);
+        cycle.lastExplainerId = targetUserId;
+      } else {
+        creditToGrant = false;
+      }
+    } else {
+      // Random Re-pick: unpicked candidates excluding previousExplainerId
+      const unpickedCohort = cohort.filter((u) => {
+        const uId = String(u._id);
+        return uId !== previousExplainerId && !completedSet.has(uId);
+      });
+
+      if (unpickedCohort.length === 0) {
+        throw new HttpError(400, 'No unselected member is available for random re-pick. Use Custom Re-pick.');
+      }
+
+      // Valid replacement found -> Now restore previous explainer's credit and apply penalty
+      if (prevCreditGranted) {
+        cycle.primaryCompletedIds = cycle.primaryCompletedIds.filter((id) => id !== previousExplainerId);
+        completedSet.delete(previousExplainerId);
+
+        if (!body.waivePenalty) {
+          await db.collection('users').updateOne(
+            { _id: new ObjectId(previousExplainerId) },
+            { $inc: { customAura: -50 }, $set: { updatedAt: new Date() } }
+          );
+          await recordAdminActivity(db, user, 'member_blaze_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
+            amount: -50,
+            reason: 'Replaced during Today’s Explainer re-pick',
+          });
+        }
+      }
+
+      chosenMember = selectFromUnpickedWithPriority(unpickedCohort, submissions);
+      const chosenId = String(chosenMember._id);
+      creditToGrant = true;
+      cycle.primaryCompletedIds.push(chosenId);
+      cycle.lastExplainerId = chosenId;
+    }
+  } else {
+    // Initial Pick:
+    if (body?.userId) {
+      // Custom Initial Pick
+      const targetUserId = String(body.userId);
+      const targetUser = await db.collection('users').findOne({ _id: new ObjectId(targetUserId) });
+      if (!targetUser) throw new HttpError(404, 'Member not found.');
+
+      chosenMember = targetUser;
+      const isTargetSecondYear = targetUser.studyYear === 'second-year' && targetUser.approvalStatus === 'approved';
+      const isTargetAlreadyCompleted = completedSet.has(targetUserId);
+
+      if (isTargetSecondYear && !isTargetAlreadyCompleted) {
+        creditToGrant = true;
+        cycle.primaryCompletedIds.push(targetUserId);
+        cycle.lastExplainerId = targetUserId;
+      } else {
+        creditToGrant = false;
+      }
+    } else {
+      // Random Initial Pick:
+      const unpickedCohort = cohort.filter((u) => !completedSet.has(String(u._id)));
+      if (unpickedCohort.length === 0) {
+        throw new HttpError(400, 'All second-year members have completed their turn in this cycle.');
+      }
+
+      // Boundary protection: avoid previous cycle's last explainer on first draw of new cycle
+      let poolForPick = unpickedCohort;
+      if (cycle.primaryCompletedIds.length === 0 && cycle.lastExplainerId && unpickedCohort.length > 1) {
+        const withoutLast = unpickedCohort.filter((u) => String(u._id) !== String(cycle.lastExplainerId));
+        if (withoutLast.length > 0) {
+          poolForPick = withoutLast;
+        }
+      }
+
+      chosenMember = selectFromUnpickedWithPriority(poolForPick, submissions);
+      const chosenId = String(chosenMember._id);
+      creditToGrant = true;
+      cycle.primaryCompletedIds.push(chosenId);
+      cycle.lastExplainerId = chosenId;
     }
   }
 
+  // Save updated cycle state
+  cycle.updatedAt = new Date();
+  await db.collection('explainerCycle').updateOne(
+    { _id: 'current' },
+    {
+      $set: {
+        cycleNumber: cycle.cycleNumber,
+        primaryCompletedIds: cycle.primaryCompletedIds,
+        lastExplainerId: cycle.lastExplainerId,
+        updatedAt: cycle.updatedAt,
+      }
+    },
+    { upsert: true }
+  );
+
+  const memberSubmission = submissions.find((s) => String(s.userId) === String(chosenMember._id));
   const explainer = {
-    id: chosen.userId,
-    userId: chosen.userId,
-    name: chosen.name,
-    email: chosen.email,
-    department: chosen.department,
-    studyYear: chosen.studyYear,
-    githubUsername: chosen.githubUsername,
-    leetcodeUsername: chosen.leetcodeUsername,
-    avatarStyle: chosen.avatarStyle,
-    avatarSeed: chosen.avatarSeed,
-    avatarUrl: chosen.avatarUrl,
-    submittedAt: chosen.submittedAt,
-    status: chosen.status,
-    points: chosen.points,
-    commitUrl: chosen.commitUrl,
+    id: String(chosenMember._id),
+    userId: String(chosenMember._id),
+    name: chosenMember.name,
+    email: chosenMember.email || '',
+    department: chosenMember.department || '',
+    studyYear: chosenMember.studyYear || '',
+    githubUsername: chosenMember.githubUsername || '',
+    leetcodeUsername: chosenMember.leetcodeUsername || '',
+    avatarStyle: chosenMember.avatarStyle || 'critters',
+    avatarSeed: chosenMember.avatarSeed || chosenMember._id,
+    avatarUrl: chosenMember.avatarUrl || null,
+    submittedAt: memberSubmission?.submittedAt || new Date(),
+    status: memberSubmission?.status || 'accepted',
+    points: memberSubmission?.points ?? (memberSubmission?.status === 'accepted' ? 1 : 0),
+    commitUrl: memberSubmission?.commitUrl || '',
     questionId: assignment.questionId,
     pickedAt: new Date(),
   };
 
+  const repickCount = (assignment.repickCount || 0) + (isRepick ? 1 : 0);
   await db.collection('assignments').updateOne(
     { _id: assignment._id },
-    { $set: { explainerUserId: new ObjectId(chosen.userId), explainer } }
+    {
+      $set: {
+        explainerUserId: new ObjectId(chosenMember._id),
+        explainer,
+        cycleNumber: cycle.cycleNumber,
+        explainerCycleCreditGranted: creditToGrant,
+        isRepicked: isRepick ? true : Boolean(assignment.isRepicked),
+        repickCount,
+      }
+    }
   );
 
-  if (isRepick && previousExplainerId && String(chosen.userId) !== String(previousExplainerId)) {
-    // Whenever re-pick happens, previous selected person suffers -50 aura points automatically
-    await db.collection('users').updateOne(
-      { _id: new ObjectId(previousExplainerId) },
-      { $inc: { customAura: -50 }, $set: { updatedAt: new Date() } }
-    );
-    await recordAdminActivity(db, user, 'member_blaze_penalized', { id: previousExplainerId, label: 'Re-pick Explainer Replacement' }, {
-      amount: -50,
-      reason: 'Replaced during Today’s Explainer re-pick',
-    });
-  }
-
   await recordAdminActivity(db, user, isRepick ? 'explainer_repicked' : 'explainer_selected', { id: assignment._id, label: assignment.dateKey }, {
-    explainerUserId: chosen.userId,
-    explainerName: chosen.name,
-    studyYear: chosen.studyYear,
+    explainerUserId: String(chosenMember._id),
+    explainerName: chosenMember.name,
+    studyYear: chosenMember.studyYear,
+    isCustom: Boolean(body?.userId),
+    creditGranted: creditToGrant,
+    cycleNumber: cycle.cycleNumber,
+    completedInCycle: cycle.primaryCompletedIds.length,
+    totalCohort: cohort.length,
     ...(previousExplainerId ? { previousExplainerUserId: previousExplainerId } : {}),
   });
 
-  return { explainer, isNew: true, isRepick };
+  return {
+    explainer,
+    isNew: true,
+    isRepick,
+    cycle: {
+      cycleNumber: cycle.cycleNumber,
+      completedCount: cycle.primaryCompletedIds.length,
+      totalCohort: cohort.length,
+      remainingCount: Math.max(0, cohort.length - cycle.primaryCompletedIds.length),
+    }
+  };
 }
 
 async function clearTodayExplainer(db, user) {
@@ -2268,17 +2446,32 @@ async function clearTodayExplainer(db, user) {
     ? String(assignment.explainerUserId)
     : (previousExplainer?.userId || previousExplainer?.id || null);
 
-  await db.collection('assignments').updateOne(
-    { _id: assignment._id },
-    { $unset: { explainer: '', explainerUserId: '' } }
-  );
-
   if (previousExplainerId) {
+    const { cycle } = await getOrCreateExplainerCycle(db, assignment._id);
+    const wasCreditGranted = assignment.explainerCycleCreditGranted !== undefined
+      ? Boolean(assignment.explainerCycleCreditGranted)
+      : true;
+
+    if (wasCreditGranted) {
+      cycle.primaryCompletedIds = cycle.primaryCompletedIds.filter((id) => id !== previousExplainerId);
+      cycle.updatedAt = new Date();
+      await db.collection('explainerCycle').updateOne(
+        { _id: 'current' },
+        { $set: { primaryCompletedIds: cycle.primaryCompletedIds, updatedAt: cycle.updatedAt } }
+      );
+    }
+
     await recordAdminActivity(db, user, 'explainer_cleared', { id: assignment._id, label: assignment.dateKey }, {
       previousExplainerUserId: previousExplainerId,
       previousExplainerName: previousExplainer?.name || '',
+      wasCreditGranted,
     });
   }
+
+  await db.collection('assignments').updateOne(
+    { _id: assignment._id },
+    { $unset: { explainer: '', explainerUserId: '', explainerCycleCreditGranted: '' }, $set: { isRepicked: false } }
+  );
 
   return { ok: true, cleared: true };
 }
@@ -2287,25 +2480,9 @@ async function getSecondYearExplainerCandidates(db, user) {
   requireRole(user, 'lead', 'admin');
   const assignment = await getTodayAssignment(db);
 
-  // 1. All approved second-year members
-  const secondYears = await db.collection('users').find(
-    approvedUserFilter({ studyYear: 'second-year' }),
-    { projection: { name: 1, email: 1, department: 1, studyYear: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 } }
-  ).sort({ name: 1 }).toArray();
+  const { cycle, cohort } = await getOrCreateExplainerCycle(db, assignment?._id);
+  const completedSet = new Set(cycle.primaryCompletedIds.map(String));
 
-  // 2. Past assignments where an explainer was chosen (excluding today)
-  const pastAssignments = await db.collection('assignments').find(
-    { ...(assignment ? { _id: { $ne: assignment._id } } : {}), explainerUserId: { $exists: true, $ne: null } },
-    { projection: { explainerUserId: 1, dateKey: 1 } }
-  ).toArray();
-  const pastExplainerMap = new Map();
-  for (const pa of pastAssignments) {
-    if (pa.explainerUserId) {
-      pastExplainerMap.set(String(pa.explainerUserId), pa.dateKey);
-    }
-  }
-
-  // 3. Today's submissions
   let todaySubmitterSet = new Set();
   if (assignment) {
     const todaySubs = await db.collection('submissions').find(
@@ -2318,10 +2495,15 @@ async function getSecondYearExplainerCandidates(db, user) {
   const currentExplainerId = assignment?.explainerUserId ? String(assignment.explainerUserId) : null;
 
   return {
-    candidates: secondYears.map((member) => {
+    cycle: {
+      cycleNumber: cycle.cycleNumber,
+      completedCount: cycle.primaryCompletedIds.length,
+      totalCohort: cohort.length,
+      remainingCount: Math.max(0, cohort.length - cycle.primaryCompletedIds.length),
+    },
+    candidates: cohort.map((member) => {
       const mId = String(member._id);
-      const isPastExplainer = pastExplainerMap.has(mId);
-      const pastDate = pastExplainerMap.get(mId) || null;
+      const isCompleted = completedSet.has(mId);
       const submittedToday = todaySubmitterSet.has(mId);
       const isCurrentExplainer = currentExplainerId === mId;
       return {
@@ -2334,8 +2516,7 @@ async function getSecondYearExplainerCandidates(db, user) {
         githubUsername: member.githubUsername || '',
         leetcodeUsername: member.leetcodeUsername || '',
         ...formatAvatar(member, member._id),
-        turnCompleted: isPastExplainer,
-        pastDate,
+        turnCompleted: isCompleted,
         submittedToday,
         isCurrentExplainer,
       };
