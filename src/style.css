@@ -46,6 +46,20 @@
   box-sizing: border-box;
 }
 
+/* Hide scrollbars globally while preserving full scrollability */
+html,
+body,
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 body {
   margin: 0;
   min-width: 280px;
@@ -396,9 +410,11 @@ svg {
   height: 34px;
   display: block;
   flex: none;
-  border-radius: 9px;
+  border-radius: 0;
   object-fit: contain;
-  box-shadow: 0 2px 8px rgba(30, 106, 80, 0.12);
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* Apple-style Translucent Capsule Segmented Dock */
@@ -3818,6 +3834,32 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   stroke: #000000 !important;
 }
 
+:root[data-theme="dark"] .explainer-copy-head-btn,
+:root[data-theme="dark"] .moderation-tools-panel .assignment-copy-btn,
+:root[data-theme="forest"] .explainer-copy-head-btn,
+:root[data-theme="forest"] .moderation-tools-panel .assignment-copy-btn {
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:root[data-theme="dark"] .explainer-copy-head-btn:hover,
+:root[data-theme="dark"] .moderation-tools-panel .assignment-copy-btn:hover,
+:root[data-theme="forest"] .explainer-copy-head-btn:hover,
+:root[data-theme="forest"] .moderation-tools-panel .assignment-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .explainer-copy-head-btn svg,
+:root[data-theme="dark"] .moderation-tools-panel .assignment-copy-btn svg,
+:root[data-theme="forest"] .explainer-copy-head-btn svg,
+:root[data-theme="forest"] .moderation-tools-panel .assignment-copy-btn svg {
+  color: #f1f5f9 !important;
+  stroke: #f1f5f9 !important;
+}
+
 .delete-today-btn {
   display: inline-flex;
   align-items: center;
@@ -6598,8 +6640,11 @@ details[open]>.admin-activity-summary svg {
   .brand-mark {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: 0;
     flex-shrink: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   .brand>span {
@@ -12070,6 +12115,7 @@ details[open]>.admin-activity-summary svg {
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
+  white-space: nowrap;
 }
 
 .repick-waive-label input[type="checkbox"] {

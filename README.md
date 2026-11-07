@@ -1,10 +1,10 @@
 ```text
-               ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
-               ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
-               ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
-               ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
-               ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
-               ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
+  ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
+  ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
+  ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
+  ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
+  ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
+  ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
 ```
 
 <p align="left"><em>by Technovation</em></p>
@@ -25,7 +25,7 @@
 | <a href="#1️⃣--home-page--mission-control--private-library">🏠 Home — Mission Control</a> | <a href="#-github-commit-verification-protocol">📦 GitHub Verification</a> |
 | <a href="#2️⃣--club-challenge--the-daily-battleground">⚔️ Club Challenge</a> | <a href="#-the-220-question-curriculum-blueprint">📚 220-Question Curriculum</a> |
 | <a href="#3️⃣--member-directory--community--standings">👥 Member Directory</a> | <a href="#-architecture-overview">🏛️ Architecture Overview</a> |
-| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#made-with--by-the-technical-team-technovation">💖 Technical Team</a> |
+| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#6️⃣--admin-dashboard--moderation-console">🛠️ Admin Dashboard</a> |
 | <a href="#4️⃣--profile--avatar-studio--identity--habit-tracker">👤 Profile &amp; Avatar Studio</a> | <a href="#5️⃣--question-activity--heatmap--submission-analytics">📊 Question Activity &amp; Heatmap</a> |
 
 ---
@@ -161,6 +161,25 @@ Comprehensive consistency radar featuring the interactive submission calendar, d
 * 🗓️ **Interactive Calendar Grid:** Click any active day to drill into the exact members who solved the problem and view verified commit proofs.
 * 📥 **One-Click Monthly CSV Export:** Hover over any month tab to generate clean, color-coded submission attendance records.
 * 📈 **Verified Club Progress:** Track acceptance rates, active days, and streak consistency across the entire club curriculum.
+
+---
+
+### 6️⃣ 🛠️ Admin Dashboard & Moderation Console
+
+Centralized control room for club administrators to manage memberships, schedule daily challenges, audit submissions, and oversee club operations.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/admin-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/admin-light.png">
+  <img alt="Admin Dashboard" src="docs/screenshots/admin-light.png">
+</picture>
+
+*💡 Member moderation, challenge scheduling, LeetCode permissions, Blaze adjustments, and rate-limit controls.*
+
+* 👥 **Member Approvals & Roles:** Approve new registrations, manage admin access, and filter member rosters.
+* 📅 **Challenge Management:** Schedule future assignments, publish daily problems, and assign or swap daily solution explainers.
+* 🛡️ **Submission Auditing:** Review verified GitHub commit proofs and LeetCode submissions with live verification status and manual override tools.
+* ⚡ **Aura & Rate Limits:** Award custom Blaze points, manage club honors, and monitor system rate limits in real time.
 
 ---
 
@@ -313,7 +332,7 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
 
 <div align="center">
 
-### Made with 🩷 by the Technical team, Technovation
+### Made with ❤️‍🔥 by the Technical team, Technovation
 
 *Consistency • Competition • Code*
 
