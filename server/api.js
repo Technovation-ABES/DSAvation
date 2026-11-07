@@ -780,7 +780,7 @@ async function getClubToday(db) {
   const submissions = await db.collection('submissions').find({ assignmentId: assignment._id }).sort({ submittedAt: 1 }).toArray();
   const userIds = [...new Set(submissions.map((item) => String(item.userId)))].map((id) => new ObjectId(id));
   const profiles = userIds.length ? await db.collection('users').find(approvedUserFilter({ _id: { $in: userIds } }), {
-    projection: { name: 1, department: 1, studyYear: 1, showPublic: 1, githubUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
+    projection: { name: 1, role: 1, department: 1, studyYear: 1, showPublic: 1, githubUsername: 1, leetcodeUsername: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
   }).toArray() : [];
   const profileById = new Map(profiles.map((profile) => [String(profile._id), profile]));
   const activeSubmissions = submissions.filter((item) => item.status !== 'invalidated' && profileById.has(String(item.userId)));
@@ -806,9 +806,11 @@ async function getClubToday(db) {
       id: String(item._id),
       userId: String(item.userId),
       name: profile?.name || item.authorLogin || 'Member',
+      role: profile?.role || 'member',
       department: profile?.department || '',
       studyYear: profile?.studyYear || '',
       githubUsername: profile?.githubUsername || item.authorLogin || '',
+      leetcodeUsername: profile?.leetcodeUsername || (item.submissionMethod === 'leetcode' ? item.authorLogin : '') || '',
       ...formatAvatar(profile, item.userId),
       points: item.points ?? 1,
       aura: itemAura,
@@ -1971,10 +1973,12 @@ async function getTodaySubmissions(db, req, user, url) {
       id: String(item._id),
       userId: String(item.userId),
       name: profile?.name || item.authorLogin || 'Member',
+      role: profile?.role || 'member',
       email: profile?.email || '',
       department: profile?.department || '',
       studyYear: profile?.studyYear || '',
       githubUsername: profile?.githubUsername || item.authorLogin || '',
+      leetcodeUsername: profile?.leetcodeUsername || (item.submissionMethod === 'leetcode' ? item.authorLogin : '') || '',
       ...formatAvatar(profile, item.userId),
       commitUrl: item.commitUrl,
       commitSha: item.commitSha,

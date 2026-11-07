@@ -996,6 +996,7 @@ function App() {
   const [explainerModalOpen, setExplainerModalOpen] = useState(false);
   const [imageExporting, setImageExporting] = useState(false);
   const [copiedNotice, setCopiedNotice] = useState(false);
+  const [copiedAnnouncement, setCopiedAnnouncement] = useState(false);
   const [memberBusy, setMemberBusy] = useState('');
   const [memberFilter, setMemberFilter] = useState('heatmap');
   const [memberQuery, setMemberQuery] = useState('');
@@ -2074,6 +2075,40 @@ function App() {
     }
   }
 
+  async function handleCopyAnnouncement() {
+    if (!assignedQuestion) return;
+    const leetcodeSlug = assignedQuestion.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const leetcodeUrl = `https://leetcode.com/problems/${leetcodeSlug}/`;
+    const text = `🚀 DSAvation Daily Challenge is LIVE! (Day ${assignedQuestion.day}/ 220)
+
+Question: LeetCode #${assignedQuestion.id} - ${assignedQuestion.title}
+🧠 Topic:  ${assignedQuestion.topic}
+🌐 Club Portal:  https://dsavation.vercel.app/challenge
+🔗 LeetCode Link: ${leetcodeUrl}
+
+ Get it done!⚡️`;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedAnnouncement(true);
+      setNotice('Daily Challenge announcement copied to clipboard!');
+      setTimeout(() => setCopiedAnnouncement(false), 2400);
+    } catch {
+      setNotice('Could not copy announcement to clipboard.');
+    }
+  }
+
   async function updatePublicPreference(showPublic) {
     setPublicPreferenceBusy(true);
     try { const result = await api('/auth/profile', { method: 'PATCH', body: { showPublic } }); setAccount(result.user); await loadClub(); }
@@ -2289,6 +2324,18 @@ function App() {
                   <Pill tone={assignedQuestion.difficulty.toLowerCase()}>{assignedQuestion.difficulty}</Pill>
                   <span className="meta-badge">LeetCode #{assignedQuestion.id}</span>
                   <span className="meta-badge">Day {assignedQuestion.day} / 220</span>
+                  {(isAdmin || isLeader) && (
+                    <button
+                      type="button"
+                      className={`assignment-copy-btn ${copiedAnnouncement ? 'copied' : ''}`}
+                      onClick={handleCopyAnnouncement}
+                      title="Copy Daily Challenge announcement text"
+                      aria-label="Copy Daily Challenge announcement text"
+                    >
+                      <Icon name={copiedAnnouncement ? "check" : "copy"} size={12} />
+                      <span>{copiedAnnouncement ? "Copied!" : "Copy"}</span>
+                    </button>
+                  )}
                 </div>
                 <div className="club-participation">
                   <button className="challenge-link-btn" onClick={() => navigate('club')}>
@@ -3213,6 +3260,18 @@ function App() {
                     <span>LeetCode #{assignedQuestion.id}</span>
                     <span>{assignedQuestion.topic}</span>
                     <span>{assignedQuestion.pattern}</span>
+                    {(isAdmin || isLeader) && (
+                      <button
+                        type="button"
+                        className={`assignment-copy-btn ${copiedAnnouncement ? 'copied' : ''}`}
+                        onClick={handleCopyAnnouncement}
+                        title="Copy Daily Challenge announcement text"
+                        aria-label="Copy Daily Challenge announcement text"
+                      >
+                        <Icon name={copiedAnnouncement ? "check" : "copy"} size={12} />
+                        <span>{copiedAnnouncement ? "Copied!" : "Copy"}</span>
+                      </button>
+                    )}
                   </div>
                   <p className="assignment-prompt">
                     Submit today’s verified solution {isLeetcodeApproved && account?.defaultSubmissionMethod === 'leetcode' ? <>directly via <strong>LeetCode</strong></> : <>using your <strong>GitHub commit</strong></>}.
@@ -3478,6 +3537,12 @@ function App() {
                       const submittedTimeStr = person.submittedAt
                         ? new Date(person.submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST'
                         : '';
+                      const isLeetCode = person.submissionType === 'leetcode' || String(person.commitUrl || '').includes('leetcode.com');
+                      const leetcodeUser = person.leetcodeUsername || '';
+                      const targetUrl = isLeetCode
+                        ? (leetcodeUser ? `https://leetcode.com/u/${encodeURIComponent(leetcodeUser)}/` : (person.commitUrl || 'https://leetcode.com'))
+                        : (person.commitUrl || (person.githubUsername ? `https://github.com/${encodeURIComponent(person.githubUsername)}` : ''));
+
                       return (
                         <div className={`leaderboard-row daily-leaderboard-row ${isTopThree ? `top-three-row top-rank-${rank}` : ''}`} key={`${person.userId || person.name}:${rank}`}>
                           {isTopThree ? (
@@ -3490,7 +3555,21 @@ function App() {
                           <MemberAvatar person={person} label="" />
                           <div className="leader-person">
                             <strong>
-                              {person.name}
+                              {(isAdmin || isLeader) && targetUrl ? (
+                                <a
+                                  href={targetUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="leader-person-link"
+                                  title={isLeetCode ? `Open ${person.name}'s LeetCode profile` : `Open ${person.name}'s verified GitHub commit`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span>{person.name}</span>
+                                  <Icon name="external" size={11} className="leader-person-ext-icon" />
+                                </a>
+                              ) : (
+                                person.name
+                              )}
                               {person.role === 'admin' && (
                                 <span className="admin-verified-badge" title="Administrator">
                                   <IconifyIcon icon="codicon:verified" width={16} height={16} />
