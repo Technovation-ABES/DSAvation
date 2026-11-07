@@ -11341,16 +11341,109 @@ details[open]>.admin-activity-summary svg {
   border-color: #8eaaef;
 }
 
-/* Phone dark mode: this must follow the dark theme so the fixed gradient
-   does not win and force a full-page blur on every scroll. */
+/* ==========================================================================
+   Universal Mobile Performance Architecture (All Themes: Slate, Forest, Light)
+   - Eliminates fixed background repaint penalties
+   - Disables all backdrop-filters, complex multi-layer shadows, and blur passes
+   - Uses solid opaque surfaces for occlusion culling
+   - Disables shimmers, ripples, and transform hover jumps on touch devices
+   - Accelerates scrolling with content-visibility and touch-action
+   ========================================================================== */
 @media (max-width: 768px), (hover: none) {
+  /* Fast tap response & disable tap flicker on mobile */
+  *,
+  *::before,
+  *::after {
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  html,
+  body {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  body {
+    background-attachment: scroll !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     1. Light Theme Mobile Solid Surface & Zero-Repaint Rules
+     -------------------------------------------------------------------------- */
+  body,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) body,
+  :root[data-theme="light"] body {
+    background: #edf2f7 !important;
+    background-attachment: scroll !important;
+  }
+
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .topbar,
+  :root[data-theme="light"] .topbar {
+    background: #ffffff !important;
+    border-bottom: 1px solid #dce4ed !important;
+    box-shadow: 0 1px 3px rgba(15, 30, 45, 0.05) !important;
+  }
+
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .liquid-glass,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .water-glass-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .metric-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-activity-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-rate-limits-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-members-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .question-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .member-directory-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-detail-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .auth-modal,
+  :root[data-theme="light"] .liquid-glass,
+  :root[data-theme="light"] .water-glass-card,
+  :root[data-theme="light"] .panel,
+  :root[data-theme="light"] .metric-card,
+  :root[data-theme="light"] .dashboard-activity-panel,
+  :root[data-theme="light"] .dashboard-rate-limits-panel,
+  :root[data-theme="light"] .dashboard-members-panel,
+  :root[data-theme="light"] .question-card,
+  :root[data-theme="light"] .overview-card,
+  :root[data-theme="light"] .member-directory-card,
+  :root[data-theme="light"] .month-card,
+  :root[data-theme="light"] .month-detail-card,
+  :root[data-theme="light"] .auth-modal {
+    background: #ffffff !important;
+    border: 1px solid #dce4ed !important;
+    box-shadow: 0 1px 3px rgba(15, 30, 45, 0.05) !important;
+  }
+
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.personal-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.community-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .today-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .qotd-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .leaderboard-panel,
+  :root[data-theme="light"] .overview-card.personal-card,
+  :root[data-theme="light"] .overview-card.community-card,
+  :root[data-theme="light"] .today-card,
+  :root[data-theme="light"] .qotd-panel,
+  :root[data-theme="light"] .leaderboard-panel {
+    background: #ffffff !important;
+    border: 1px solid #dce4ed !important;
+    box-shadow: 0 2px 6px rgba(15, 30, 45, 0.06) !important;
+  }
+
+  /* --------------------------------------------------------------------------
+     2. Dark Slate Theme Mobile Solid Surface & Zero-Repaint Rules
+     -------------------------------------------------------------------------- */
   :root[data-theme="dark"] body {
-    background: #0b0e18;
-    background-attachment: scroll;
+    background: #0b0e18 !important;
+    background-attachment: scroll !important;
   }
 
   :root[data-theme="dark"] .topbar {
-    background: #121826;
+    background: #121826 !important;
+    border-bottom: 1px solid #2a3148 !important;
+    box-shadow: none !important;
   }
 
   :root[data-theme="dark"] .liquid-glass,
@@ -11358,14 +11451,97 @@ details[open]>.admin-activity-summary svg {
   :root[data-theme="dark"] .panel,
   :root[data-theme="dark"] .metric-card,
   :root[data-theme="dark"] .dashboard-activity-panel,
-  :root[data-theme="dark"] .question-card {
-    background: #171e32;
-    box-shadow: none;
+  :root[data-theme="dark"] .dashboard-rate-limits-panel,
+  :root[data-theme="dark"] .dashboard-members-panel,
+  :root[data-theme="dark"] .question-card,
+  :root[data-theme="dark"] .overview-card,
+  :root[data-theme="dark"] .member-directory-card,
+  :root[data-theme="dark"] .month-card,
+  :root[data-theme="dark"] .month-detail-card,
+  :root[data-theme="dark"] .auth-modal,
+  :root[data-theme="dark"] .overview-card.personal-card,
+  :root[data-theme="dark"] .overview-card.community-card,
+  :root[data-theme="dark"] .today-card,
+  :root[data-theme="dark"] .qotd-panel,
+  :root[data-theme="dark"] .leaderboard-panel {
+    background: #171e32 !important;
+    border: 1px solid #2a3148 !important;
+    box-shadow: none !important;
   }
 
-  :root[data-theme="dark"] .today-card,
-  :root[data-theme="dark"] .qotd-panel {
-    box-shadow: none !important;
+  /* --------------------------------------------------------------------------
+     3. High-Density List Scrolling Acceleration (content-visibility)
+     -------------------------------------------------------------------------- */
+  .question-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 85px;
+  }
+
+  .member-directory-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 110px;
+  }
+
+  /* Disable hover transforms on touch screens across all themes */
+  .liquid-glass,
+  .water-glass-card,
+  .panel,
+  .question-card,
+  .overview-card,
+  .member-directory-card,
+  .daily-leaderboard-row.top-three-row,
+  .month-card,
+  .month-detail-card,
+  .heatmap-stat-item,
+  .button,
+  .button-quiet {
+    transform: none !important;
+    transition: background-color 120ms ease, border-color 120ms ease !important;
+  }
+
+  .liquid-glass:hover,
+  .water-glass-card:hover,
+  .panel:hover,
+  .question-card:hover,
+  .overview-card:hover,
+  .member-directory-card:hover,
+  .heatmap-stat-item:hover,
+  .month-card:hover,
+  .month-detail-card:hover {
+    transform: none !important;
+  }
+
+  /* Disable all animated sweeps, pseudo shimmers, ripples, and orbs */
+  .topbar::before,
+  .liquid-glass::before,
+  .water-glass-card::before,
+  .liquid-glass::after,
+  .water-glass-card::after,
+  :root[data-theme="dark"] .liquid-glass::before,
+  :root[data-theme="dark"] .water-glass-card::before,
+  :root[data-theme="dark"] .liquid-glass::after,
+  :root[data-theme="dark"] .water-glass-card::after,
+  .today-card .fluid-shimmer-sweep,
+  .qotd-panel .fluid-shimmer-sweep,
+  .today-card .fluid-blob-1,
+  .today-card .fluid-blob-2,
+  .today-card .fluid-blob-3,
+  .fluid-blob,
+  .fluid-shimmer-sweep,
+  .blue-water-ripple,
+  .blue-water-ripple.secondary-ring,
+  .water-ripple-host>.blue-water-ripple,
+  .liquid-orb {
+    animation: none !important;
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    background: none !important;
+    filter: none !important;
+  }
+
+  .hero-mascot-img {
+    filter: none !important;
   }
 
   .member-admin-overlay-backdrop {
@@ -11373,6 +11549,7 @@ details[open]>.admin-activity-summary svg {
     -webkit-backdrop-filter: none !important;
   }
 }
+
 
 /* Dark slate theme: section labels and completed rows use periwinkle, not sage. */
 :root[data-theme="dark"] .eyebrow,

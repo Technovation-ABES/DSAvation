@@ -1335,16 +1335,72 @@
 }
 
 
+/* ==========================================================================
+   Mobile-First Optimization: Forest Theme (Soft Teal Night)
+   Matches the Dark Slate performance architecture:
+   Solid surfaces, zero box-shadow, zero backdrop-filter, zero shimmers/ripples,
+   and GPU layer-cached scrollable background.
+   ========================================================================== */
 @media (max-width: 768px), (hover: none) {
   :root[data-theme="forest"] body {
-    background-attachment: scroll;
+    background: #061118 !important;
+    background-attachment: scroll !important;
+  }
+
+  :root[data-theme="forest"] .topbar {
+    background: #09151e !important;
+    border-bottom: 1px solid #1e3a50 !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-theme="forest"] .liquid-glass,
+  :root[data-theme="forest"] .water-glass-card,
+  :root[data-theme="forest"] .panel,
+  :root[data-theme="forest"] .metric-card,
+  :root[data-theme="forest"] .dashboard-activity-panel,
+  :root[data-theme="forest"] .dashboard-rate-limits-panel,
+  :root[data-theme="forest"] .dashboard-members-panel,
+  :root[data-theme="forest"] .question-card,
+  :root[data-theme="forest"] .overview-card,
+  :root[data-theme="forest"] .member-directory-card,
+  :root[data-theme="forest"] .month-card,
+  :root[data-theme="forest"] .month-detail-card,
+  :root[data-theme="forest"] .auth-modal,
+  :root[data-theme="forest"] .today-card,
+  :root[data-theme="forest"] .qotd-panel,
+  :root[data-theme="forest"] .leaderboard-panel {
+    background: #0e1e2c !important;
+    border: 1px solid #1e3a50 !important;
+    box-shadow: none !important;
   }
 
   :root[data-theme="forest"] .overview-card.personal-card,
   :root[data-theme="forest"] .overview-card.community-card {
-    background: linear-gradient(140deg,
-        rgba(14, 30, 44, 0.96),
-        rgba(9, 21, 30, 0.94)) !important;
-    border-color: rgba(125, 211, 252, 0.18) !important;
+    background: #0e1e2c !important;
+    border-color: #1e3a50 !important;
+    box-shadow: none !important;
+  }
+
+  /* Shimmer & Ripple Kill on Mobile for Forest Theme */
+  :root[data-theme="forest"] .liquid-glass::before,
+  :root[data-theme="forest"] .water-glass-card::before,
+  :root[data-theme="forest"] .liquid-glass::after,
+  :root[data-theme="forest"] .water-glass-card::after,
+  :root[data-theme="forest"] .blue-water-ripple,
+  :root[data-theme="forest"] .blue-water-ripple.secondary-ring,
+  :root[data-theme="forest"] .water-ripple-host>.blue-water-ripple,
+  :root[data-theme="forest"] .fluid-shimmer-sweep,
+  :root[data-theme="forest"] .fluid-blob-1,
+  :root[data-theme="forest"] .fluid-blob-2,
+  :root[data-theme="forest"] .fluid-blob-3 {
+    display: none !important;
+    opacity: 0 !important;
+    animation: none !important;
+    background: none !important;
+    visibility: hidden !important;
+  }
+
+  :root[data-theme="forest"] .hero-mascot-img {
+    filter: none !important;
   }
 }

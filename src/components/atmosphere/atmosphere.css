@@ -93,13 +93,15 @@
    2. Dark Mode Snow & Bubble Luminescence
    -------------------------------------------------------------------------- */
 /* Dark Mode Bubble / Snow - Soft, Gentle, Translucent Bioluminescence */
-:root[data-theme="dark"] .tier-0 .snowflake-crystal {
+:root[data-theme="dark"] .tier-0 .snowflake-crystal,
+:root[data-theme="forest"] .tier-0 .snowflake-crystal {
   background: rgba(186, 230, 253, 0.45);
   box-shadow: 0 0 3px rgba(56, 189, 248, 0.3);
   opacity: 0.42;
 }
 
-:root[data-theme="dark"] .tier-1 .snowflake-crystal {
+:root[data-theme="dark"] .tier-1 .snowflake-crystal,
+:root[data-theme="forest"] .tier-1 .snowflake-crystal {
   background: radial-gradient(circle at 35% 35%, rgba(186, 230, 253, 0.5) 0%, rgba(56, 189, 248, 0.25) 60%, rgba(14, 165, 233, 0.1) 100%);
   border: 1px solid rgba(186, 230, 253, 0.25);
   box-shadow: 
@@ -108,7 +110,8 @@
   opacity: 0.55;
 }
 
-:root[data-theme="dark"] .tier-2 .snowflake-crystal {
+:root[data-theme="dark"] .tier-2 .snowflake-crystal,
+:root[data-theme="forest"] .tier-2 .snowflake-crystal {
   background: radial-gradient(circle at 35% 35%, rgba(224, 242, 254, 0.55) 0%, rgba(56, 189, 248, 0.3) 55%, rgba(2, 132, 199, 0.12) 100%);
   border: 1px solid rgba(186, 230, 253, 0.35);
   box-shadow: 
@@ -117,11 +120,13 @@
   opacity: 0.6;
 }
 
-:root[data-theme="dark"] .tier-2.is-crystal .snowflake-crystal {
+:root[data-theme="dark"] .tier-2.is-crystal .snowflake-crystal,
+:root[data-theme="forest"] .tier-2.is-crystal .snowflake-crystal {
   filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.35));
   opacity: 0.55;
 }
-:root[data-theme="dark"] .tier-2.is-crystal .snowflake-crystal svg {
+:root[data-theme="dark"] .tier-2.is-crystal .snowflake-crystal svg,
+:root[data-theme="forest"] .tier-2.is-crystal .snowflake-crystal svg {
   fill: rgba(186, 230, 253, 0.45);
   stroke: rgba(56, 189, 248, 0.6);
 }
@@ -168,7 +173,7 @@
 /* --------------------------------------------------------------------------
    4. Responsive Device Scaling (Mobile / Tablet / Desktop)
    -------------------------------------------------------------------------- */
-@media (max-width: 800px) {
+@media (max-width: 800px), (hover: none) {
   /* Turn off all behind & atmospheric background animations on mobile view */
   .atmosphere-snow-back,
   .atmosphere-snow-fore,
