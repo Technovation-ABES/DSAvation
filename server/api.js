@@ -2428,7 +2428,7 @@ async function listDirectory(db, url, viewer = null) {
   const department = String(url.searchParams.get('department') || '').trim().slice(0, 80);
   const studyYear = String(url.searchParams.get('year') || '');
   const filters = [approvedUserFilter()];
-  const isAdmin = viewer?.role === 'admin';
+  const isAdmin = ['admin', 'lead'].includes(viewer?.role);
 
   if (query) {
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

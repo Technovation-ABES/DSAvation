@@ -772,7 +772,7 @@ svg {
 }
 
 .content-shell {
-  width: min(1440px, 100% - clamp(36px, 8vw, 136px));
+  width: min(1440px, 100% - clamp(44px, 8vw, 136px));
   margin: 0 auto;
   padding: 39px 0 26px;
 }
@@ -4773,6 +4773,41 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   user-select: none;
 }
 
+.dashboard-rate-limits-panel {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 14px;
+}
+
+.dashboard-rate-limits-panel .panel-heading {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-rate-limits-panel .panel-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-rate-limits-panel .clear-rate-limits-btn {
+  height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .account-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6304,7 +6339,7 @@ details[open]>.admin-activity-summary svg {
   }
 
   .content-shell {
-    width: calc(100% - 48px);
+    width: calc(100% - 56px);
   }
 
   .overview-grid {
@@ -6626,7 +6661,7 @@ details[open]>.admin-activity-summary svg {
 
   /* Content Shell & Safe Spacing */
   .content-shell {
-    width: min(100% - 24px, 1200px);
+    width: min(100% - clamp(32px, 6vw, 44px), 1200px);
     margin: 0 auto;
     padding-top: 16px;
     padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
@@ -6685,12 +6720,13 @@ details[open]>.admin-activity-summary svg {
   }
 
   .page-heading {
-    margin: 2px 0 16px;
+    margin: 4px 0 16px;
+    padding: clamp(8px, 2.5vw, 14px) 0 clamp(10px, 3vw, 16px);
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
   }
 
   .welcome-row h1,
@@ -7007,7 +7043,8 @@ details[open]>.admin-activity-summary svg {
   .leader-panel,
   .moderation-tools-panel,
   .dashboard-members-panel,
-  .dashboard-activity-panel {
+  .dashboard-activity-panel,
+  .dashboard-rate-limits-panel {
     padding: 16px !important;
     border-radius: 14px !important;
     margin-bottom: 16px !important;
@@ -7540,7 +7577,7 @@ details[open]>.admin-activity-summary svg {
   }
 
   .content-shell {
-    width: calc(100% - 16px);
+    width: calc(100% - 24px);
   }
 
   .analysis-metrics {

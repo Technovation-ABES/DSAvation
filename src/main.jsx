@@ -2033,7 +2033,8 @@ function App() {
   }
 
   async function deleteMember(member) {
-    if (!window.confirm(`Delete ${member.name} (${member.email}) and their saved progress and club submissions? This cannot be undone.`)) return;
+    const detail = member?.email?.trim() ? ` (${member.email.trim()})` : member?.githubUsername?.trim() ? ` (@${member.githubUsername.trim()})` : '';
+    if (!window.confirm(`Delete ${member?.name || 'this member'}${detail} and their saved progress and club submissions? This cannot be undone.`)) return;
     setMemberBusy(member.id);
     try {
       await api(`/admin/members/${member.id}`, { method: 'DELETE' });
@@ -2572,6 +2573,9 @@ function App() {
                     <h2>{adminOverlayMember.name}</h2>
                     <p>{adminOverlayMember.department} · {studyYearLabel(adminOverlayMember.studyYear)}</p>
                     <div className="member-admin-overlay-meta">
+                      {adminOverlayMember.email && <span>{adminOverlayMember.email}</span>}
+                      {adminOverlayMember.githubUsername && <span>GitHub: @{adminOverlayMember.githubUsername}</span>}
+                      {adminOverlayMember.leetcodeUsername && <span>LeetCode: @{adminOverlayMember.leetcodeUsername}</span>}
                       <span className="member-aura-chip" title="Current Blaze points"><IconifyIcon icon="at-icons:fire" width={13} height={13} /> {adminOverlayMember.blaze ?? adminOverlayMember.aura ?? 0} Blaze</span>
                     </div>
                   </div>
