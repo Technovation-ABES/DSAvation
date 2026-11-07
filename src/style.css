@@ -6575,7 +6575,7 @@ details[open]>.admin-activity-summary svg {
     height: 36px;
     min-width: 36px;
     padding: 0;
-    border-radius: 8px;
+    border-radius: 50% !important;
     display: inline-grid;
     place-items: center;
   }
@@ -10414,11 +10414,15 @@ details[open]>.admin-activity-summary svg {
 .admin-overlay-aura-input-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
 }
 
 .admin-overlay-aura-input {
-  flex: 1;
+  flex: 1 1 130px;
+  min-width: 0;
+  max-width: 100%;
   height: 36px;
   padding: 0 10px;
   border-radius: 6px;
@@ -10427,6 +10431,7 @@ details[open]>.admin-activity-summary svg {
   color: var(--ink);
   font: 0.625rem var(--mono);
   outline: none;
+  box-sizing: border-box;
 }
 
 .admin-overlay-aura-input:focus {
@@ -10437,15 +10442,35 @@ details[open]>.admin-activity-summary svg {
 .award-aura-submit-btn {
   height: 36px !important;
   width: auto !important;
+  min-width: fit-content;
+  flex: 0 1 auto;
   padding: 0 14px !important;
   font-size: 0.625rem !important;
   background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%) !important;
   color: #fff !important;
   border: none !important;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .award-aura-submit-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+}
+
+@media (max-width: 480px) {
+  .admin-overlay-aura-input-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-overlay-aura-input {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .award-aura-submit-btn {
+    width: 100% !important;
+    justify-content: center;
+  }
 }
 
 .member-admin-overlay-actions .button {
@@ -11392,6 +11417,23 @@ details[open]>.admin-activity-summary svg {
   *::before,
   *::after {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .topbar,
+  .main-nav,
+  .liquid-glass,
+  .water-glass-card,
+  .panel,
+  .metric-card,
+  .overview-card,
+  .question-card,
+  .member-directory-card,
+  .month-card,
+  .month-detail-card,
+  .auth-modal,
+  .today-card,
+  .qotd-panel,
+  .leaderboard-panel {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
@@ -11423,6 +11465,7 @@ details[open]>.admin-activity-summary svg {
     box-shadow: 0 1px 3px rgba(15, 30, 45, 0.05) !important;
   }
 
+  /* Regular cards in light mode: elegant oceanic bluish water surface */
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .liquid-glass,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .water-glass-card,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .panel,
@@ -11436,6 +11479,7 @@ details[open]>.admin-activity-summary svg {
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-card,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-detail-card,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .auth-modal,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]) .leaderboard-panel,
   :root[data-theme="light"] .liquid-glass,
   :root[data-theme="light"] .water-glass-card,
   :root[data-theme="light"] .panel,
@@ -11448,25 +11492,36 @@ details[open]>.admin-activity-summary svg {
   :root[data-theme="light"] .member-directory-card,
   :root[data-theme="light"] .month-card,
   :root[data-theme="light"] .month-detail-card,
-  :root[data-theme="light"] .auth-modal {
-    background: #ffffff !important;
-    border: 1px solid #dce4ed !important;
-    box-shadow: 0 1px 3px rgba(15, 30, 45, 0.05) !important;
+  :root[data-theme="light"] .auth-modal,
+  :root[data-theme="light"] .leaderboard-panel {
+    background: linear-gradient(140deg, #ffffff 0%, #f0f7ff 100%) !important;
+    border: 1px solid #d0e1f3 !important;
+    box-shadow: 0 2px 8px -2px rgba(14, 45, 80, 0.06), 0 1px 3px rgba(14, 45, 80, 0.03) !important;
   }
 
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.personal-card,
+  :root[data-theme="light"] .overview-card.personal-card {
+    border-color: rgba(30, 106, 80, 0.3) !important;
+  }
+
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.community-card,
+  :root[data-theme="light"] .overview-card.community-card {
+    border-color: rgba(199, 120, 77, 0.32) !important;
+  }
+
+  /* Featured hero cards: restore signature soothing deep midnight slate & charcoal ("light dark theme") */
+  .today-card,
+  .qotd-panel,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .today-card,
   :root:not([data-theme="dark"]):not([data-theme="forest"]) .qotd-panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .leaderboard-panel,
-  :root[data-theme="light"] .overview-card.personal-card,
-  :root[data-theme="light"] .overview-card.community-card,
   :root[data-theme="light"] .today-card,
   :root[data-theme="light"] .qotd-panel,
-  :root[data-theme="light"] .leaderboard-panel {
-    background: #ffffff !important;
-    border: 1px solid #dce4ed !important;
-    box-shadow: 0 2px 6px rgba(15, 30, 45, 0.06) !important;
+  :root[data-theme="dark"] .today-card,
+  :root[data-theme="dark"] .qotd-panel {
+    background: radial-gradient(130% 120% at 20% 0%, #1c2738 0%, #141d2a 55%, #0f1622 100%) !important;
+    border: 1.5px solid rgba(125, 211, 252, 0.28) !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.45) !important;
   }
 
   /* --------------------------------------------------------------------------
@@ -11498,8 +11553,6 @@ details[open]>.admin-activity-summary svg {
   :root[data-theme="dark"] .auth-modal,
   :root[data-theme="dark"] .overview-card.personal-card,
   :root[data-theme="dark"] .overview-card.community-card,
-  :root[data-theme="dark"] .today-card,
-  :root[data-theme="dark"] .qotd-panel,
   :root[data-theme="dark"] .leaderboard-panel {
     background: #171e32 !important;
     border: 1px solid #2a3148 !important;
@@ -11563,6 +11616,8 @@ details[open]>.admin-activity-summary svg {
   .today-card .fluid-blob-1,
   .today-card .fluid-blob-2,
   .today-card .fluid-blob-3,
+  .card-fluid-mesh,
+  .card-fluid-mesh::after,
   .fluid-blob,
   .fluid-shimmer-sweep,
   .blue-water-ripple,
@@ -11586,6 +11641,7 @@ details[open]>.admin-activity-summary svg {
     -webkit-backdrop-filter: none !important;
   }
 }
+
 
 
 /* Dark slate theme: section labels and completed rows use periwinkle, not sage. */
