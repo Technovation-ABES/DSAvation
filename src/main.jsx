@@ -1000,6 +1000,8 @@ function App() {
   const [repickCandidates, setRepickCandidates] = useState([]);
   const [repickLoading, setRepickLoading] = useState(false);
   const [repickSearch, setRepickSearch] = useState('');
+  const [repickCycle, setRepickCycle] = useState(null);
+  const [repickWaivePenalty, setRepickWaivePenalty] = useState(false);
   const [directoryDepartments, setDirectoryDepartments] = useState([]);
   const [directoryPagination, setDirectoryPagination] = useState({ page: 1, pageSize: 60, total: 0, totalPages: 1 });
   const [directoryQuery, setDirectoryQuery] = useState('');
@@ -1681,10 +1683,12 @@ function App() {
     setRepickModalOpen(true);
     setRepickMode('custom');
     setRepickSearch('');
+    setRepickWaivePenalty(false);
     setRepickLoading(true);
     try {
       const res = await api('/admin/explainer-candidates');
       setRepickCandidates(res.candidates || []);
+      setRepickCycle(res.cycle || null);
     } catch (err) {
       setNotice(err.message);
     } finally {
@@ -1699,6 +1703,9 @@ function App() {
       const body = { repick: true };
       if (targetUserId) {
         body.userId = targetUserId;
+      }
+      if (repickWaivePenalty) {
+        body.waivePenalty = true;
       }
       const res = await api('/admin/pick-explainer', { method: 'POST', body });
       if (res.explainer) {
@@ -3503,10 +3510,21 @@ function App() {
                     className="button button-green pick-explainer-head-btn"
                     onClick={handlePickRandomExplainer}
                     disabled={!club.assignment || pickExplainerBusy}
-                    title={club.assignment?.explainer ? "View today's selected explainer share card" : "Select an explainer for today's question"}
+                    title={club.assignment?.explainer ? "View today's selected explainer share card" : "Select an explainer for today's question via Randomized Round Robin"}
                   >
                     <IconifyIcon icon="andrsrxn:eye-scan" width={14} height={14} /> <span>{club.assignment?.explainer ? 'View Share Card' : 'Pick Explainer'}</span>
                   </button>
+                  {!club.assignment?.explainer && (
+                    <button
+                      type="button"
+                      className="button button-quiet pick-custom-head-btn"
+                      onClick={openRepickModal}
+                      disabled={!club.assignment || pickExplainerBusy}
+                      title="Manually select an explainer from the 2nd-year cohort"
+                    >
+                      <Icon name="users" size={13} /> <span>Custom Pick</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -3860,6 +3878,13 @@ function App() {
           <p className="auth-lede">
             Choose whether to pick randomly from eligible submitters or select a specific 2nd-year member.
           </p>
+          {repickCycle && (
+            <div className="repick-cycle-summary">
+              <span className="cycle-badge">ROUND {repickCycle.cycleNumber}</span>
+              <span className="cycle-stat"><b>{repickCycle.completedCount}</b> / {repickCycle.totalCohort} completed</span>
+              <span className="cycle-stat remaining"><b>{repickCycle.remainingCount}</b> remaining</span>
+            </div>
+          )}
 
           <div className="repick-mode-toggle">
             <button
@@ -3880,17 +3905,29 @@ function App() {
 
           {repickMode === 'random' ? (
             <div className="repick-random-box">
-              <p>
-                DSAvation will automatically select an explainer at random among members who submitted today's problem, prioritizing 2nd-year students whose turn is pending.
-              </p>
-              <p className="helper-copy">
-                The current explainer will be replaced and their turn will be restored so they can be picked again in upcoming sessions.
-              </p>
+              {repickCycle && repickCycle.remainingCount === 0 ? (
+                <div className="repick-last-notice">
+                  <Icon name="info" size={15} />
+                  <div>
+                    <strong>All second-year members have completed Round {repickCycle.cycleNumber}.</strong>
+                    <p>Switch to <strong>Custom Select</strong> to choose an emergency volunteer from WhatsApp.</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p>
+                    DSAvation will automatically select an explainer at random among eligible 2nd-year members, prioritizing accepted submitters whose turn is pending.
+                  </p>
+                  <p className="helper-copy">
+                    The current explainer will be replaced and their turn will be restored so they can be picked again in upcoming sessions.
+                  </p>
+                </>
+              )}
               <button
                 type="button"
                 className="button button-green repick-action-btn"
                 onClick={() => executeRepick(null)}
-                disabled={pickExplainerBusy}
+                disabled={pickExplainerBusy || (repickCycle && repickCycle.remainingCount === 0)}
               >
                 <Icon name="dice" size={15} /> {pickExplainerBusy ? 'Selecting…' : 'Pick Random Explainer'}
               </button>
@@ -3906,6 +3943,16 @@ function App() {
                   onChange={(e) => setRepickSearch(e.target.value)}
                 />
               </div>
+              {club.assignment?.explainer && (
+                <label className="repick-waive-label">
+                  <input
+                    type="checkbox"
+                    checked={repickWaivePenalty}
+                    onChange={(e) => setRepickWaivePenalty(e.target.checked)}
+                  />
+                  <span>Waive -50 Blaze penalty for replaced member (admin correction / mutual swap)</span>
+                </label>
+              )}
 
               {repickLoading ? (
                 <div className="soft-empty">Loading second-year members…</div>
