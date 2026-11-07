@@ -4153,16 +4153,9 @@ function App() {
           <div className="message-modal-body">
             {messageModalTab === 'preview' ? (
               <>
-                <textarea
-                  className="message-modal-textarea"
-                  rows={8}
-                  value={messageDraft}
-                  onChange={(e) => setMessageDraft(e.target.value)}
-                  placeholder="Today's message draft..."
-                />
-                <p className="message-modal-tip">
-                  You can edit today’s message above before copying, or switch to “Edit Default Template” to change it permanently.
-                </p>
+                <div className="message-modal-preview">
+                  <pre className="message-preview-text">{messageDraft}</pre>
+                </div>
                 <div className="message-modal-actions">
                   <button
                     type="button"
@@ -4171,24 +4164,6 @@ function App() {
                   >
                     <Icon name={messageCopiedNotice ? 'check' : 'copy'} size={14} />
                     <span>{messageCopiedNotice ? 'Copied to clipboard!' : 'Copy message'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-quiet"
-                    onClick={() => {
-                      const tmpl = getMessageTemplate(messageModalType);
-                      const currentExplainer = club.assignment?.explainer || selectedExplainer || todaySubmissionsData?.explainer;
-                      const rendered = renderMessageText(tmpl, {
-                        question: assignedQuestion,
-                        explainer: currentExplainer,
-                      });
-                      setMessageDraft(rendered);
-                      setNotice('Reset draft to current default template.');
-                    }}
-                    title="Reload from default template"
-                  >
-                    <IconifyIcon icon="charm:refresh" width={13} height={13} />
-                    <span>Revert edits</span>
                   </button>
                 </div>
               </>
@@ -4218,9 +4193,6 @@ function App() {
                     </button>
                   ))}
                 </div>
-                <p className="message-modal-tip">
-                  Saving this template will persist it as your new default for future {messageModalType === 'daily' ? 'Daily Challenge' : 'Evening Breakdown'} messages.
-                </p>
                 <div className="message-modal-actions">
                   <button
                     type="button"
@@ -4228,16 +4200,7 @@ function App() {
                     onClick={handleSaveTemplate}
                   >
                     <Icon name={templateSavedNotice ? 'check' : 'arrow'} size={14} />
-                    <span>{templateSavedNotice ? 'Saved as default!' : 'Save new default template'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-quiet"
-                    onClick={handleCopyMessageFromModal}
-                    title="Copy with today's values resolved"
-                  >
-                    <Icon name={messageCopiedNotice ? 'check' : 'copy'} size={13} />
-                    <span>{messageCopiedNotice ? 'Copied!' : 'Copy resolved'}</span>
+                    <span>{templateSavedNotice ? 'Saved!' : 'Save template'}</span>
                   </button>
                   <button
                     type="button"
