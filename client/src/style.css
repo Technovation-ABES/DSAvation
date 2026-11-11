@@ -5115,6 +5115,16 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   background: var(--paper);
 }
 
+.theme-choice-grid.theme-choice-grid-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .theme-choice-grid.theme-choice-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .theme-choice-card {
   min-height: 0;
   padding: 8px 10px;
@@ -5157,6 +5167,18 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   flex: none;
   border-radius: 9px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.theme-swatch.classic-light {
+  background:
+    linear-gradient(135deg, #0284c7 0%, #38bdf8 50%, #ffffff 100%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.theme-swatch.technovation {
+  background:
+    linear-gradient(135deg, #fa8a1e 0%, #fa8a1e 48%, #0d5a89 52%, #0d5a89 100%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .theme-swatch.slate {
@@ -11575,13 +11597,13 @@ details[open]>.admin-activity-summary svg {
      1. Light Theme Mobile Solid Surface & Zero-Repaint Rules
      -------------------------------------------------------------------------- */
   body,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) body,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) body,
   :root[data-theme="light"] body {
     background: #edf2f7 !important;
     background-attachment: scroll !important;
   }
 
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .topbar,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .topbar,
   :root[data-theme="light"] .topbar {
     background: #ffffff !important;
     border-bottom: 1px solid #dce4ed !important;
@@ -11589,20 +11611,20 @@ details[open]>.admin-activity-summary svg {
   }
 
   /* Regular cards in light mode: elegant oceanic bluish water surface */
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .liquid-glass,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .water-glass-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .metric-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-activity-panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-rate-limits-panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .dashboard-members-panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .question-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .member-directory-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .month-detail-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .auth-modal,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .leaderboard-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .liquid-glass,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .water-glass-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .metric-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .dashboard-activity-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .dashboard-rate-limits-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .dashboard-members-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .question-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .overview-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .member-directory-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .month-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .month-detail-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .auth-modal,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .leaderboard-panel,
   :root[data-theme="light"] .liquid-glass,
   :root[data-theme="light"] .water-glass-card,
   :root[data-theme="light"] .panel,
@@ -11622,12 +11644,12 @@ details[open]>.admin-activity-summary svg {
     box-shadow: 0 2px 8px -2px rgba(14, 45, 80, 0.06), 0 1px 3px rgba(14, 45, 80, 0.03) !important;
   }
 
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.personal-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .overview-card.personal-card,
   :root[data-theme="light"] .overview-card.personal-card {
     border-color: rgba(30, 106, 80, 0.3) !important;
   }
 
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .overview-card.community-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .overview-card.community-card,
   :root[data-theme="light"] .overview-card.community-card {
     border-color: rgba(199, 120, 77, 0.32) !important;
   }
@@ -11635,8 +11657,8 @@ details[open]>.admin-activity-summary svg {
   /* Featured hero cards: restore signature soothing deep midnight slate & charcoal ("light dark theme") */
   .today-card,
   .qotd-panel,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .today-card,
-  :root:not([data-theme="dark"]):not([data-theme="forest"]) .qotd-panel,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .today-card,
+  :root:not([data-theme="dark"]):not([data-theme="forest"]):not([data-theme="technovation"]) .qotd-panel,
   :root[data-theme="light"] .today-card,
   :root[data-theme="light"] .qotd-panel,
   :root[data-theme="dark"] .today-card,

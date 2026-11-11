@@ -1,0 +1,268 @@
+/* ==========================================================================
+   Technovation Theme (Orange & Blue Light Mode)
+   Inspired by the Technovation – Networking Club crest & emblem:
+   - Primary Shield Blue: #0d5a89 (deep, sharp, collegiate blue)
+   - Primary Logo Orange: #fa8a1e (energetic, warm, vibrant sunburst)
+   - Clean, high-contrast light surfaces for crisp readability
+   ========================================================================== */
+
+:root[data-theme="technovation"] {
+  color-scheme: light;
+  color: #0e1e2d;
+  background: #fbf7f0;
+
+  /* Surfaces & Ink */
+  --paper: #f8f3ea;
+  --surface: #ffffff;
+  --surface-muted: #f4ecdf;
+  --ink: #0d1e2e;
+  --body: #2c4255;
+  --muted: #5e7387;
+  --line: #e3dad0;
+  --line-dark: #ccbfb0;
+
+  /* Technovation Brand Palette: Vibrant Orange & Shield Blue */
+  --ocean: #0d5a89;
+  --ocean-dark: #083c5d;
+  --ocean-light: #e6f1f8;
+  --ocean-bright: #1b74ad;
+  --green: #0d5a89;
+  --green-dark: #083c5d;
+  --green-light: #e6f1f8;
+  --coral: #fa8a1e;
+  --orange: #fa8a1e;
+  --orange-soft: #fff2e5;
+  --blue: #0d5a89;
+  --blue-soft: #e6f1f8;
+  --red: #ef4444;
+  --red-soft: #fee2e2;
+  --amber: #d97706;
+  --amber-soft: #fef3c7;
+}
+
+/* --------------------------------------------------------------------------
+   1. Body & Page Atmosphere
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] body {
+  color: var(--ink);
+  background: #fbf7f0;
+  background:
+    radial-gradient(ellipse 75% 45% at 15% -8%, rgba(250, 138, 30, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 0%, rgba(13, 90, 137, 0.07) 0%, transparent 60%),
+    linear-gradient(180deg,
+      #fbf7f0 0%,
+      #f8f3ea 28%,
+      #f3ebdf 65%,
+      #ede1d2 100%);
+  background-attachment: fixed;
+}
+
+/* --------------------------------------------------------------------------
+   2. Topbar & Main Navigation
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .topbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e3dad0 !important;
+  box-shadow: 0 1px 4px rgba(13, 90, 137, 0.05) !important;
+}
+
+:root[data-theme="technovation"] .brand-mark-label strong {
+  color: #0d5a89;
+}
+
+:root[data-theme="technovation"] .main-nav a.active {
+  background: #0d5a89 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(13, 90, 137, 0.25) !important;
+}
+
+:root[data-theme="technovation"] .main-nav a:not(.active):hover {
+  background: #f4ecdf;
+  color: #0d5a89;
+}
+
+:root[data-theme="technovation"] .theme-toggle:hover {
+  background: #f4ecdf;
+  color: #fa8a1e;
+}
+
+:root[data-theme="technovation"] .account-profile-btn.active {
+  background: #f4ecdf;
+  border-color: #0d5a89;
+}
+
+/* --------------------------------------------------------------------------
+   3. Cards, Panels, & Surfaces
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .liquid-glass,
+:root[data-theme="technovation"] .water-glass-card,
+:root[data-theme="technovation"] .panel,
+:root[data-theme="technovation"] .metric-card,
+:root[data-theme="technovation"] .dashboard-activity-panel,
+:root[data-theme="technovation"] .dashboard-rate-limits-panel,
+:root[data-theme="technovation"] .dashboard-members-panel,
+:root[data-theme="technovation"] .question-card,
+:root[data-theme="technovation"] .overview-card,
+:root[data-theme="technovation"] .member-directory-card,
+:root[data-theme="technovation"] .month-card,
+:root[data-theme="technovation"] .month-detail-card,
+:root[data-theme="technovation"] .auth-modal,
+:root[data-theme="technovation"] .leaderboard-panel {
+  background: linear-gradient(145deg, #ffffff 0%, #fdfbf7 100%) !important;
+  border: 1px solid #e3dad0 !important;
+  box-shadow: 0 2px 8px -2px rgba(13, 90, 137, 0.05), 0 1px 3px rgba(250, 138, 30, 0.03) !important;
+}
+
+:root[data-theme="technovation"] .question-card:hover,
+:root[data-theme="technovation"] .member-directory-card:hover {
+  border-color: #fa8a1e !important;
+  box-shadow: 0 4px 14px -3px rgba(250, 138, 30, 0.18) !important;
+}
+
+:root[data-theme="technovation"] .overview-card.personal-card {
+  border-color: rgba(13, 90, 137, 0.3) !important;
+}
+
+:root[data-theme="technovation"] .overview-card.community-card {
+  border-color: rgba(250, 138, 30, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Featured Challenge (Today's Card & QOTD Panel)
+   Deep collegiate blue shield surface with orange accents
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .today-card,
+:root[data-theme="technovation"] .qotd-panel {
+  background: radial-gradient(130% 120% at 20% 0%, #0d273a 0%, #091a27 55%, #051019 100%) !important;
+  border: 1.5px solid rgba(250, 138, 30, 0.45) !important;
+  box-shadow: 0 10px 28px -6px rgba(13, 90, 137, 0.35) !important;
+  color: #f8fafc !important;
+}
+
+:root[data-theme="technovation"] .today-card .card-kicker {
+  color: #fa8a1e !important;
+  font-weight: 700;
+}
+
+:root[data-theme="technovation"] .today-card h2,
+:root[data-theme="technovation"] .qotd-panel h2 {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. Buttons, Controls, & Inputs
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .button-dark {
+  background: #0d5a89 !important;
+  color: #ffffff !important;
+  border: 1px solid #0d5a89 !important;
+}
+
+:root[data-theme="technovation"] .button-dark:hover:not(:disabled) {
+  background: #083c5d !important;
+  border-color: #083c5d !important;
+}
+
+:root[data-theme="technovation"] .button-primary {
+  background: #fa8a1e !important;
+  color: #ffffff !important;
+  border: 1px solid #fa8a1e !important;
+}
+
+:root[data-theme="technovation"] .button-primary:hover:not(:disabled) {
+  background: #e67300 !important;
+  border-color: #e67300 !important;
+}
+
+:root[data-theme="technovation"] .button-quiet:hover {
+  background: #f4ecdf;
+  color: #0d5a89;
+}
+
+:root[data-theme="technovation"] button:focus-visible,
+:root[data-theme="technovation"] a:focus-visible,
+:root[data-theme="technovation"] input:focus-visible,
+:root[data-theme="technovation"] select:focus-visible,
+:root[data-theme="technovation"] textarea:focus-visible {
+  outline: 2px solid #fa8a1e !important;
+  outline-offset: 2px;
+}
+
+:root[data-theme="technovation"] input:not([type="checkbox"]):focus,
+:root[data-theme="technovation"] select:focus,
+:root[data-theme="technovation"] textarea:focus {
+  border-color: #fa8a1e !important;
+  box-shadow: 0 0 0 3px rgba(250, 138, 30, 0.15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. Badges, Streaks, Points & Highlights
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .streak-badge,
+:root[data-theme="technovation"] .blaze-badge,
+:root[data-theme="technovation"] .flame-icon {
+  color: #fa8a1e;
+}
+
+:root[data-theme="technovation"] .points-badge {
+  background: #e6f1f8;
+  color: #0d5a89;
+  border: 1px solid #b9d5e8;
+}
+
+:root[data-theme="technovation"] .submitted-today-pill,
+:root[data-theme="technovation"] .heatmap-day-submitted-chip,
+:root[data-theme="technovation"] .pill-submitted {
+  background: #e6f1f8;
+  color: #0d5a89;
+  border: 1px solid #0d5a89;
+}
+
+:root[data-theme="technovation"] .rank-1 {
+  color: #d97706;
+}
+
+:root[data-theme="technovation"] .rank-2 {
+  color: #64748b;
+}
+
+:root[data-theme="technovation"] .rank-3 {
+  color: #c2410c;
+}
+
+/* --------------------------------------------------------------------------
+   7. Filter Bar, Search, and Tabs
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .search-input:focus-within,
+:root[data-theme="technovation"] .member-search:focus-within {
+  border-color: #0d5a89;
+  box-shadow: 0 0 0 3px rgba(13, 90, 137, 0.12);
+}
+
+:root[data-theme="technovation"] .filter-bar select:focus,
+:root[data-theme="technovation"] .sort-button:hover {
+  border-color: #0d5a89;
+}
+
+:root[data-theme="technovation"] .scope-toggle-btn.active {
+  background: #0d5a89 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="technovation"] .pagination-controls button:hover:not(:disabled) {
+  border-color: #0d5a89;
+  color: #0d5a89;
+}
+
+/* --------------------------------------------------------------------------
+   8. Appearance & Theme Choice Cards
+   -------------------------------------------------------------------------- */
+:root[data-theme="technovation"] .theme-choice-grid {
+  background: var(--surface-muted);
+  border-color: var(--line);
+}
+
+:root[data-theme="technovation"] .theme-choice-card.selected {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px #fa8a1e;
+}

@@ -43,6 +43,9 @@ export function AccountPage({
   darkStyle,
   setDarkStyle,
   rememberDarkStyle,
+  lightStyle,
+  setLightStyle,
+  rememberLightStyle,
   theme,
   setTheme,
   isProfileDirty,
@@ -453,16 +456,48 @@ export function AccountPage({
                 </label>
               </div>
               <div className="theme-choice">
-                <span className="account-pref-label">DEFAULT DARK MODE</span>
-                <div className="theme-choice-grid" role="radiogroup" aria-label="Default dark mode">
+                <span className="account-pref-label">COLOR THEME &amp; APPEARANCE</span>
+                <div className="theme-choice-grid theme-choice-grid-4" role="radiogroup" aria-label="Color theme and appearance">
                   <button
                     type="button"
-                    className={`theme-choice-card ${darkStyle === 'forest' ? 'selected' : ''}`}
-                    aria-pressed={darkStyle === 'forest'}
+                    className={`theme-choice-card ${theme === 'light' ? 'selected' : ''}`}
+                    aria-pressed={theme === 'light'}
+                    onClick={() => {
+                      rememberLightStyle?.('light');
+                      setLightStyle?.('light');
+                      setTheme('light');
+                    }}
+                  >
+                    <i className="theme-swatch classic-light" />
+                    <span className="theme-choice-copy">
+                      <strong>Classic Light</strong>
+                      <span>Sky &amp; slate</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`theme-choice-card ${theme === 'technovation' ? 'selected' : ''}`}
+                    aria-pressed={theme === 'technovation'}
+                    onClick={() => {
+                      rememberLightStyle?.('technovation');
+                      setLightStyle?.('technovation');
+                      setTheme('technovation');
+                    }}
+                  >
+                    <i className="theme-swatch technovation" />
+                    <span className="theme-choice-copy">
+                      <strong>Technovation</strong>
+                      <span>Orange &amp; blue light</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`theme-choice-card ${theme === 'forest' ? 'selected' : ''}`}
+                    aria-pressed={theme === 'forest'}
                     onClick={() => {
                       rememberDarkStyle('forest');
                       setDarkStyle('forest');
-                      if (theme !== 'light') setTheme('forest');
+                      setTheme('forest');
                     }}
                   >
                     <i className="theme-swatch forest" />
@@ -473,12 +508,12 @@ export function AccountPage({
                   </button>
                   <button
                     type="button"
-                    className={`theme-choice-card ${darkStyle === 'dark' ? 'selected' : ''}`}
-                    aria-pressed={darkStyle === 'dark'}
+                    className={`theme-choice-card ${theme === 'dark' ? 'selected' : ''}`}
+                    aria-pressed={theme === 'dark'}
                     onClick={() => {
                       rememberDarkStyle('dark');
                       setDarkStyle('dark');
-                      if (theme !== 'light') setTheme('dark');
+                      setTheme('dark');
                     }}
                   >
                     <i className="theme-swatch slate" />

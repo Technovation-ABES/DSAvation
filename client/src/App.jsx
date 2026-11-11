@@ -15,7 +15,7 @@ import {
   renderMessageText,
 } from "./utils/messageTemplates.js";
 import { normalizeQuestions } from "./utils/normalizeQuestions.js";
-import { initialTheme, rememberDarkStyle, storedDarkStyle } from "./utils/theme.js";
+import { initialTheme, rememberDarkStyle, storedDarkStyle, rememberLightStyle, storedLightStyle } from "./utils/theme.js";
 import { getViewFromPath, getPathFromView } from "./routes/routes.js";
 
 import { AtmosphereBackdrop } from "./components/atmosphere/AtmosphereBackdrop.jsx";
@@ -83,6 +83,7 @@ export function App() {
   const [account, setAccount] = useState(null);
   const [theme, setTheme] = useState(initialTheme);
   const [darkStyle, setDarkStyle] = useState(storedDarkStyle);
+  const [lightStyle, setLightStyle] = useState(storedLightStyle);
   const [questions, setQuestions] = useState([]);
   const [topics, setTopics] = useState([]);
   const [authReady, setAuthReady] = useState(false);
@@ -1037,6 +1038,9 @@ export function App() {
     if (theme === 'dark' || theme === 'forest') {
       rememberDarkStyle(theme);
       setDarkStyle(theme);
+    } else if (theme === 'light' || theme === 'technovation') {
+      rememberLightStyle(theme);
+      setLightStyle(theme);
     }
   }, [theme]);
   useLayoutEffect(() => {
@@ -1494,6 +1498,8 @@ export function App() {
         setTheme={setTheme}
         storedDarkStyle={storedDarkStyle}
         rememberDarkStyle={rememberDarkStyle}
+        storedLightStyle={storedLightStyle}
+        rememberLightStyle={rememberLightStyle}
         setAuthMode={setAuthMode}
         setAuthOpen={setAuthOpen}
       />
@@ -1590,6 +1596,9 @@ export function App() {
           darkStyle={darkStyle}
           setDarkStyle={setDarkStyle}
           rememberDarkStyle={rememberDarkStyle}
+          lightStyle={lightStyle}
+          setLightStyle={setLightStyle}
+          rememberLightStyle={rememberLightStyle}
           theme={theme}
           setTheme={setTheme}
           isProfileDirty={isProfileDirty}

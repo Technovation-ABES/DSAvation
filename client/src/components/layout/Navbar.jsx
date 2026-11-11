@@ -13,9 +13,13 @@ export const Navbar = React.memo(function Navbar({
   setTheme,
   storedDarkStyle,
   rememberDarkStyle,
+  storedLightStyle,
+  rememberLightStyle,
   setAuthMode,
   setAuthOpen,
 }) {
+  const isCurrentLight = theme === 'light' || theme === 'technovation';
+
   return (
     <header className="topbar">
       <a
@@ -81,16 +85,20 @@ export const Navbar = React.memo(function Navbar({
           type="button"
           onClick={() =>
             setTheme((current) => {
-              if (current === 'light') return storedDarkStyle();
-              rememberDarkStyle(current);
-              return 'light';
+              const isLight = current === 'light' || current === 'technovation';
+              if (isLight) {
+                if (rememberLightStyle) rememberLightStyle(current);
+                return storedDarkStyle ? storedDarkStyle() : 'forest';
+              }
+              if (rememberDarkStyle) rememberDarkStyle(current);
+              return storedLightStyle ? storedLightStyle() : 'light';
             })
           }
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-          title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          aria-label={`Switch to ${isCurrentLight ? 'dark' : 'light'} mode`}
+          title={`Switch to ${isCurrentLight ? 'dark' : 'light'} mode`}
         >
-          <Icon name={theme === 'light' ? 'moon' : 'sun'} size={15} />
-          <span>{theme === 'light' ? 'Dark' : 'Light'}</span>
+          <Icon name={isCurrentLight ? 'moon' : 'sun'} size={15} />
+          <span>{isCurrentLight ? 'Dark' : 'Light'}</span>
         </button>
         {account ? (
           <button
@@ -130,4 +138,3 @@ export const Navbar = React.memo(function Navbar({
     </header>
   );
 });
-

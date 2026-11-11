@@ -1,6 +1,16 @@
+export const VALID_THEMES = ['light', 'technovation', 'dark', 'forest'];
+
+export function isLightMode(theme) {
+  return theme === 'light' || theme === 'technovation';
+}
+
+export function isDarkMode(theme) {
+  return theme === 'dark' || theme === 'forest';
+}
+
 export function initialTheme() {
   const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('dsavation-theme') : null;
-  const theme = stored === 'dark' || stored === 'forest' ? stored : 'light';
+  const theme = VALID_THEMES.includes(stored) ? stored : 'light';
   if (typeof document !== 'undefined') {
     document.documentElement.dataset.theme = theme;
     delete document.documentElement.dataset.style;
@@ -19,3 +29,13 @@ export function storedDarkStyle() {
   return localStorage.getItem('dsavation-dark-style') === 'dark' ? 'dark' : 'forest';
 }
 
+export function rememberLightStyle(theme) {
+  if (typeof localStorage !== 'undefined' && (theme === 'light' || theme === 'technovation')) {
+    localStorage.setItem('dsavation-light-style', theme);
+  }
+}
+
+export function storedLightStyle() {
+  if (typeof localStorage === 'undefined') return 'light';
+  return localStorage.getItem('dsavation-light-style') === 'technovation' ? 'technovation' : 'light';
+}
