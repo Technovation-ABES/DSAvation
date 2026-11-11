@@ -335,6 +335,9 @@ export function App() {
         api(`/club/leaderboard?page=${leaderboardPagination.page}&pageSize=20`),
       ]);
       setClub(today);
+      if (today?.assignment?.explainer) {
+        setSelectedExplainer(today.assignment.explainer);
+      }
       setHistory(assigned.assignments || []);
       setHistoryPagination(assigned.pagination || { page: 1, pageSize: 8, total: 0, totalPages: 1 });
       setLeaderboard(board.leaderboard || []);
@@ -1788,6 +1791,7 @@ export function App() {
         handleCopyExplainerImage={handleCopyExplainerImage}
         imageExporting={imageExporting}
         copiedNotice={copiedNotice}
+        todaySubmissionsData={todaySubmissionsData}
       />
 
       <RepickModal

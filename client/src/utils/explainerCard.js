@@ -373,16 +373,26 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
     nextY += 10;
   }
 
-  // Submission Status - Luminous Green
-  const subTimeStr = explainer.submittedAt ? new Date(explainer.submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '';
-  ctx.fillStyle = '#34d399';
-  ctx.font = '700 15px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`✓ Solution Attempt Accepted · Submitted at ${subTimeStr} IST`, textX, nextY + 16);
+  // Submission Status - Luminous Green (only if submitted)
+  const isValidDate = explainer.submittedAt && !isNaN(new Date(explainer.submittedAt).getTime());
+  const isSubmitted = Boolean(
+    (explainer.hasSubmitted && isValidDate) ||
+    (explainer.status === 'accepted' && isValidDate) ||
+    (isValidDate && explainer.hasSubmitted !== false)
+  );
+
+  if (isSubmitted && isValidDate) {
+    const subTimeStr = new Date(explainer.submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+    ctx.fillStyle = '#34d399';
+    ctx.font = '700 15px system-ui, -apple-system, sans-serif';
+    ctx.fillText(`✓ Solution Attempt Accepted · Submitted at ${subTimeStr} IST`, textX, nextY + 16);
+    nextY += 28;
+  }
 
   // Group instructions note - Crisp Off-White
   ctx.fillStyle = '#f1f5f9';
   ctx.font = 'italic 14px system-ui, -apple-system, sans-serif';
-  ctx.fillText("Please share your code walkthrough, approach and complexity insights in today's club session!", textX, nextY + 44);
+  ctx.fillText("Please share your code walkthrough, approach and complexity insights in today's club session!", textX, nextY + 16);
   ctx.restore();
 
   // 5. Footer Bar - Clear and Legible

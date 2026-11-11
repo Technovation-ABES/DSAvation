@@ -820,6 +820,22 @@ async function getClubToday(db) {
       submissionType: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
     };
   });
+  const explainerSub = assignment.explainer
+    ? activeSubmissions.find(
+        (s) =>
+          String(s.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
+          s.status === 'accepted'
+      )
+    : null;
+  const resolvedExplainer = assignment.explainer
+    ? {
+        ...assignment.explainer,
+        submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
+        hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
+        status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
+      }
+    : null;
+
   return {
     dateKey: dayKey(),
     assignment: {
@@ -827,7 +843,7 @@ async function getClubToday(db) {
       questionId: assignment.questionId,
       dateKey: assignment.dateKey,
       createdByName: assignment.createdByName,
-      explainer: assignment.explainer || null,
+      explainer: resolvedExplainer,
     },
     submittedCount: activeSubmissions.length,
     acceptedCount: activeSubmissions.filter((item) => item.status === 'accepted').length,
@@ -2075,6 +2091,22 @@ async function getTodaySubmissions(db, req, user, url) {
     };
   }
 
+  const explainerSub = assignment.explainer
+    ? rows.find(
+        (r) =>
+          String(r.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
+          r.status === 'accepted'
+      )
+    : null;
+  const resolvedExplainer = assignment.explainer
+    ? {
+        ...assignment.explainer,
+        submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
+        hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
+        status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
+      }
+    : null;
+
   return {
     dateKey: assignment.dateKey,
     assignmentId: String(assignment._id),
@@ -2083,7 +2115,7 @@ async function getTodaySubmissions(db, req, user, url) {
       questionId: assignment.questionId,
       dateKey: assignment.dateKey,
       createdByName: assignment.createdByName,
-      explainer: assignment.explainer || null,
+      explainer: resolvedExplainer,
     },
     questionId: assignment.questionId,
     questionTitle: questionById.get(assignment.questionId)?.title || `LeetCode #${assignment.questionId}`,
@@ -2094,7 +2126,7 @@ async function getTodaySubmissions(db, req, user, url) {
     pendingCount: rows.filter((r) => r.status === 'pending').length,
     submissions: rows,
     notAttempted: notAttemptedRows,
-    explainer: assignment.explainer || null,
+    explainer: resolvedExplainer,
   };
 }
 
@@ -2373,7 +2405,7 @@ async function pickTodayExplainer(db, user, body = {}) {
     { upsert: true }
   );
 
-  const memberSubmission = submissions.find((s) => String(s.userId) === String(chosenMember._id));
+  const memberSubmission = submissions.find((s) => String(s.userId) === String(chosenMember._id) && s.status === 'accepted');
   const explainer = {
     id: String(chosenMember._id),
     userId: String(chosenMember._id),
@@ -2386,8 +2418,9 @@ async function pickTodayExplainer(db, user, body = {}) {
     avatarStyle: chosenMember.avatarStyle || 'critters',
     avatarSeed: chosenMember.avatarSeed || chosenMember._id,
     avatarUrl: chosenMember.avatarUrl || null,
-    submittedAt: memberSubmission?.submittedAt || new Date(),
-    status: memberSubmission?.status || 'accepted',
+    submittedAt: memberSubmission?.submittedAt || null,
+    status: memberSubmission?.status || null,
+    hasSubmitted: Boolean(memberSubmission && memberSubmission.submittedAt),
     points: memberSubmission?.points ?? (memberSubmission?.status === 'accepted' ? 1 : 0),
     commitUrl: memberSubmission?.commitUrl || '',
     questionId: assignment.questionId,
