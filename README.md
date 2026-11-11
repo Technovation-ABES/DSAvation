@@ -1,10 +1,10 @@
 ```text
-               ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
-               ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
-               ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
-               ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
-               ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
-               ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
+  ██████╗  ███████╗  █████╗  ██╗   ██╗  █████╗ ████████╗ ██╗  ██████╗  ███╗   ██╗
+  ██╔══██╗ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔══██╗╚══██╔══╝ ██║ ██╔═══██╗ ████╗  ██║
+  ██║  ██║ ███████╗ ███████║ ██║   ██║ ███████║   ██║    ██║ ██║   ██║ ██╔██╗ ██║
+  ██║  ██║ ╚════██║ ██╔══██║ ╚██╗ ██╔╝ ██╔══██║   ██║    ██║ ██║   ██║ ██║╚██╗██║
+  ██████╔╝ ███████║ ██║  ██║  ╚████╔╝  ██║  ██║   ██║    ██║ ╚██████╔╝ ██║ ╚████║
+  ╚═════╝  ╚══════╝ ╚═╝  ╚═╝   ╚═══╝   ╚═╝  ╚═╝   ╚═╝    ╚═╝  ╚═════╝  ╚═╝  ╚═══╝
 ```
 
 <p align="left"><em>by Technovation</em></p>
@@ -25,8 +25,8 @@
 | <a href="#1️⃣--home-page--mission-control--private-library">🏠 Home — Mission Control</a> | <a href="#-github-commit-verification-protocol">📦 GitHub Verification</a> |
 | <a href="#2️⃣--club-challenge--the-daily-battleground">⚔️ Club Challenge</a> | <a href="#-the-220-question-curriculum-blueprint">📚 220-Question Curriculum</a> |
 | <a href="#3️⃣--member-directory--community--standings">👥 Member Directory</a> | <a href="#-architecture-overview">🏛️ Architecture Overview</a> |
-| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#made-with--by-the-technical-team-technovation">💖 Technical Team</a> |
-| <a href="#4️⃣--profile--avatar-studio--identity--habit-tracker">👤 Profile &amp; Avatar Studio</a> | |
+| <a href="#-direct-leetcode-verification">🧠 Direct LeetCode Verification</a> | <a href="#6️⃣--admin-dashboard--moderation-console">🛠️ Admin Dashboard</a> |
+| <a href="#4️⃣--profile--avatar-studio--identity--habit-tracker">👤 Profile &amp; Avatar Studio</a> | <a href="#5️⃣--question-activity--heatmap--submission-analytics">📊 Question Activity &amp; Heatmap</a> |
 
 ---
 
@@ -64,7 +64,11 @@
 The central command hub where every member tracks individual growth, checks off
 solved problems, and launches today's assignment.
 
-![Home Page](docs/screenshots/home.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/home-light.png">
+  <img alt="Home Page" src="docs/screenshots/home-light.png">
+</picture>
 
 *💡 Question of the Day launcher, live club participation, and searchable
 220-problem personal tracker.*
@@ -83,7 +87,11 @@ solved problems, and launches today's assignment.
 Where Technovation members lock in, submit authentic commit links, and race
 against the clock.
 
-![Club Challenge](docs/screenshots/club-challenge.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/club-challenge-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/club-challenge-light.png">
+  <img alt="Club Challenge" src="docs/screenshots/club-challenge-light.png">
+</picture>
 
 *💡 Problem details, commit hash verifier, and real-time daily sprint
 leaderboard.*
@@ -102,7 +110,11 @@ leaderboard.*
 A transparent club directory showcasing verified coders, their active branch,
 and earned Blaze.
 
-![Member Directory](docs/screenshots/member-directory.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/member-directory-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/member-directory-light.png">
+  <img alt="Member Directory" src="docs/screenshots/member-directory-light.png">
+</picture>
 
 *💡 Member profile cards with department badges, Points, Blaze rating, and
 GitHub links.*
@@ -118,17 +130,56 @@ GitHub links.*
 
 Your personal coding identity, avatar customizer, and consistency dashboard.
 
-![User Profile](docs/screenshots/profile.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/profile-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/profile-light.png">
+  <img alt="User Profile" src="docs/screenshots/profile-light.png">
+</picture>
 
 *💡 Avatar presets, habit streaks, GitHub verification status, and recent
 solutions.*
 
 * 🎨 **Avatar Studio:** Switch between custom art themes — *Critters, Emoji,
   Clay, Micah* — or roll for a random avatar.
-* 📅 **Question Activity:** The heatmap, the four stat cards, and Recently Tracked
-  live on their own Activity page. They count only accepted Club Challenge
-  submissions. A submitted Club Challenge question stays checked in Club
-  Challenge and in personal progress; members cannot clear that tick.
+* 🛡️ **Account Credentials:** Manage your verified GitHub linkage and
+  LeetCode submission verification permissions.
+
+---
+
+### 5️⃣ 📊 Question Activity — Heatmap & Submission Analytics
+
+Comprehensive consistency radar featuring the interactive submission calendar, dynamic monthly record export, and daily verification metrics.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/activity-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/activity-profile.png">
+  <img alt="Question Activity & Heatmap" src="docs/screenshots/activity-profile.png">
+</picture>
+
+*💡 Submissions heatmap, active streak diagnostics, verified commit links, and monthly CSV exports.*
+
+* 🗓️ **Interactive Calendar Grid:** Click any active day to drill into the exact members who solved the problem and view verified commit proofs.
+* 📥 **One-Click Monthly CSV Export:** Hover over any month tab to generate clean, color-coded submission attendance records.
+* 📈 **Verified Club Progress:** Track acceptance rates, active days, and streak consistency across the entire club curriculum.
+
+---
+
+### 6️⃣ 🛠️ Admin Dashboard & Moderation Console
+
+Centralized control room for club administrators to manage memberships, schedule daily challenges, audit submissions, and oversee club operations.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/admin-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/admin-light.png">
+  <img alt="Admin Dashboard" src="docs/screenshots/admin-light.png">
+</picture>
+
+*💡 Member moderation, challenge scheduling, LeetCode permissions, Blaze adjustments, and rate-limit controls.*
+
+* 👥 **Member Approvals & Roles:** Approve new registrations, manage admin access, and filter member rosters.
+* 📅 **Challenge Management:** Schedule future assignments, publish daily problems, and assign or swap daily solution explainers.
+* 🛡️ **Submission Auditing:** Review verified GitHub commit proofs and LeetCode submissions with live verification status and manual override tools.
+* ⚡ **Aura & Rate Limits:** Award custom Blaze points, manage club honors, and monitor system rate limits in real time.
 
 ---
 
@@ -260,6 +311,34 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
           (Profiles, Streaks, Days)                  (Commit Verification)
 ```
 
+### 📁 Project Structure
+
+```text
+DSAvation/
+├── api/                   # Vercel serverless function entry (handler.js)
+├── client/                # Frontend application
+│   ├── public/            # Static assets (favicons, manifests, mascots)
+│   ├── src/               # React application source
+│   │   ├── api/           # API fetch client
+│   │   ├── components/    # Reusable UI & modal components
+│   │   ├── data/          # Frontend constants
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── pages/         # Screen-level views
+│   │   ├── routes/        # Route resolver & path mapping
+│   │   └── utils/         # Helper functions & styling utilities
+│   └── index.html         # Client HTML entry point
+├── docs/                  # Architecture diagrams, screenshots, algorithm specs
+│   ├── charts/            # Flowcharts & diagrams
+│   ├── screenshots/       # UI showcase screenshots
+│   └── EXPLAINER_PICKER_ALGORITHM.md # Explainer Engine algorithm spec
+├── server/                # Backend services & data
+│   ├── data/              # 220 DSA questions database
+│   ├── api.js             # Core HTTP API engine & routes
+│   ├── db.js              # MongoDB Atlas connection & schema indexes
+│   └── email.js           # SMTP email dispatch & templates
+└── test/                  # Automated test suite (40/40 passing)
+```
+
 ---
 
 <div align="center">
@@ -281,7 +360,7 @@ problem roadmap**, structured from fundamental patterns to advanced topics:
 
 <div align="center">
 
-### Made with 🩷 by the Technical team, Technovation
+### Made with ❤️‍🔥 by the Technical team, Technovation
 
 *Consistency • Competition • Code*
 

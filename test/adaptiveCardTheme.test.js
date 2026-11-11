@@ -7,7 +7,7 @@ import {
   calculateOptimalSurfaceAlpha,
   buildCardThemeVariables,
   DEFAULT_DARK_CARD_THEME,
-} from '../src/utils/adaptiveCardTheme.js';
+} from '../client/src/utils/adaptiveCardTheme.js';
 
 test('getRelativeLuminance matches WCAG 2.1 specifications', () => {
   const blackLum = getRelativeLuminance(0, 0, 0);

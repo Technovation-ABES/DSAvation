@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { extractAdaptiveCardTheme, DEFAULT_DARK_CARD_THEME } from './adaptiveCardTheme.js';
+import { extractAdaptiveCardTheme, DEFAULT_DARK_CARD_THEME } from '../utils/adaptiveCardTheme.js';
 
 /**
  * React hook to extract and manage adaptive background contrast theme for a member card.
@@ -33,3 +33,4 @@ export function useAdaptiveCardTheme(cardBgUrl) {
 
   return themeData;
 }
+

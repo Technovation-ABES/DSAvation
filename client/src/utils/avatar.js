@@ -78,3 +78,4 @@ export function createAvatarSeeds(count = 8) {
     return `avatar-${random.replaceAll('-', '').slice(0, 20)}`;
   });
 }
+
