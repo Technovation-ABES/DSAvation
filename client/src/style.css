@@ -10027,9 +10027,25 @@ details[open]>.admin-activity-summary svg {
 
 .directory-loading {
   min-height: 120px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+
+.directory-loading img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  object-fit: contain;
+}
+
+.directory-loading span {
+  min-width: 0;
+  max-width: calc(100% - 68px);
 }
 
 .directory-empty {

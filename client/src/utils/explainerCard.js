@@ -74,7 +74,7 @@ export async function resolveExplainerAvatarDataUri(explainer) {
         });
         if (dataUri) return dataUri;
       }
-    } catch {}
+    } catch { }
   }
 
   // 2. SVG (DiceBear) Avatar
@@ -112,7 +112,7 @@ export async function resolveExplainerAvatarDataUri(explainer) {
       ctx.fillText(initial, 120, 126);
       return canvas.toDataURL('image/png');
     }
-  } catch {}
+  } catch { }
 
   return null;
 }
@@ -176,7 +176,7 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
       logoImg.src = '/technovation-logo-tp.png';
       setTimeout(resolve, 1000);
     });
-  } catch {}
+  } catch { }
 
   // Eyebrow badge
   ctx.fillStyle = '#38bdf8';
