@@ -14,6 +14,7 @@ export function HomePage({
   clubTodayLoaded,
   clubTodayError,
   retryClubToday,
+  questions,
   questionsBusy,
   questionsError,
   progressBusy,
