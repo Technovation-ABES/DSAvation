@@ -5123,8 +5123,6 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
   padding: 5px 6px 1px;
   color: var(--ink);
 }
@@ -5133,12 +5131,6 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   font: 700 0.625rem var(--mono);
   letter-spacing: .08em;
   text-transform: uppercase;
-}
-
-.theme-choice-group-label span {
-  color: var(--muted);
-  font-size: 0.625rem;
-  text-align: right;
 }
 
 .theme-choice-card {

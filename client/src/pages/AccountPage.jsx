@@ -53,9 +53,6 @@ export function AccountPage({
   isAppInstalled,
   logout,
 }) {
-  const selectedLightTheme = lightStyle === 'technovation' ? 'Technovation' : 'Classic Light';
-  const selectedDarkTheme = darkStyle === 'dark' ? 'Slate' : 'Forest';
-
   return (
     <main className="content-shell page-content">
       <div className="page-heading">
@@ -463,7 +460,6 @@ export function AccountPage({
                 <div className="theme-choice-grid theme-choice-grid-4" role="radiogroup" aria-label="Color theme and appearance">
                   <div className="theme-choice-group-label">
                     <strong>Light themes</strong>
-                    <span>Navbar selection: {selectedLightTheme}</span>
                   </div>
                   <button
                     type="button"
@@ -499,7 +495,6 @@ export function AccountPage({
                   </button>
                   <div className="theme-choice-group-label">
                     <strong>Dark themes</strong>
-                    <span>Navbar selection: {selectedDarkTheme}</span>
                   </div>
                   <button
                     type="button"
