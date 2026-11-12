@@ -173,7 +173,7 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
         resolve();
       };
       logoImg.onerror = () => resolve();
-      logoImg.src = '/technovation-logo.png';
+      logoImg.src = '/technovation-logo-tp.png';
       setTimeout(resolve, 1000);
     });
   } catch {}

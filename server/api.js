@@ -296,14 +296,14 @@ async function githubJson(path, token) {
       delete headers.Authorization;
       const retryResponse = await fetch(`https://api.github.com${path}`, { headers });
       if (retryResponse.ok) return retryResponse.json();
-    } catch {}
+    } catch { }
   }
   if (!response.ok) {
     let errorDetail = '';
     try {
       const errPayload = await response.json();
       errorDetail = errPayload?.message ? ` - ${errPayload.message}` : '';
-    } catch {}
+    } catch { }
     console.warn(`[GitHub API Error] GET ${path} -> HTTP ${response.status} (${response.statusText})${errorDetail}`);
     const status = response.status === 404 ? 404 : (response.status === 403 || response.status === 429) ? 429 : 502;
     const msg = response.status === 404
@@ -742,7 +742,7 @@ export async function computeAuraByUser(db, userIds = null) {
     const calculatedAura = Math.max(0, currentBase - currentRankIndex * 5);
     const aura = calculatedAura;
     if (sub.aura !== calculatedAura) {
-      db.collection('submissions').updateOne({ _id: sub._id }, { $set: { aura: calculatedAura } }).catch(() => {});
+      db.collection('submissions').updateOne({ _id: sub._id }, { $set: { aura: calculatedAura } }).catch(() => { });
     }
     currentRankIndex++;
 
@@ -799,7 +799,7 @@ async function getClubToday(db) {
     const profile = profileById.get(String(item.userId));
     const itemAura = Math.max(0, baseAura - index * 5);
     if (item.aura !== itemAura) {
-      db.collection('submissions').updateOne({ _id: item._id }, { $set: { aura: itemAura } }).catch(() => {});
+      db.collection('submissions').updateOne({ _id: item._id }, { $set: { aura: itemAura } }).catch(() => { });
     }
     return {
       rank: index + 1,
@@ -822,18 +822,18 @@ async function getClubToday(db) {
   });
   const explainerSub = assignment.explainer
     ? activeSubmissions.find(
-        (s) =>
-          String(s.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
-          s.status === 'accepted'
-      )
+      (s) =>
+        String(s.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
+        s.status === 'accepted'
+    )
     : null;
   const resolvedExplainer = assignment.explainer
     ? {
-        ...assignment.explainer,
-        submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
-        hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
-        status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
-      }
+      ...assignment.explainer,
+      submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
+      hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
+      status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
+    }
     : null;
 
   return {
@@ -1150,7 +1150,7 @@ export async function resolveCommitInput(db, user, rawInput) {
       if (Array.isArray(commitList) && commitList[0]?.sha) {
         return { owner, repository, sha: commitList[0].sha, commitData: commitList[0] };
       }
-    } catch {}
+    } catch { }
     try {
       const branchCommit = await githubJson(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/commits/${encodeURIComponent(ref)}`,
@@ -1159,7 +1159,7 @@ export async function resolveCommitInput(db, user, rawInput) {
       if (branchCommit && branchCommit.sha) {
         return { owner, repository, sha: branchCommit.sha, commitData: branchCommit };
       }
-    } catch {}
+    } catch { }
   }
 
   // 1d. Repo or Tree URL: https://github.com/owner/repo or https://github.com/owner/repo/tree/main
@@ -1177,7 +1177,7 @@ export async function resolveCommitInput(db, user, rawInput) {
       if (Array.isArray(commitList) && commitList[0]?.sha) {
         return { owner, repository, sha: commitList[0].sha, commitData: commitList[0] };
       }
-    } catch {}
+    } catch { }
   }
 
   // 2. Standalone commit hash / code (7 to 40 hex characters)
@@ -1290,8 +1290,8 @@ async function assignmentHistory(db, url) {
   ]);
   return {
     assignments: assignments.map((assignment) => ({
-    id: String(assignment._id), dateKey: assignment.dateKey, questionId: assignment.questionId,
-    createdByName: assignment.createdByName,
+      id: String(assignment._id), dateKey: assignment.dateKey, questionId: assignment.questionId,
+      createdByName: assignment.createdByName,
     })),
     pagination: pageMeta(page, pageSize, total),
   };
@@ -1307,7 +1307,8 @@ async function leaderboard(db, url, viewer = null) {
   // 2️⃣ Aggregate submission totals per user (points, accepted count, last accepted timestamp)
   const totals = await db.collection('submissions').aggregate([
     { $match: { status: 'accepted' } },
-    { $group: {
+    {
+      $group: {
         _id: '$userId',
         accepted: { $sum: 1 },
         points: { $sum: { $ifNull: ['$points', 1] } },
@@ -1639,19 +1640,25 @@ async function listSubmissions(db, req, user, url) {
   const assignments = assignmentIds.length ? await db.collection('assignments').find({ _id: { $in: assignmentIds } }).toArray() : [];
   const profileById = new Map(profiles.map((item) => [String(item._id), item]));
   const assignmentById = new Map(assignments.map((item) => [String(item._id), item]));
-  return { submissions: items.map((item) => ({
-    id: String(item._id), status: item.status, points: item.points ?? (item.status === 'accepted' ? 1 : 0), commitUrl: item.commitUrl, solutionPath: item.solutionPath, submittedAt: item.submittedAt,
-    commitDate: item.commitDate, reviewNote: item.reviewNote,
-    verifiedPusher: Boolean(item.verifiedPusher), verificationSource: item.verificationSource || 'commit-link',
-    submissionMethod: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
-    member: (() => { const profile = profileById.get(String(item.userId)); return profile ? {
-      name: profile.name, department: profile.department, githubUsername: profile.githubUsername, leetcodeUsername: profile.leetcodeUsername || '',
-    } : null; })(),
-    assignment: (() => { const assignment = assignmentById.get(String(item.assignmentId)); return assignment ? {
-      dateKey: assignment.dateKey, questionId: item.questionId || assignment.questionId,
-      question: questionById.get(item.questionId || assignment.questionId)?.title || 'Question',
-    } : null; })(),
-  })), pagination: pageMeta(page, pageSize, total) };
+  return {
+    submissions: items.map((item) => ({
+      id: String(item._id), status: item.status, points: item.points ?? (item.status === 'accepted' ? 1 : 0), commitUrl: item.commitUrl, solutionPath: item.solutionPath, submittedAt: item.submittedAt,
+      commitDate: item.commitDate, reviewNote: item.reviewNote,
+      verifiedPusher: Boolean(item.verifiedPusher), verificationSource: item.verificationSource || 'commit-link',
+      submissionMethod: item.submissionMethod || (item.verificationSource === 'leetcode-api' ? 'leetcode' : 'github'),
+      member: (() => {
+        const profile = profileById.get(String(item.userId)); return profile ? {
+          name: profile.name, department: profile.department, githubUsername: profile.githubUsername, leetcodeUsername: profile.leetcodeUsername || '',
+        } : null;
+      })(),
+      assignment: (() => {
+        const assignment = assignmentById.get(String(item.assignmentId)); return assignment ? {
+          dateKey: assignment.dateKey, questionId: item.questionId || assignment.questionId,
+          question: questionById.get(item.questionId || assignment.questionId)?.title || 'Question',
+        } : null;
+      })(),
+    })), pagination: pageMeta(page, pageSize, total)
+  };
 }
 
 async function getSubmissionsHeatmap(db, user, url = null) {
@@ -2093,18 +2100,18 @@ async function getTodaySubmissions(db, req, user, url) {
 
   const explainerSub = assignment.explainer
     ? rows.find(
-        (r) =>
-          String(r.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
-          r.status === 'accepted'
-      )
+      (r) =>
+        String(r.userId) === String(assignment.explainerUserId || assignment.explainer.userId || assignment.explainer.id) &&
+        r.status === 'accepted'
+    )
     : null;
   const resolvedExplainer = assignment.explainer
     ? {
-        ...assignment.explainer,
-        submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
-        hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
-        status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
-      }
+      ...assignment.explainer,
+      submittedAt: explainerSub ? explainerSub.submittedAt : (assignment.explainer.hasSubmitted ? assignment.explainer.submittedAt : null),
+      hasSubmitted: Boolean(explainerSub || (assignment.explainer.hasSubmitted && assignment.explainer.submittedAt)),
+      status: explainerSub ? 'accepted' : (assignment.explainer.hasSubmitted ? assignment.explainer.status : null),
+    }
     : null;
 
   return {
@@ -2629,16 +2636,18 @@ async function listMembers(db, url) {
     db.collection('users').countDocuments(approvedUserFilter()),
     db.collection('users').countDocuments({ leetcodeApproval: 'pending' }),
   ]);
-  return { members: members.map((user) => ({
-    id: String(user._id), name: user.name, department: user.department, studyYear: user.studyYear || '',
-    email: user.email, githubUsername: user.githubUsername, leetcodeUsername: user.leetcodeUsername || '', role: user.role || 'member',
-    ...formatAvatar(user),
-    approvalStatus: approvalStatus(user),
-    leetcodeApproval: user.role === 'admin' ? 'approved' : (user.leetcodeApproval || 'none'),
-    leetcodeRequestedAt: user.leetcodeRequestedAt || null,
-    defaultSubmissionMethod: user.defaultSubmissionMethod || 'github',
-    showPublic: Boolean(user.showPublic), createdAt: user.createdAt, approvedAt: user.approvedAt || user.verifiedAt || null,
-  })), pagination: pageMeta(page, pageSize, total), counts: { pending, approved, leetcodePending } };
+  return {
+    members: members.map((user) => ({
+      id: String(user._id), name: user.name, department: user.department, studyYear: user.studyYear || '',
+      email: user.email, githubUsername: user.githubUsername, leetcodeUsername: user.leetcodeUsername || '', role: user.role || 'member',
+      ...formatAvatar(user),
+      approvalStatus: approvalStatus(user),
+      leetcodeApproval: user.role === 'admin' ? 'approved' : (user.leetcodeApproval || 'none'),
+      leetcodeRequestedAt: user.leetcodeRequestedAt || null,
+      defaultSubmissionMethod: user.defaultSubmissionMethod || 'github',
+      showPublic: Boolean(user.showPublic), createdAt: user.createdAt, approvedAt: user.approvedAt || user.verifiedAt || null,
+    })), pagination: pageMeta(page, pageSize, total), counts: { pending, approved, leetcodePending }
+  };
 }
 
 async function listDirectory(db, url, viewer = null) {
@@ -2682,9 +2691,9 @@ async function listDirectory(db, url, viewer = null) {
   const [totals, auraByUser] = await Promise.all([
     memberIds.length
       ? db.collection('submissions').aggregate([
-          { $match: { userId: { $in: memberIds }, status: 'accepted' } },
-          { $group: { _id: '$userId', points: { $sum: { $ifNull: ['$points', 1] } } } },
-        ]).toArray()
+        { $match: { userId: { $in: memberIds }, status: 'accepted' } },
+        { $group: { _id: '$userId', points: { $sum: { $ifNull: ['$points', 1] } } } },
+      ]).toArray()
       : [],
     computeAuraByUser(db, memberIds),
   ]);
