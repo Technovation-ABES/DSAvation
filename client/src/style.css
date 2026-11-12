@@ -5119,10 +5119,26 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (min-width: 640px) {
-  .theme-choice-grid.theme-choice-grid-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+.theme-choice-group-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 6px 1px;
+  color: var(--ink);
+}
+
+.theme-choice-group-label strong {
+  font: 700 0.625rem var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.theme-choice-group-label span {
+  color: var(--muted);
+  font-size: 0.625rem;
+  text-align: right;
 }
 
 .theme-choice-card {
@@ -5157,6 +5173,11 @@ button.moderation-stat.explainer-picker-stat-btn:hover {
 .theme-choice-card.selected {
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line-dark);
+}
+
+.theme-choice-card.mode-selected:not(.selected) {
+  background: color-mix(in srgb, var(--surface) 58%, var(--surface-muted));
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .theme-swatch {

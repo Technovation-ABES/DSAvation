@@ -49,11 +49,14 @@
   background:
     radial-gradient(ellipse 70% 42% at 100% -5%, rgba(21, 95, 145, 0.10) 0%, transparent 62%),
     radial-gradient(ellipse 58% 35% at 0% 8%, rgba(244, 119, 43, 0.055) 0%, transparent 60%),
+    linear-gradient(rgba(21, 95, 145, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21, 95, 145, 0.028) 1px, transparent 1px),
     linear-gradient(180deg,
       #f8fbfd 0%,
       #f5f8fc 32%,
       #f1f6fa 68%,
       #edf3f8 100%);
+  background-size: auto, 32px 32px, 32px 32px, auto;
   background-attachment: fixed;
 }
 
@@ -61,34 +64,67 @@
    2. Topbar & Main Navigation
    -------------------------------------------------------------------------- */
 :root[data-theme="technovation"] .topbar {
-  background: #ffffff !important;
-  border-bottom: 1px solid #d9e4ed !important;
-  box-shadow: 0 1px 0 rgba(16, 73, 111, 0.035), 0 5px 18px rgba(16, 73, 111, 0.035) !important;
+  background: #10496f !important;
+  border-bottom: 3px solid #f4772b !important;
+  box-shadow: 0 7px 20px rgba(16, 73, 111, 0.20) !important;
+}
+
+:root[data-theme="technovation"] .topbar::before {
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.10) 45%, rgba(244, 119, 43, 0.18) 62%, transparent 82%);
+  opacity: 1;
+}
+
+:root[data-theme="technovation"] .topbar .brand,
+:root[data-theme="technovation"] .topbar .account-actions,
+:root[data-theme="technovation"] .topbar .account-profile-btn,
+:root[data-theme="technovation"] .topbar .theme-toggle {
+  color: #ffffff;
 }
 
 :root[data-theme="technovation"] .brand-mark-label strong {
   color: #155f91;
 }
 
-:root[data-theme="technovation"] .main-nav a.active {
-  background: #155f91 !important;
-  color: #ffffff !important;
-  box-shadow: 0 3px 10px rgba(21, 95, 145, 0.22) !important;
+:root[data-theme="technovation"] .main-nav {
+  background: rgba(7, 53, 83, 0.70);
+  border-color: rgba(205, 231, 247, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 4px 14px rgba(4, 34, 54, 0.20);
 }
 
-:root[data-theme="technovation"] .main-nav a:not(.active):hover {
-  background: #edf4fa;
-  color: #10496f;
+:root[data-theme="technovation"] .main-nav button {
+  color: #dceefa;
+}
+
+:root[data-theme="technovation"] .main-nav button.active {
+  background: #f4772b !important;
+  color: #ffffff !important;
+  border-color: #f4772b !important;
+  box-shadow: 0 3px 10px rgba(4, 34, 54, 0.26) !important;
+}
+
+:root[data-theme="technovation"] .main-nav button:not(.active):hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 :root[data-theme="technovation"] .theme-toggle:hover {
-  background: #fff1e8;
-  color: #c95718;
+  background: #f4772b;
+  border-color: #f4772b;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(4, 34, 54, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme="technovation"] .theme-toggle {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(220, 238, 250, 0.34);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(4, 34, 54, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 :root[data-theme="technovation"] .account-profile-btn.active {
-  background: #edf4fa;
-  border-color: #155f91;
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 /* --------------------------------------------------------------------------
@@ -113,6 +149,16 @@
   box-shadow: 0 2px 7px -3px rgba(16, 73, 111, 0.12), 0 10px 22px -16px rgba(16, 73, 111, 0.13) !important;
 }
 
+:root[data-theme="technovation"] .liquid-glass::before,
+:root[data-theme="technovation"] .water-glass-card::before {
+  background: linear-gradient(105deg, transparent 22%, rgba(21, 95, 145, 0.08) 45%, rgba(244, 119, 43, 0.10) 52%, transparent 73%);
+}
+
+:root[data-theme="technovation"] .question-card,
+:root[data-theme="technovation"] .member-directory-card {
+  border-left: 3px solid #155f91 !important;
+}
+
 :root[data-theme="technovation"] .question-card:hover,
 :root[data-theme="technovation"] .member-directory-card:hover {
   border-color: #78a9c8 !important;
@@ -121,10 +167,12 @@
 
 :root[data-theme="technovation"] .overview-card.personal-card {
   border-color: rgba(21, 95, 145, 0.38) !important;
+  background: linear-gradient(145deg, #eef7fc 0%, #ffffff 72%) !important;
 }
 
 :root[data-theme="technovation"] .overview-card.community-card {
   border-color: rgba(244, 119, 43, 0.48) !important;
+  background: linear-gradient(145deg, #fff4ec 0%, #ffffff 72%) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -247,6 +295,20 @@
 :root[data-theme="technovation"] .scope-toggle-btn.active {
   background: #155f91 !important;
   color: #ffffff !important;
+}
+
+:root[data-theme="technovation"] .mobile-bottom-nav {
+  background: #10496f;
+  border-top-color: #f4772b;
+}
+
+:root[data-theme="technovation"] .mobile-bottom-nav button {
+  color: #dceefa;
+}
+
+:root[data-theme="technovation"] .mobile-bottom-nav button.active {
+  color: #ffffff;
+  background: rgba(244, 119, 43, 0.92);
 }
 
 :root[data-theme="technovation"] .pagination-controls button:hover:not(:disabled) {
