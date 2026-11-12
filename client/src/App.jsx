@@ -1681,6 +1681,7 @@ export function App() {
           clubTodayLoaded={clubTodayLoaded}
           clubTodayError={clubTodayError}
           retryClubToday={() => loadClubToday(true)}
+          questions={questions}
           questionsBusy={questionsBusy}
           questionsError={questionsError}
           progressBusy={progressBusy}
