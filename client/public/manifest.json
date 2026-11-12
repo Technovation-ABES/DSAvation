@@ -15,9 +15,9 @@
   ],
   "icons": [
     {
-      "src": "/technovation-logo-tp.png",
-      "sizes": "192x192 512x512",
-      "type": "image/png",
+      "src": "/technovation-logo-tp.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
       "purpose": "any maskable"
     },
     {

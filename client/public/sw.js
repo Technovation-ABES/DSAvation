@@ -1,11 +1,11 @@
 // DSAvation Service Worker
-const CACHE_NAME = 'dsavation-pwa-v4';
+const CACHE_NAME = 'dsavation-pwa-v5';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/manifest.webmanifest',
-  '/technovation-logo-tp.png'
+  '/technovation-logo-tp.webp'
 ];
 
 self.addEventListener('install', (event) => {

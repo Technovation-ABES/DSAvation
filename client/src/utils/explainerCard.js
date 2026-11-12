@@ -164,6 +164,7 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
   try {
     await new Promise((resolve) => {
       const logoImg = new Image();
+      let usedPngFallback = false;
       logoImg.onload = () => {
         ctx.save();
         safeRoundRect(ctx, 60, 52, 46, 46, 10);
@@ -172,8 +173,15 @@ export async function renderExplainerCardCanvas({ explainer, question, dateKey, 
         ctx.restore();
         resolve();
       };
-      logoImg.onerror = () => resolve();
-      logoImg.src = '/technovation-logo-tp.png';
+      logoImg.onerror = () => {
+        if (!usedPngFallback) {
+          usedPngFallback = true;
+          logoImg.src = '/technovation-logo-tp.png';
+        } else {
+          resolve();
+        }
+      };
+      logoImg.src = '/technovation-logo-tp.webp';
       setTimeout(resolve, 1000);
     });
   } catch { }

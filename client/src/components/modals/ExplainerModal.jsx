@@ -70,7 +70,10 @@ export function ExplainerModal({
         <div className="explainer-preview-card" id="explainer-spotlight-card">
           <div className="explainer-preview-header">
             <div className="explainer-brand-lockup">
-              <img src="/technovation-logo-tp.png" alt="Logo" className="explainer-card-logo" />
+              <picture>
+                <source srcSet="/technovation-logo-tp.webp" type="image/webp" />
+                <img src="/technovation-logo-tp.png" alt="Logo" className="explainer-card-logo" />
+              </picture>
               <div>
                 <span className="explainer-preview-brand">TECHNOVATION CLUB</span>
                 <span className="explainer-sub-brand">DSAvation · Daily Problem Spotlight</span>

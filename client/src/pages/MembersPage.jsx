@@ -19,6 +19,7 @@ export function MembersPage({
   directoryDepartments,
   directoryYear,
   setDirectoryYear,
+  directoryError,
   showAllLeetcodeStats,
   loadingAllStats,
   toggleAllLeetcodeStats,
@@ -185,6 +186,15 @@ export function MembersPage({
             <div className="panel directory-loading" role="status">
               <img src="/loading-expression.gif" alt="" aria-hidden="true" />
               <span>Loading approved member profiles…</span>
+            </div>
+          ) : directoryError && !directoryMembers.length ? (
+            <div className="panel directory-empty" role="alert">
+              <span>!</span>
+              <h2>Member profiles couldn’t be loaded.</h2>
+              <p>{directoryError}</p>
+              <button className="button button-quiet" onClick={() => loadDirectory(1, directoryQuery, directoryDepartment, directoryYear)}>
+                Retry
+              </button>
             </div>
           ) : directoryMembers.length ? (
             <div className="member-directory-grid">
