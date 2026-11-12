@@ -517,6 +517,14 @@ test('personal-repo commits score automatically, admin adjustments and assignmen
   assert.equal(submission.response.status, 201);
   assert.equal(submission.data.submission.status, 'accepted');
   assert.equal(submission.data.submission.points, 1);
+  const completedProgress = await call(db, '/progress', { cookie: student.cookie });
+  const completedQuestion = completedProgress.data.progress.find((item) => item.questionId === 217);
+  assert.equal(completedQuestion.isClub, true);
+  assert.equal(completedProgress.data.activity.some((item) => item.questionId === 217), true);
+  const unmarkCompleted = await call(db, '/progress/217', {
+    method: 'PUT', cookie: student.cookie, body: { solved: false },
+  });
+  assert.equal(unmarkCompleted.response.status, 403);
   const duplicate = await call(db, '/submissions', { method: 'POST', cookie: student.cookie, body: {
     assignmentId, commitUrl: `https://github.com/student-gh/dsa-solutions/commit/${sha}`,
   } });
