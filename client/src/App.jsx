@@ -1465,6 +1465,7 @@ export function App() {
   }
 
   const clearFilters = () => { setQuery(''); setTopic('All topics'); setDifficulty('Any level'); setStructure('Any data structure'); setPattern('Any pattern'); };
+  const loaderGreetingName = String(account?.name || '').trim().split(/\s+/)[0];
 
 
   return (
@@ -1476,17 +1477,12 @@ export function App() {
           <div className="global-loading" role="progressbar" aria-label="Loading DSAvation" aria-valuetext="Loading">
             <span />
           </div>
-          <div className="global-loader-card">
-            <img src="/loading-bot.png" alt="DSAvation Mascot Bot" className="global-loader-bot" />
-            <div className="global-loader-content">
-              <div className="global-loader-title">
-                <span className="global-loader-pulse-dot" />
-                <strong>Powering up circuits…</strong>
-              </div>
-              <p className="global-loader-msg">
-                DSAvation bot is waking up &amp; preparing your challenges ✨
-              </p>
-            </div>
+          <img src="/loading-expression.gif" alt="DSAvation Mascot Bot" className="global-loader-bot" />
+          <div className="global-loader-copy">
+            <strong className="global-loader-title">
+              {loaderGreetingName ? `Hey, ${loaderGreetingName}!` : 'Hey there!'}
+            </strong>
+            <p className="global-loader-msg">Getting your DSAvation space ready...</p>
           </div>
         </aside>
       )}

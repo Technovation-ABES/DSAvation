@@ -11,13 +11,13 @@
   "categories": ["education", "developer tools", "productivity"],
   "icons": [
     {
-      "src": "/technovation-logo.png",
+      "src": "/technovation-logo-tp.png",
       "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/technovation-logo-transparent.png",
+      "src": "/technovation-logo-tp.png",
       "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any"
