@@ -715,11 +715,11 @@ export function getAuraBase(difficulty) {
   return 150;
 }
 
-export async function computeAuraByUser(db, userIds = null) {
+export async function computeAuraByUser(db, userIds = null, acceptedSubmissions = null) {
   const assignments = await db.collection('assignments').find({}).toArray();
   const assignmentMap = new Map(assignments.map((a) => [String(a._id), a]));
 
-  const submissions = await db.collection('submissions')
+  const submissions = acceptedSubmissions || await db.collection('submissions')
     .find({ status: 'accepted' })
     .sort({ assignmentId: 1, submittedAt: 1, _id: 1 })
     .toArray();
@@ -1304,19 +1304,30 @@ async function leaderboard(db, url, viewer = null) {
   const assignedIdSet = new Set(assignments.map(a => String(a._id)));
   const totalAssigned = assignments.length;
 
-  // 2️⃣ Aggregate submission totals per user (points, accepted count, last accepted timestamp)
-  const totals = await db.collection('submissions').aggregate([
-    { $match: { status: 'accepted' } },
-    {
-      $group: {
-        _id: '$userId',
-        accepted: { $sum: 1 },
-        points: { $sum: { $ifNull: ['$points', 1] } },
-        acceptedAssignments: { $addToSet: '$assignmentId' },
-        lastAcceptedAt: { $max: { $ifNull: ['$reviewedAt', '$submittedAt'] } },
-      }
+  // Share one accepted-submission read between leaderboard totals and Aura.
+  const acceptedSubmissions = await db.collection('submissions').find(
+    { status: 'accepted' },
+    { projection: { userId: 1, assignmentId: 1, points: 1, reviewedAt: 1, submittedAt: 1, _id: 1, aura: 1 } },
+  ).sort({ assignmentId: 1, submittedAt: 1, _id: 1 }).toArray();
+  const totalById = new Map();
+  for (const submission of acceptedSubmissions) {
+    const userId = String(submission.userId);
+    const row = totalById.get(userId) || {
+      _id: submission.userId,
+      accepted: 0,
+      points: 0,
+      acceptedAssignments: new Set(),
+      lastAcceptedAt: null,
+    };
+    row.accepted += 1;
+    row.points += submission.points ?? 1;
+    row.acceptedAssignments.add(submission.assignmentId);
+    const acceptedAt = submission.reviewedAt || submission.submittedAt || null;
+    if (acceptedAt && (!row.lastAcceptedAt || new Date(acceptedAt) > new Date(row.lastAcceptedAt))) {
+      row.lastAcceptedAt = acceptedAt;
     }
-  ]).toArray();
+    totalById.set(userId, row);
+  }
 
   // 3️⃣ Build a map of which assignments each user attempted (excluding invalidated submissions)
   const attempts = await db.collection('submissions').find(
@@ -1333,19 +1344,18 @@ async function leaderboard(db, url, viewer = null) {
   }
 
   // 4️⃣ Compute aura once (expensive operation) – keep as a Promise
-  const auraByUser = await computeAuraByUser(db);
+  const auraByUser = await computeAuraByUser(db, null, acceptedSubmissions);
 
   // 5️⃣ Assemble ranking entries for every approved member (including those with no submissions)
   // Fetch all approved user profiles first
   const profiles = await db.collection('users').find(approvedUserFilter(), {
     projection: { name: 1, department: 1, githubUsername: 1, showPublic: 1, createdAt: 1, avatarStyle: 1, avatarSeed: 1, avatarUrl: 1 },
   }).toArray();
-  const totalById = new Map(totals.map(r => [String(r._id), r]));
   const ranking = [];
   for (const profile of profiles) {
     const userId = String(profile._id);
     const row = totalById.get(userId) || { accepted: 0, points: 0, acceptedAssignments: [], lastAcceptedAt: null };
-    const completed = new Set((row.acceptedAssignments || []).map(String));
+    const completed = new Set([...(row.acceptedAssignments || [])].map(String));
     const attempted = userAttemptsMap.get(userId);
     const attemptedCount = attempted ? attempted.size : completed.size;
     const punctuality = totalAssigned === 0 ? 100 : Math.min(100, Math.round((attemptedCount / totalAssigned) * 100));

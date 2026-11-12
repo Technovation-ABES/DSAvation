@@ -8151,6 +8151,12 @@ details[open]>.admin-activity-summary svg {
   background: #262f48;
 }
 
+:root[data-theme="dark"] .question-topic .pill {
+  color: #b0bad4;
+  background: #262f48;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
 :root[data-theme="dark"] .participant-more {
   color: #a8b3ce;
   background: rgba(36, 46, 72, 0.9);
@@ -10027,9 +10033,25 @@ details[open]>.admin-activity-summary svg {
 
 .directory-loading {
   min-height: 120px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+
+.directory-loading img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  object-fit: contain;
+}
+
+.directory-loading span {
+  min-width: 0;
+  max-width: calc(100% - 68px);
 }
 
 .directory-empty {
