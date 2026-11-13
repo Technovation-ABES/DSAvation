@@ -40,8 +40,8 @@ export function HomePage({
   setQuestionPage,
 }) {
   return (
-    <main className="content-shell">
-      <section className="welcome-row">
+    <main className="content-shell home-page">
+      <section className="welcome-row home-welcome-row">
         <div className="welcome-hero-lead">
           <div className="hero-mascot-wrapper">
             <img src="/technovation-mascot.png" alt="Technovation Club Mascot" className="hero-mascot-img" />
