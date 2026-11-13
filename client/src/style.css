@@ -6842,34 +6842,51 @@ details[open]>.admin-activity-summary svg {
     letter-spacing: 0.4px;
   }
 
-  /* Homepage Hero Section - Hidden exclusively on mobile homepage view */
-  .home-welcome-row,
-  .home-page .welcome-row,
+  /* Welcome Hero Row */
   .welcome-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 4px 0 18px;
+  }
+
+  .welcome-hero-lead {
+    gap: 14px;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Hide ONLY the hero section mascot image on mobile view */
+  .hero-mascot-wrapper,
+  .hero-mascot-img {
     display: none !important;
   }
 
-  /* Preserve all other page headings across the app (Members, Club, Activity, Dashboard, Account) */
   .page-heading {
-    display: flex !important;
     margin: 4px 0 16px;
     padding: clamp(8px, 2.5vw, 14px) 0 clamp(10px, 3vw, 16px);
+    display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
   }
 
+  .welcome-row h1,
   .page-heading h1 {
-    display: block !important;
     margin: 4px 0 0;
     font-size: clamp(1.4375rem, 5.5vw, 1.875rem);
     letter-spacing: -0.03em;
     line-height: 1.18;
   }
 
-  .page-heading p {
-    display: block !important;
+  .hero-subtitle {
+    font-size: clamp(0.625rem, 2.5vw, 0.6875rem);
+    line-height: 1.55;
+  }
+
+  .hero-index {
+    display: none;
   }
 
   .club-date-badge {
