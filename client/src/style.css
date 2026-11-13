@@ -6842,24 +6842,9 @@ details[open]>.admin-activity-summary svg {
     letter-spacing: 0.4px;
   }
 
-  /* Welcome Hero Row */
+  /* Welcome Hero Row - Hidden on mobile view */
   .welcome-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 4px 0 18px;
-  }
-
-  .welcome-hero-lead {
-    gap: 14px;
-    align-items: center;
-    width: 100%;
-  }
-
-  .hero-mascot-img {
-    height: clamp(75px, 20vw, 105px);
-    max-width: clamp(65px, 18vw, 90px);
-    object-fit: contain;
+    display: none !important;
   }
 
   .page-heading {
@@ -6872,7 +6857,6 @@ details[open]>.admin-activity-summary svg {
     gap: 12px;
   }
 
-  .welcome-row h1,
   .page-heading h1 {
     margin: 4px 0 0;
     font-size: clamp(1.4375rem, 5.5vw, 1.875rem);
@@ -6900,15 +6884,6 @@ details[open]>.admin-activity-summary svg {
 
   .metric-card.member-count-card strong {
     font-size: 1.5rem;
-  }
-
-  .hero-subtitle {
-    font-size: clamp(0.625rem, 2.5vw, 0.6875rem);
-    line-height: 1.55;
-  }
-
-  .hero-index {
-    display: none;
   }
 
   /* Overview Cards Grid */
