@@ -10,17 +10,6 @@ export function HomePage({
   account,
   assignedQuestion,
   club,
-  clubTodayBusy,
-  clubTodayLoaded,
-  clubTodayError,
-  retryClubToday,
-  questions,
-  questionsBusy,
-  questionsError,
-  progressBusy,
-  progressLoaded,
-  progressError,
-  retryInitialData,
   navigate,
   solvedCount,
   setAuthMode,
@@ -93,17 +82,6 @@ export function HomePage({
                 <h2>Sign in to view today’s question</h2>
                 <p>Approved members can see the daily question and track their practice.</p>
               </div>
-            ) : clubTodayBusy && !clubTodayLoaded ? (
-              <div className="empty-assignment" role="status">
-                <h2>Loading today’s challenge…</h2>
-                <p>Your question and participation will appear here shortly.</p>
-              </div>
-            ) : clubTodayError && !clubTodayLoaded ? (
-              <div className="empty-assignment" role="alert">
-                <h2>Today’s challenge is unavailable</h2>
-                <p>{clubTodayError}</p>
-                <button className="text-button" onClick={retryClubToday}>Retry</button>
-              </div>
             ) : assignedQuestion ? (
               <>
                 <div className="today-date">
@@ -172,14 +150,10 @@ export function HomePage({
             <Icon name="users" size={14} /> CLUB PARTICIPATION
           </div>
           <div className="community-figure">
-            <strong>{clubTodayBusy && !clubTodayLoaded ? '—' : club?.acceptedCount || 0}</strong>
+            <strong>{club?.acceptedCount || 0}</strong>
             <span>members accepted today</span>
           </div>
-          {clubTodayBusy && !clubTodayLoaded ? (
-            <p className="privacy-note" role="status">Loading today’s participation…</p>
-          ) : clubTodayError && !clubTodayLoaded ? (
-            <p className="privacy-note" role="alert">{clubTodayError}</p>
-          ) : club?.participants?.length ? (
+          {club?.participants?.length ? (
             <div className="participant-list">
               {club.participants.slice(0, 3).map((person, idx, arr) => (
                 <span className="participant" key={`${person.githubUsername}-${person.name}`}>
@@ -297,23 +271,7 @@ export function HomePage({
           </div>
           <QuestionActionsGuide />
           <div className="question-list">
-            {questionsBusy && !questions.length ? (
-              <div className="soft-empty" role="status">Loading the question library…</div>
-            ) : questionsError ? (
-              <div className="no-results" role="alert">
-                <strong>The question library could not be loaded.</strong>
-                <p>{questionsError}</p>
-                <button onClick={retryInitialData}>Retry</button>
-              </div>
-            ) : progressBusy && !progressLoaded ? (
-              <div className="soft-empty" role="status">Loading your saved progress…</div>
-            ) : progressError && !progressLoaded ? (
-              <div className="no-results" role="alert">
-                <strong>Your saved progress could not be loaded.</strong>
-                <p>{progressError}</p>
-                <button onClick={retryInitialData}>Retry</button>
-              </div>
-            ) : visibleQuestions.length ? (
+            {visibleQuestions.length ? (
               paginatedQuestions.map((question) => (
                 <QuestionRow
                   key={question.id}

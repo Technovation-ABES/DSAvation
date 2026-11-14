@@ -15,10 +15,7 @@ export function DashboardPage({
   heatmapSecondYearOnly,
   setHeatmapSecondYearOnly,
   submissionHeatmapBusy,
-  submissionHeatmapLoaded,
-  submissionHeatmapError,
   membersBusy,
-  membersError,
   loadSubmissionHeatmap,
   refreshMembers,
   membersPagination,
@@ -37,7 +34,6 @@ export function DashboardPage({
   acceptedSubmissionsOpen,
   setAcceptedSubmissionsOpen,
   scoredBusy,
-  scoredError,
   refreshScoredSubmissions,
   scoredPagination,
   scoredSubmissions,
@@ -46,7 +42,6 @@ export function DashboardPage({
   setAuditCardOpen,
   activityPagination,
   activityBusy,
-  activityError,
   refreshActivity,
   activity,
   rateLimitCount,
@@ -175,40 +170,22 @@ export function DashboardPage({
 
         {memberFilter === 'heatmap' ? (
           <div className="admin-embedded-heatmap-wrap">
-            {submissionHeatmapBusy && !submissionHeatmapLoaded ? (
+            {submissionHeatmapBusy ? (
               <div className="admin-heatmap-loading">
                 <span>Loading heatmap…</span>
               </div>
-            ) : submissionHeatmapError && !submissionHeatmapLoaded ? (
-              <div className="admin-heatmap-loading" role="alert">
-                <span>{submissionHeatmapError}</span>
-                <button className="button button-quiet" onClick={loadSubmissionHeatmap}>Retry</button>
-              </div>
             ) : (
-              <>
-                {submissionHeatmapError && (
-                  <div className="soft-empty" role="alert">
-                    {submissionHeatmapError} <button className="button button-quiet" onClick={loadSubmissionHeatmap}>Retry</button>
-                  </div>
-                )}
-                <AdminSubmissionsHeatmap
-                  counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
-                  secondYearOnly={heatmapSecondYearOnly}
-                  onDayClick={openHeatmapDay}
-                  onDownloadMonthCsv={handleDownloadMonthCsv}
-                />
-              </>
+              <AdminSubmissionsHeatmap
+                counts={heatmapSecondYearOnly ? submissionHeatmapSecondYearCounts : submissionHeatmapCounts}
+                secondYearOnly={heatmapSecondYearOnly}
+                onDayClick={openHeatmapDay}
+                onDownloadMonthCsv={handleDownloadMonthCsv}
+              />
             )}
           </div>
         ) : (
           <>
-            {membersBusy && !displayedMembers.length ? (
-              <div className="soft-empty" role="status">Loading member accounts…</div>
-            ) : membersError && !displayedMembers.length ? (
-              <div className="soft-empty" role="alert">
-                {membersError} <button className="button button-quiet" onClick={() => refreshMembers(membersPagination.page)}>Retry</button>
-              </div>
-            ) : displayedMembers.length ? (
+            {displayedMembers.length ? (
               <div className="dashboard-member-list">
                 {displayedMembers.map((member) => (
                   <article className="dashboard-member-row" key={member.id}>
@@ -235,11 +212,11 @@ export function DashboardPage({
                         Joined{' '}
                         {member.createdAt
                           ? new Date(member.createdAt).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            timeZone: 'Asia/Kolkata',
-                          })
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              timeZone: 'Asia/Kolkata',
+                            })
                           : 'date unavailable'}
                       </small>
                     </div>
@@ -372,13 +349,7 @@ export function DashboardPage({
         </div>
         {acceptedSubmissionsOpen && (
           <>
-            {scoredBusy && !scoredSubmissions.length ? (
-              <div className="soft-empty" role="status">Loading scored submissions…</div>
-            ) : scoredError && !scoredSubmissions.length ? (
-              <div className="soft-empty" role="alert">
-                {scoredError} <button className="button button-quiet" onClick={() => refreshScoredSubmissions(scoredPagination.page)}>Retry</button>
-              </div>
-            ) : scoredSubmissions.length ? (
+            {scoredSubmissions.length ? (
               <div className="review-list">
                 {scoredSubmissions.map((item) => {
                   const isLeetCode =
@@ -523,13 +494,7 @@ export function DashboardPage({
         </div>
         {auditCardOpen && (
           <>
-            {activityBusy && !activity.length ? (
-              <div className="soft-empty" role="status">Loading admin activity…</div>
-            ) : activityError && !activity.length ? (
-              <div className="soft-empty" role="alert">
-                {activityError} <button className="button button-quiet" onClick={() => refreshActivity(activityPagination.page)}>Retry</button>
-              </div>
-            ) : activity.length ? (
+            {activity.length ? (
               <div className="admin-activity-list">
                 {activity.map((entry) => {
                   const hasDetails = entry.details && Object.keys(entry.details).length > 0;

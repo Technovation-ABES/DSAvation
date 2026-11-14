@@ -9,10 +9,6 @@ export function ActivityPage({
   setAuthOpen,
   clubActivity,
   clubTrackedCount,
-  clubActivityBusy,
-  clubActivityLoaded,
-  clubActivityError,
-  retryClubActivity,
   navigate,
   byId,
   handleSolve,
@@ -48,13 +44,6 @@ export function ActivityPage({
           >
             Sign in <Icon name="arrow" size={14} />
           </button>
-        </div>
-      ) : !clubActivityLoaded || clubActivityBusy ? (
-        <div className="soft-empty" role="status">Loading your Club Challenge activity…</div>
-      ) : clubActivityError ? (
-        <div className="soft-empty" role="alert">
-          <span>Could not load your Club Challenge activity: {clubActivityError}</span>
-          <button className="button button-quiet" onClick={retryClubActivity}>Retry</button>
         </div>
       ) : (
         <>
